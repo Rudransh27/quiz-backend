@@ -1,0 +1,1025 @@
+[
+  {
+    "title": "Module 1: Introduction to XBRL",
+    "description": "Learn the fundamentals of XBRL, the global standard for exchanging business information.",
+    "imageUrl": "https://example.com/images/xbrl-module.png",
+    "department": "ifile",
+    "topics": [
+      {
+        "title": "Understanding the Basics",
+        "description": "Learn what XBRL is, why it matters, and its advantages.",
+        "imageUrl": "",
+        "topicOrder": 1,
+        "cards": [
+          {
+            "card_type": "knowledge",
+            "cardOrder": 1,
+            "imageUrl": "",
+            "content": {
+              "title": "What is XBRL?",
+              "text": "👋 Hi, I’m Jerry!  \n📘 XBRL stands for eXtensible Business Reporting Language.\n\n- It’s a smart language 🤖 that helps computers read and exchange business 📊 and financial 💰 data.\n- Companies use XBRL to tag 🏷️ key facts like \"Net Profit\", so software can read 📥 and compare 📈 reports automatically!\n\n📜 XBRL was invented in the late 1990s to modernize reporting — from paper to digital data!"
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 2,
+            "imageUrl": "",
+            "content": {
+              "question": "📘 What does XBRL stand for?",
+              "options": [
+                "eXtensible Business Reporting Language",
+                "Extra Business Reporting Logic",
+                "Xtra Big Reporting List",
+                "XML-Based Real-time Ledger"
+              ],
+              "correctIndex": 0
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 3,
+            "imageUrl": "https://res.cloudinary.com/daug1ayvk/image/upload/v1754741746/tshirt_ngcrvv.png",
+            "content": {
+              "title": "Shirt Analogy",
+              "text": "🧥 Imagine you're buying a shirt.\n\n---\n\n🧵 **Problem Before Standards**  \nEach brand had its own idea of \"Medium\":  \n- One Medium fits like a Small 😟  \n- Another like a Large 😮  \nIt was confusing for both buyers and sellers.\n---\n\n✅ **Solution: Standardized Tagging**  \nNow every shirt has standardized tags:  \n- Size: M  \n- Brand: Levi's  \n- Fit: Regular  \n- Color: Blue  \n\nThese tags help **compare and sort shirts correctly**, regardless of brand."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 4,
+            "imageUrl": "https://res.cloudinary.com/daug1ayvk/image/upload/v1754741874/Untitled_presentation_gjnzgr.jpg",
+            "content": {
+              "title": "🧾 How XBRL Works",
+              "text": "In XBRL, **every number is tagged** — just like shirts have size, color, and brand tags.\n\n🧠 This helps software understand **what** a number means, **when** it's from, and **who** it belongs to.\n\n---\n\n📊 **Example: Cash = ₹80,00,000**\n\nThat number alone isn’t enough. But XBRL adds **tags** that provide full context:\n\n- **Concept**: What this number is → `CashAndCashEquivalents`\n- **Entity**: Who it belongs to → `IRIS`\n- **Unit**: Currency → `INR`\n- **Period**: Date → `31-12-2022`\n- **Language**: Text language → `en`\n\n---\n\n✅ **Conditions & Checks**:\n- `Cash = Cash in Hand + Cash in Bank`\n- `Cash ≥ 0` (no negative cash allowed)\n\n---\n\n📌 **Why It Matters**:\n\n> This tells you how much **ready money** 💵 the company **IRIS** had on **31 Dec 2022**.  \n> And because it's in **XBRL**, software can **read**, **validate**, and **compare** it — instantly and reliably!"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 5,
+            "imageUrl": "https://res.cloudinary.com/daug1ayvk/image/upload/v1754741722/introxbrl_mtx8ur.png",
+            "content": {
+              "title": "XBRL",
+              "text": "📘 **What is XBRL?**\n\n- XBRL is an *open, free* standard for business reporting 🌐📊  \n- It lets companies make, share, and publish info online using tags (like labels for data) 🏷️💬  \n- It’s built on XML, so computers can instantly “read” numbers, dates, and context 🖥️📅🔢  \n- *Does not* change accounting rules — it just makes reporting **smarter and faster**! ⚖️🚀  \n- You can even create **custom tags** for your unique business facts 🧩✍️"
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 6,
+            "imageUrl": "",
+            "content": {
+              "question": "🤖 Why is XBRL considered a smart language?",
+              "options": [
+                "Because it uses artificial intelligence",
+                "Because it helps computers read and exchange business data",
+                "Because it replaces accounting software",
+                "Because it’s only used by smart companies"
+              ],
+              "correctIndex": 1
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 7,
+            "imageUrl": "",
+            "content": {
+              "question": "🏷️ What kind of data can be tagged using XBRL?",
+              "options": [
+                "Emojis and images",
+                "Programming code",
+                "Key business facts like 'Net Profit'",
+                "Only legal documents"
+              ],
+              "correctIndex": 2
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 8,
+            "imageUrl": "https://res.cloudinary.com/daug1ayvk/image/upload/v1754366890/xbrl-app-images/qivmdv7ccvydzgzl9i4n.jpg",
+            "content": {
+              "title": "Why does XBRL matter?",
+              "text": "📈 XBRL helps **companies, investors, and governments** share financial data quickly & accurately.\n- ✅ Makes reports easy to compare\n- ⏰ Saves everyone time\n- ❌ Reduces errors\n- 🤝 Builds trust in numbers\n\nThat’s why regulators like the SEC require XBRL filings!"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 9,
+            "imageUrl": "",
+            "content": {
+              "title": "Advantages of XBRL",
+              "text": "**🔥XBRL's superpowers:**\n- 🔄 **Reusable Data**: Data entered once can be reused across reports, tools, and agencies.\n- ✅ **Auto Validation**: Errors are caught right when data is created—no last-minute surprises!\n- 🧩 **Custom + Standard Tags**: Use global standards, or add your own for special cases.\n- 🌍 **Works Across Systems**: Whether it's banks, regulators, or companies—everyone understands XBRL.\n- 📈 **Better Investment Decisions**: Clean, comparable data helps investors make smart calls.\n- 🌐 **Multilingual**: Reports can be read in many languages—faster adoption worldwide!\n\n🙌 Less manual work, fewer mistakes, and more trust in your data!"
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 10,
+            "imageUrl": "",
+            "content": {
+              "question": "Why do regulatory agencies like the SEC mandate the use of XBRL for financial filings?",
+              "options": [
+                "To increase the length and complexity of financial reports",
+                "To challenge traditional accounting workflows without added benefit",
+                "Because it reflects outdated regulatory practices",
+                "To make financial data machine-readable and easily comparable across entities"
+              ],
+              "correctIndex": 3
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 11,
+            "imageUrl": "",
+            "content": {
+              "question": "Which is NOT a benefit of using XBRL in financial reporting?",
+              "options": [
+                "Enables seamless data exchange across systems",
+                "Improves comparability between companies",
+                "Increases the complexity of physical document handling",
+                "Reduces human errors through automated validation"
+              ],
+              "correctIndex": 2
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 12,
+            "imageUrl": "",
+            "content": {
+              "question": "Who can use XBRL reports?",
+              "options": [
+                "Regulators",
+                "Investors",
+                "Auditors",
+                "All of the above"
+              ],
+              "correctIndex": 3
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 13,
+            "imageUrl": "",
+            "content": {
+              "question": "Which of the following best explains XBRL's 'Custom + Standard Tags' feature?",
+              "options": [
+                "Only company-specific tags can be used",
+                "You can use both global standards and your own tags",
+                "Only international tags are allowed",
+                "Tags must be selected from a fixed list"
+              ],
+              "correctIndex": 1
+            }
+          }
+        ]
+      },
+      {
+        "title": "Core Concepts and Components",
+        "description": "Explore elements, taxonomies, linkbases, and instance documents.",
+        "imageUrl": "",
+        "topicOrder": 1,
+        "cards": [
+          {
+            "card_type": "knowledge",
+            "cardOrder": 1,
+            "imageUrl": "concept_img",
+            "content": {
+              "title": "🔖 What is a Concept?",
+              "text": "👕 **Analogy: Shirt Sizes**\n\n👚 Just like **\"Size\"** is a defined label for clothes,  \n💵 **\"Revenue\"** is a defined tag in XBRL.\n\n---\n\nIn **XBRL**, a *concept* is like a **defined tag** for a business item — such as \"Cash\", \"Revenue\", or \"Net Profit\".\n\n- To define a concept in XBRL, we use **XSD (XML Schema Definition)**.  \n- Each concept is an XML element with properties like type, balance, periodType.\n\n✅ **This is how Concept is defined in Taxonomy**:\n```xml\n<element name=\"Revenue\"\n         id=\"el_Revenue\"\n         type=\"xbrli:monetaryItemType\"\n         periodType=\"duration\"\n         balance=\"credit\"/>\n```\n\n📌 This tells XBRL software:\n- What the tag `<Revenue>` means\n- That it's a **monetary** value\n- It applies to a **period** (eg.1 year)\n- It’s a **credit**-type account\n\nConcepts are defined in the **taxonomy**, so computers know:\n- What each tag means\n- What kind of data it holds\n- How it behaves"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 2,
+            "imageUrl": "fact_img",
+            "content": {
+              "title": "📊 What is a Fact?",
+              "text": "👕 Just like a shirt has a tag saying **“Size: Large”**,  \n🏢 a company report has a tag saying **“Revenue: 5,000,000 USD”**.\n\n---\n\nA **fact** is the *actual reported value* tied to a concept.  \n\n✅ Example Fact in Instance:\n```xml\n<Revenue contextRef=\"c1\" unitRef=\"u1\" decimals=\"0\">\n  5000000\n</Revenue>\n```\n\n📌 This tells us:\n- The **value** → 5,000,000  \n- The **concept** → Revenue  \n- The **period**, **unit**, and **context** → c1, u1, etc.\n\n💬 Think of it like: “Revenue was **5,000,000 USD** in 2024.”\nFacts are stored in the **instance document** using tags defined in the taxonomy."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 3,
+            "imageUrl": "taxonomy_img",
+            "content": {
+              "title": "📚 What is a Taxonomy?",
+              "text": "#### 📂 Taxonomy = Dictionary + Rules\nA **taxonomy** is like a **dictionary or blueprint** for XBRL.  \nIt defines the meanings of each concept, rules and relationships used in financial reporting.\n\n📘 Think of it as the guide for creating valid, structured data.\n\n✅ A taxonomy includes:\n- 📌**Concepts (Elements):** Like \"Revenue\" or \"Assets\"\n- 📌**Relationships:** How concepts relate (e.g., summation or hierarchy)\n- 📌**Labels:** Human-readable names\n- 📌**References:** Source documents (like IFRS or GAAP)\n- 📌**Dimensions:** To slice data by Region, Time, Product, etc.\n\n📝 Taxonomy is created by regulators (like SEC, MCA, etc.) or companies."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 4,
+            "imageUrl": "https://res.cloudinary.com/daug1ayvk/image/upload/v1754741666/HOW-DOES-XBRL-WORK_gnfhot.webp",
+            "content": {
+              "title": "📄 What is an Instance Document?",
+              "text": "An **instance document** is the actual **financial report** submitted by a company using XBRL.  \nIt uses tags from the taxonomy to report **facts** (real values).\n\n💡 It’s like a filled-in form — valid only if the tags are defined in the taxonomy.\n\n📘 Summary:\n- Taxonomy = defines **concepts**\n- Instance = reports **facts**"
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 5,
+            "imageUrl": "",
+            "content": {
+              "question": "📘 What is the primary purpose of a Taxonomy in XBRL?",
+              "options": [
+                "To store financial facts like revenue or profit",
+                "To display data in a user-friendly format",
+                "To define the structure and meaning of financial data",
+                "To validate the identity of reporting companies"
+              ],
+              "correctIndex": 2,
+              "explanation": "A taxonomy defines concepts, relationships, and rules for how facts are reported in XBRL."
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 6,
+            "imageUrl": "",
+            "content": {
+              "question": "🗒️ Which of the following is typically found inside an XBRL Instance Document?",
+              "options": [
+                "Definitions of concepts like Assets and Revenue",
+                "Facts like Net Profit for 2024",
+                "Presentation relationships",
+                "Validation rules for elements"
+              ],
+              "correctIndex": 1,
+              "explanation": "An XBRL Instance Document reports actual business data (facts), while definitions and rules are in the taxonomy document."
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 7,
+            "imageUrl": "",
+            "content": {
+              "question": "🧠 Which of these best describes an XBRL Concept?",
+              "options": [
+                "A unit of measure like USD or shares",
+                "A time period used for reporting",
+                "A label or identifier for a financial fact",
+                "A data point's definition, such as 'Revenue'"
+              ],
+              "correctIndex": 3,
+              "explanation": "A concept defines the nature of a fact—like whether it’s 'Revenue', 'Assets', or 'Net Income'."
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 8,
+            "imageUrl": "",
+            "content": {
+              "question": "📂 How does a Fact relate to a Concept in XBRL?",
+              "options": [
+                "A fact is a type of taxonomy",
+                "A fact is an actual reported value for a concept",
+                "A fact defines the structure of a concept",
+                "A fact lists all units available for a concept"
+              ],
+              "correctIndex": 1,
+              "explanation": "A fact represents a value (like 1000000) associated with a concept (like Revenue)."
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 9,
+            "imageUrl": "",
+            "content": {
+              "question": "Which best describes the relationship between a taxonomy and an instance document?",
+              "options": [
+                "Taxonomy stores final numbers, instance defines tags",
+                "Instance defines relationships, taxonomy stores data",
+                "Taxonomy defines structure and rules; instance holds real facts",
+                "Both store data in different formats"
+              ],
+              "correctIndex": 2,
+              "explanation": "The taxonomy defines tags, relationships, and rules. The instance file uses those tags to report actual facts and values."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 10,
+            "imageUrl": "",
+            "content": {
+              "title": "🧾 Facts, Contexts & Units",
+              "text": "Let’s understand how a company reports a **fact** (like revenue) in XBRL:\n\n---\n\n##### 📊 Example: Revenue Fact\n```xml\n<us-gaap:Revenues contextRef=\"c1\" unitRef=\"u1\" decimals=\"0\">\n  1000000\n</us-gaap:Revenues>\n```\n\n✅ This means:  \n**\"Revenue is 1,000,000.\"**  \nBut what do **contextRef**, **unitRef**, and **decimals** mean❓\n\nLet’s break it down 👇\n\n---\n\n##### 🏷️ What is a Context?\n\nA **context** tells us:\n- 🧑‍💼 **Who** reported the fact  \n- 📅 **When** it applies  \n\nIt's like tagging a number with a **reporting entity and period**.\n\n---\n\n##### 🧾 Context Example: Who & When?\n```xml\n<xbrli:context id=\"c1\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/irisbusiness\">\n      IrisBusiness\n    </xbrli:identifier>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:startDate>2024-01-01</xbrli:startDate>\n    <xbrli:endDate>2024-12-31</xbrli:endDate>\n  </xbrli:period>\n</xbrli:context>\n```\n\n🔹 **contextRef=\"c1\"** → Links the fact to this context  \n🔹 **Entity** → The company (IrisBusiness)  \n🔹 **Identifier** → Unique company code or name  \n🔹 **Scheme** → A URI that shows where the identifier comes from  \n🔹 **Period** → Reporting duration (1 year)\n\n---\n\n##### 💰 What is a Unit?\n\nA **unit** tells us:  \n👉 What **measurement** the number is in — like currency, shares, or pure numbers.\n\n```xml\n<xbrli:unit id=\"u1\">\n  <xbrli:measure>iso4217:USD</xbrli:measure>\n</xbrli:unit>\n```\n\n🔸 **unitRef=\"u1\"** → Links the fact to this unit  \n🔸 **Measure** → USD (US Dollars)\n\n---\n\n##### 🔢 What is Decimals?\n\nThe **decimals** attribute tells how precise the number is.  \n- \"0\" → rounded to the nearest whole number  \n- \"2\" → two decimal places  \n- \"-3\" → rounded to the nearest thousand  \n- \"INF\" → exact value (no rounding)\n\n---\n\n##### ✅ Final Meaning\n\n**\"IrisBusiness reported revenue of $1,000,000 in the year 2024, in US Dollars, rounded to the nearest dollar.\"**\n\nThat’s how **facts**, **contexts**, **units**, and **decimals** work together in XBRL!"
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 11,
+            "imageUrl": "",
+            "content": {
+              "question": "What does the 'contextRef' attribute in an XBRL fact tag refer to?",
+              "options": [
+                "The monetary unit used (e.g., USD)",
+                "The XML schema file used",
+                "The context block that defines the entity and time period",
+                "The type of concept being reported"
+              ],
+              "correctIndex": 2,
+              "explanation": "contextRef points to a <context> block that defines 'who' (entity) and 'when' (period) the fact applies to."
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 12,
+            "imageUrl": "",
+            "content": {
+              "question": "Which of these correctly defines a unit block in XBRL?",
+              "options": [
+                "<xbrli:unit id='usd'><measure>USD</measure></xbrli:unit>",
+                "<unit measure='USD'/>",
+                "<xbrli:unit id='u1'><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>",
+                "<unitRef='usd'><value>INR</value></unitRef>"
+              ],
+              "correctIndex": 2,
+              "explanation": "XBRL unit blocks require correct namespacing and ISO codes — 'iso4217:USD' is the valid format within <xbrli:measure>."
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 13,
+            "imageUrl": "",
+            "content": {
+              "question": "What is the purpose of the <xbrli:identifier> element inside a <context>?",
+              "options": [
+                "To specify the data source",
+                "To link to the currency used",
+                "To identify the reporting entity (e.g., company)",
+                "To indicate if the value is audited"
+              ],
+              "correctIndex": 2,
+              "explanation": "<xbrli:identifier> provides the unique identity of the entity reporting the data — like a company name or registration number."
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 14,
+            "imageUrl": "",
+            "content": {
+              "question": "How would you interpret this XBRL snippet?\n\n<ex:Profit contextRef=\"C1\" unitRef=\"u1\" decimals=\"-3\">120000</ex:Profit>",
+              "options": [
+                "Profit is exactly 120,000",
+                "Profit is 120,000, rounded to the nearest thousand",
+                "Profit is between 119,000 and 121,000",
+                "Profit is negative due to -3 decimals"
+              ],
+              "correctIndex": 1,
+              "explanation": "A 'decimals=\"-3\"' means the number is rounded to the nearest thousand. So 120,000 could represent anything from 119,500 to 120,499."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 15,
+            "imageUrl": "",
+            "content": {
+              "title": "🗓️ Instant vs Duration in XBRL Periods",
+              "text": "In XBRL, every **fact** needs a **time context**. That’s what the **`<xbrli:period>`** tag does — it tells *when* the fact applies.\n\nThere are **three types** of periods you’ll see in XBRL:\n\n---\n\n##### ⚡ 1. Instant (A Single Date)\n\n```xml\n<xbrli:period>\n  <xbrli:instant>2024-12-31</xbrli:instant>\n</xbrli:period>\n```\n\n🕒 **Use this when** the fact is a *snapshot* on a specific day.  \n📌 Example: Cash on December 31, 2024.\n\n---\n\n##### 📆 2. Duration (A Date Range)\n\n```xml\n<xbrli:period>\n  <xbrli:startDate>2024-01-01</xbrli:startDate>\n  <xbrli:endDate>2024-12-31</xbrli:endDate>\n</xbrli:period>\n```\n\n🧮 **Use this when** the fact is measured *over time*.  \n📌 Example: Total revenue **earned during** 2024.\n\n---\n\n##### ♾️ 3. Forever (Timeless Facts)\n\n```xml\n<xbrli:period>\n  <xbrli:forever/>\n</xbrli:period>\n```\n\n⏳ **Use this when** the fact has *no specific time*.  \n📌 Example: Legal entity name, reporting currency, etc."
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 16,
+            "imageUrl": "",
+            "content": {
+              "question": "Which of these would use an 'instant' period in XBRL?",
+              "options": [
+                "Revenue earned during 2024",
+                "Cash held as on 31-Dec-2024",
+                "Name of legal entity",
+                "Earnings per share across a quarter"
+              ],
+              "correctIndex": 1,
+              "explanation": "Instant is for facts that apply at a single point in time, like balance sheet items — e.g., Cash on 31-Dec-2024."
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 17,
+            "imageUrl": "",
+            "content": {
+              "question": "Why would a company use a 'forever' period in XBRL?",
+              "options": [
+                "To report high inflation items",
+                "For facts that never change or have no timeframe (like entity name)",
+                "To show forecasted values",
+                "To define quarterly earnings"
+              ],
+              "correctIndex": 1,
+              "explanation": "‘forever’ is used when a fact is timeless — e.g., reporting entity name or reporting currency, which aren’t time-bound."
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 18,
+            "imageUrl": "",
+            "content": {
+              "question": "Which of these correctly defines a unit block in XBRL?",
+              "options": [
+                "<xbrli:unit id='usd'><measure>USD</measure></xbrli:unit>",
+                "<unit measure='USD'/>",
+                "<xbrli:unit id='u1'><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>",
+                "<unitRef='usd'><value>INR</value></unitRef>"
+              ],
+              "correctIndex": 2,
+              "explanation": "XBRL unit blocks require correct namespacing and ISO codes — 'iso4217:USD' is the valid format within <xbrli:measure>."
+            }
+          },
+          {
+            "card_type": "quiz",
+            "cardOrder": 19,
+            "imageUrl": "",
+            "content": {
+              "question": "If a company reports 'Revenue' for Jan–Dec 2024, which element should it use?",
+              "options": [
+                "<xbrli:instant>2024-12-31</xbrli:instant>",
+                "<xbrli:forever/>",
+                "<xbrli:startDate>2024-01-01</xbrli:startDate> + <xbrli:endDate>2024-12-31</xbrli:endDate>",
+                "<period>2024</period>"
+              ],
+              "correctIndex": 2,
+              "explanation": "For values that span time (like Revenue earned), you must use a <startDate> and <endDate> to show the full duration."
+            }
+          }
+        ]
+      },
+      {
+        "title": "Validating Instance Document",
+        "description": "Dive into XBRL specification, XML schemas, and tagging rules.",
+        "imageUrl": "",
+        "topicOrder": 3,
+        "cards": [
+          {
+            "card_type": "knowledge",
+            "cardOrder": 1,
+            "imageUrl": "https://res.cloudinary.com/daug1ayvk/image/upload/v1754741699/instance_i85iiw.png",
+            "content": {
+              "title": "📄 Sample XBRL Instance Document",
+              "text": "<xbrli:xbrl xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n            xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\"\n            xmlns:ex=\"http://example.com/taxonomy\">\n\n  <xbrli:context id=\"C1\">\n    <xbrli:entity>\n      <xbrli:identifier scheme=\"http://example.com/irisbusiness\">IrisBusiness</xbrli:identifier>\n    </xbrli:entity>\n    <xbrli:period>\n      <xbrli:startDate>2024-04-01</xbrli:startDate>\n      <xbrli:endDate>2025-03-31</xbrli:endDate>\n    </xbrli:period>\n  </xbrli:context>\n\n  <xbrli:unit id=\"U1\">\n    <xbrli:measure>iso4217:INR</xbrli:measure>\n  </xbrli:unit>\n\n  <ex:Revenue contextRef=\"C1\" unitRef=\"U1\" decimals=\"0\">10000000</ex:Revenue>\n</xbrli:xbrl>"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 2,
+            "imageUrl": "",
+            "content": {
+              "title": "🛡️ What is Bushchat? XBRL Validator Explained",
+              "text": "After creating an XBRL Instance document, we need to **validate** it to ensure everything is correct and follows the taxonomy rules.\n\n🎯 **Bushchat** is a smart **XBRL validator**. It checks whether your instance file is valid, accurate, and meaningful.\n\n##### 🧪 What Bushchat Validates\n\n✅ **Schema Validation**  \n🔍 Checks if every concept (like *Revenue*) is defined correctly in the .xsd taxonomy.\n\n🆔 **Context Validation**  \n🔍 Makes sure `contextRef=\"C1\"` exists and includes valid **entity** and **reporting period** information.\n\n💰 **Unit Validation**  \n🔍 Confirms that units like *INR* or *shares* are defined using the `<unit>` tag and are valid.\n\n🔢 **Data Type Validation**  \n🔍 Ensures values (like 123456.78) follow the correct **data format** (e.g., decimals, strings, dates).\n\n➕ **Calculation Validation**  \n🔍 If the taxonomy defines formulas (like *Assets = Liabilities + Equity*), it verifies that the math **adds up correctly**.\n\n📊 **Dimensional Validation**  \n🔍 Validates that any **axis-member combinations** used in facts (e.g., region = Asia) are correct and allowed.\n\n🏷️ **Label & Presentation Check**  \n🔍 Ensures each concept is **properly labeled** and appears in the correct section of the report.\n\n📏 **Xule Rules (Business Logic)**  \n🔍 Applies custom rules like:\n• Revenue > 0\n• Date must be in the current fiscal year\n• Total > Subparts\n\n📂 Bushchat reads both:\n- Your **XBRL Instance Document** (the data),\n- And your **Taxonomy** (the rules).\n\n🧠 Then it validates every part to give you clear ✅ passes or ❌ errors so you can fix issues before filing."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 3,
+            "imageUrl": "",
+            "content": {
+              "title": "🕵️‍♂️ Think Like a Bushchat Validator!",
+              "text": "You've learned the basics — now it's time to act like a **Bushchat Validator**!\n\n🔍 Scan instance documents  \n✅ Catch errors in context, units, and values  \n🧠 Apply real rules like a pro\n\nReady to validate like never before?  \nLet’s dive in! 🚀"
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 4,
+            "content": {
+              "title": "💱 Fix the Unit Reference",
+              "code": "<xbrli:unit id=\"u1\">\n  <xbrli:measure>iso4217:USD</xbrli:measure>\n</xbrli:unit>\n\n<ex:Revenue contextRef=\"c1\" unitRef=\"usd\" decimals=\"0\">100000</ex:Revenue>",
+              "question": "The `unitRef` must exactly match the defined unit's ID. Can you fix it?",
+              "validator": "validateUnitRefAnswer",
+              "explanation": "✅ Perfect! The unit reference now matches the defined unit."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 5,
+            "content": {
+              "title": "🆔 Match the Context ID",
+              "code": "<xbrli:context id=\"C1\">\n  <!-- ... -->\n</xbrli:context>\n\n<ex:Profit contextRef=\"c1\" unitRef=\"u1\" decimals=\"0\">200000</ex:Profit>",
+              "question": "Context ID is case-sensitive. Match the `contextRef` exactly with the defined ID.",
+              "validator": "validateContextRefAnswer",
+              "explanation": "✅ Great job! The context ID matches perfectly now."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 6,
+            "content": {
+              "title": "📅 Fix the Date Range",
+              "code": "<xbrli:period>\n  <xbrli:startDate>2025-04-01</xbrli:startDate>\n  <xbrli:endDate>2024-03-31</xbrli:endDate>\n</xbrli:period>",
+              "question": "Fix the date range so that the start date comes *before* the end date.",
+              "validator": "validateDateRangeAnswer",
+              "explanation": "✅ Nicely done! The date range is now valid."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 7,
+            "content": {
+              "title": "💸 Fix the Currency Code",
+              "code": "<xbrli:unit id=\"U1\">\n  <xbrli:measure>iso4217:XYZ</xbrli:measure>\n</xbrli:unit>",
+              "question": "Replace the invalid currency code with a real ISO 4217 code (like USD or INR).",
+              "validator": "validateCurrencyCodeAnswer",
+              "explanation": "✅ Excellent! That's a valid currency code."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 8,
+            "content": {
+              "title": "📉 Revenue Can’t Be Negative",
+              "code": "<ex:Revenue contextRef=\"C1\" unitRef=\"U1\" decimals=\"0\">-500000</ex:Revenue>",
+              "question": "Fix the fact value to follow business rules — revenue must be ≥ 0.",
+              "validator": "validateRevenueValueAnswer",
+              "explanation": "✅ You nailed it! The revenue is now valid."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 9,
+            "content": {
+              "title": "🛠️ Challenge: Fix All 3 Errors",
+              "code": "<xbrli:xbrl xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n            xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\"\n            xmlns:ex=\"http://example.com/taxonomy\">\n\n  <xbrli:context id=\"C1\">\n    <xbrli:entity>\n      <xbrli:identifier scheme=\"http://example.com/entity\">ABC_LTD</xbrli:identifier>\n    </xbrli:entity>\n    <xbrli:period>\n      <xbrli:startDate>2025-04-01</xbrli:startDate>\n      <xbrli:endDate>2024-03-31</xbrli:endDate>\n    </xbrli:period>\n  </xbrli:context>\n\n  <xbrli:unit id=\"U1\">\n    <xbrli:measure>iso4217:XYZ</xbrli:measure>\n  </xbrli:unit>\n\n  <ex:Revenue contextRef=\"C1\" unitRef=\"U1\" decimals=\"0\">-500000</ex:Revenue>\n</xbrli:xbrl>",
+              "question": "Fix all 3 validation issues: date range, invalid currency, and negative revenue.",
+              "validator": "validateAllFixesAnswer",
+              "explanation": "✅ Amazing! You fixed all the validation errors."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 10,
+            "content": {
+              "title": "🪛 Fix the Broken XBRL Snippet",
+              "code": "<xbrli:xbrl xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n            xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\"\n            xmlns:ex=\"http://example.com/taxonomy\">\n\n  <xbrli:context id=\"C1\">\n    <xbrli:entity>\n      <xbrli:identifier scheme=\"http://example.com/entity\">XYZ_CORP</xbrli:identifier>\n    </xbrli:entity>\n    <xbrli:period>\n      <xbrli:instant>2024-13-01</xbrli:instant>\n    </xbrli:period>\n  </xbrli:context>\n\n  <xbrli:unit id=\"U1\">\n    <xbrli:measure>iso4217:usd</xbrli:measure>\n  </xbrli:unit>\n\n  <ex:Assets contextRef=\"C1\" unitRef=\"U1\" decimals=\"INF\">1000000.50</ex:Assets>\n\n  <ex:Liabilities contextRef=\"C2\" unitRef=\"U1\" decimals=\"0\">400000</ex:Liabilities>\n</xbrli:xbrl>",
+              "question": "🔎Review the XBRL snippet carefully and correct all errors related to date validity, currency code casing, decimals precision, and context reference integrity. Edit the XML so that:\n\n- 🗓️ The <xbrli:instant> contains a valid date (month 01–12, valid day).\n- 💱 The currency code in <xbrli:measure> is uppercase and a valid ISO 4217 code (e.g., USD).\n- 🔢 The decimals attribute matches the precision of the number (e.g., decimals=\"2\" for 1000000.50).\n- 📌 All contextRef attributes reference existing <xbrli:context> IDs.",
+              "validator": "validateBushchatHandsOnSnippet",
+              "explanation": "🎉 Excellent work! Your corrected snippet should:\n\n- ✔️ Use valid calendar dates (no invalid months or days).\n- ✔️ Include ISO 4217 currency codes in uppercase (e.g., USD, EUR).\n- ✔️ Set the decimals attribute to accurately reflect the decimal places of the amount.\n- ✔️ Reference only defined <xbrli:context> IDs for all contextRef attributes — this ensures all facts are properly associated with their context, such as reporting periods and entities.\n\nBy ensuring these aspects, you're practicing essential real-world XBRL validation steps required for high-quality, compliant financial reporting. Keep refining your skills! 🚀"
+            }
+          }
+        ]
+      },
+      {
+        "title": "Dimensions In Taxonomy",
+        "description": "How to read, create, and customize taxonomies.",
+        "imageUrl": "",
+        "topicOrder": 4,
+        "cards": [
+          {
+            "card_type": "knowledge",
+            "cardOrder": 1,
+            "content": {
+              "title": "🧭 What are XBRL Dimensions?",
+              "text": "Imagine you have a number, like a **Sales Amount of $50,000** 💸.\n\nIn XBRL, this is called a **Fact**. But just knowing the sales amount isn't enough; you need more details! 🤔\n\n**Dimensions** give **extra meaning or detail** to a fact. They help you categorize your data. 🏷️\n\nThink of them as **tags** that add specific characteristics to your data. 📌\n\n--- \n\n**Simple Example:**\n\nIf your fact is `Sales = $50,000`,\n\nA **dimension** could tell you:\n- **Which Product?** (e.g., Mobile Phones 📱)\n- **Which Region?** (e.g., Asia 🌏)\n- **What Age Group of Customer?** (e.g., 25 years old 🧑)\n\nSo, `Product`, `Region`, and `Customer Age` are all **dimensions** that make your Sales fact much more specific and useful! ✨"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 2,
+            "content": {
+              "title": "🏷️ Explicit vs. Typed Dimensions",
+              "text": "XBRL uses two main types of dimensions, depending on how you want to categorize your data:\n\n--- \n\n#### 1. 🔖 Explicit Dimensions\n\n**When to use:** When your categories are from a **fixed, pre-defined list** of choices. ✅\n\n**Think of it like:** A dropdown menu 🔽 or multiple-choice options. You **must choose** one of the options already provided in the XBRL dictionary (taxonomy).\n\n**Example:**\n- **Dimension Axis:** `ProductCategory`\n- **Allowed Choices (Members):** `MobilePhones`, `Laptops`, `TVs`\n  *You can only pick 'MobilePhones', 'Laptops', or 'TVs'. You can't make up 'Headphones' if it's not on the list!* 🚫\n\n--- \n\n#### 2. 🧾 Typed Dimensions\n\n**When to use:** When your categories can be **any custom value** of a certain type. ✍️\n\n**Think of it like:** A text box ⌨️ or number input field. You provide the value yourself, as long as it fits the expected format (e.g., a number, a date, an address).\n\n**Example:**\n- **Dimension Axis:** `CustomerAge`\n- **Allowed Values:** Any whole number (integer) 🔢\n  *You can enter '25', '30', '42', etc. Any valid number is fine!* 👍\n\n--- \n\n**In Short:**\n- **Explicit:** Pick from a list (e.g., 'Asia', 'Europe', 'North America'). 🌍\n- **Typed:** Write your own value (e.g., '123 Main St.', 'Invoice_9876'). 🏠"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 3,
+            "content": {
+              "title": "📚 Taxonomy: Defining a Dimension Axis 🎯",
+              "text": "Before you can use a dimension, you must **define its axis** in the XBRL Taxonomy (the XSD file). Think of an axis as the *category* itself, like 'Region' or 'Product Category'. 📁\n\nHere's how you define a `RegionAxis` (an **Explicit** Dimension Axis) in the taxonomy:\n\n```xml\n<xs:schema \n  xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n  xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n  xmlns:ex=\"http://example.com/taxonomy\"\n  targetNamespace=\"http://example.com/taxonomy\"\n  elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"RegionAxis\" type=\"xbrldi:explicitDimensionItemType\"\n              substitutionGroup=\"xbrldi:dimension\" />\n\n</xs:schema>\n```\n\n**Key Points:**\n- `<xs:element name=\"RegionAxis\">`: This gives your dimension axis a **unique name**. 🏷️\n- `type=\"xbrldi:explicitDimensionItemType\"`: This tells XBRL it's an **explicit** dimension, meaning it will use a fixed list of members. 📝\n- `substitutionGroup=\"xbrldi:dimension\"`: This is a very important part! It tells the XBRL system: \n  * \"My custom element, `RegionAxis`, should be **treated as a dimension**.\" \n  * \"It 'inherits' all the rules and behaviors that come with being a dimension in XBRL.\" \n  Think of it as classifying `RegionAxis` so XBRL knows its special role. 🔗"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 4,
+            "content": {
+              "title": "📚 Taxonomy: Defining Explicit Members 📝",
+              "text": "After defining an **Explicit Dimension Axis** (like `RegionAxis`), you need to define its **members**. These are the specific choices or values that can be used for that dimension, like 'Asia' or 'Europe'. ✅\n\nHere's how you define `AsiaMember` and `EuropeMember` for `RegionAxis` in the taxonomy:\n\n```xml\n<xs:schema \n  xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n  xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n  xmlns:ex=\"http://example.com/taxonomy\"\n  targetNamespace=\"http://example.com/taxonomy\"\n  elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"AsiaMember\" substitutionGroup=\"xbrli:item\" />\n  <xs:element name=\"EuropeMember\" substitutionGroup=\"xbrli:item\" />\n\n</xs:schema>\n```\n\n**Key Points:**\n- `<xs:element name=\"AsiaMember\">`: This gives your dimension member a **unique name**. 🏷️\n- `substitutionGroup=\"xbrli:item\"`: This is also important! It tells the XBRL system:\n  * \"My custom element, `AsiaMember` (or `EuropeMember`), is a **type of XBRL 'item'**.\" \n  * In XBRL, 'items' are the fundamental building blocks for reporting facts, like 'Cash', 'Revenue', or in this case, a specific dimension member. It means this element can be used as a valid value or concept in an XBRL report. 📊"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 5,
+            "content": {
+              "title": "📄 Instance: Explicit Dimensions in Context ✅",
+              "text": "Once you have defined your Explicit Dimension Axis and its Members in the Taxonomy, you can use them in your XBRL instance document within a `context`.\n\nYou use the `<xbrldi:explicitMember>` tag to pick a specific member from your predefined list. 🔖\n\n```xml\n<xbrli:context id=\"C1\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/entity\">XYZ_CORP</xbrli:identifier>\n    <xbrli:segment>\n      <xbrldi:explicitMember dimension=\"ex:RegionAxis\">ex:AsiaMember</xbrldi:explicitMember>\n    </xbrli:segment>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2025-06-30</xbrli:instant>\n  </xbrli:period>\n</xbrli:context>\n```\n\n**Key Points:**\n- `dimension=\"ex:RegionAxis\"`: This attribute points to the **dimension axis** you defined in the taxonomy. 🎯\n- `ex:AsiaMember`: This is the **specific member** (choice) you are applying, which must be one of the members defined for `ex:RegionAxis` in your taxonomy. ✅\n- **Location:** Explicit dimensions can appear inside either `xbrli:segment` (which provides details about the *entity* 🏢) or `xbrli:scenario` (which describes specific *conditions* for the fact). 📊"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 6,
+            "content": {
+              "title": "📚 Taxonomy: Defining a Typed Dimension and its Value ⚙️",
+              "text": "For a **Typed Dimension** (like `CustomerAge`), you also define its axis, but instead of a fixed list of members, you define the *type* of data it can hold (e.g., an integer 🔢, a string 🔡, a date 📅).\n\nYou typically define two things in the taxonomy:\n1.  The **Typed Dimension Axis** itself. 🎯\n2.  The **element** that will actually hold the custom value (e.g., `<ex:CustomerAge>`). ✍️\n\n```xml\n<xs:schema \n  xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n  xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n  xmlns:ex=\"http://example.com/taxonomy\"\n  targetNamespace=\"http://example.com/taxonomy\"\n  elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"CustomerAgeAxis\" type=\"xbrldi:typedDimensionItemType\"\n              substitutionGroup=\"xbrldi:dimension\" />\n\n  <xs:element name=\"CustomerAge\" type=\"xs:integer\" />\n\n</xs:schema>\n```\n\n**Key Points:**\n- `type=\"xbrldi:typedDimensionItemType\"`: This tells XBRL it's a **typed** dimension, allowing custom values. 💡\n- `substitutionGroup=\"xbrldi:dimension\"` (for `CustomerAgeAxis`): Just like with explicit dimensions, this line tells XBRL that `CustomerAgeAxis` is indeed a dimension and should be treated as such. 🔗\n- `<xs:element name=\"CustomerAge\" type=\"xs:integer\"/>`: This defines the actual XML element that will be used inside the typed dimension and specifies that its content must be an integer (a whole number). This `CustomerAge` element itself is not directly a `substitutionGroup` of `xbrli:item` in the same way explicit members are; its role is defined by its type and its intended use within the typed dimension. 🔢"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 7,
+            "content": {
+              "title": "📄 Instance: Typed Dimensions in Context 🖋️",
+              "text": "For Typed Dimensions, where you provide a custom value instead of picking from a list, you use the `<xbrldi:typedMember>` tag. ✍️\n\nThe value you provide inside this tag must match the type defined in your taxonomy for that dimension (e.g., an integer 🔢, a string 🔡, etc.).\n\n```xml\n<xbrli:context id=\"C1\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/entity\">XYZ_CORP</xbrli:identifier>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2025-06-30</xbrli:instant>\n  </xbrli:period>\n  <xbrli:scenario>\n    <xbrldi:typedMember dimension=\"ex:CustomerAgeAxis\">\n      <ex:CustomerAge>25</ex:CustomerAge>\n    </xbrldi:typedMember>\n  </xbrli:scenario>\n</xbrli:context>\n```\n\n**Key Points:**\n- `dimension=\"ex:CustomerAgeAxis\"`: This attribute points to the **typed dimension axis** defined in your taxonomy. 🎯\n- `<ex:CustomerAge>25</ex:CustomerAge>`: This is the **actual custom value**. `ex:CustomerAge` is the element defined in the taxonomy to hold this value, and `25` is the value itself. This value must match the `type` (e.g., `xs:integer`) specified in the taxonomy. 🔢\n- **Location:** Typed dimensions can also appear inside either `xbrli:segment` or `xbrli:scenario`. 📍"
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 8,
+            "content": {
+              "title": "🎯 Activity 1: Identify and Use Correct Dimensions",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"ProductAxis\" type=\"xbrldi:explicitDimensionItemType\" substitutionGroup=\"xbrldi:dimension\" />\n  <xs:element name=\"CarsMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n  <xs:element name=\"BikesMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n\n</xs:schema>",
+              "code": "<xbrli:context xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n               xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n               xmlns:ex=\"http://example.com/taxonomy\"\n               id=\"Context_A\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/entity\">ABC_Co</xbrli:identifier>\n    <xbrli:segment>\n      \n    </xbrli:segment>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2025-03-31</xbrli:instant>\n  </xbrli:period>\n</xbrli:context>",
+              "question": "📝 **Your Task:** Look at the `ProductAxis` and its members defined in the Taxonomy XML.\n\nEdit the `instanceCode` below by adding an `<xbrldi:explicitMember>` element inside `<xbrli:segment>`.\n\n- Use `dimension=\"ex:ProductAxis\"`.\n- Choose either `ex:CarsMember` or `ex:BikesMember` as the member.\n\n Remember the structure of an explicit member: `<xbrldi:explicitMember dimension=\"[AXIS_NAME]\">[MEMBER_NAME]</xbrldi:explicitMember>`. Make sure to use the full qualified names (e.g., `ex:ProductAxis`).",
+              "hint": "Remember the structure of an explicit member: `<xbrldi:explicitMember dimension=\"[AXIS_NAME]\">[MEMBER_NAME]</xbrldi:explicitMember>`.",
+              "validator": "validateBeginner1",
+              "explanation": "✅ The taxonomy defines `ProductAxis` with `CarsMember` and `BikesMember` as valid members."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 9,
+            "content": {
+              "title": "📝 Activity 2: Fix a Misspelled Dimension",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"LocationAxis\" type=\"xbrldi:explicitDimensionItemType\" substitutionGroup=\"xbrldi:dimension\" />\n  <xs:element name=\"NorthMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n  <xs:element name=\"SouthMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n\n</xs:schema>",
+              "code": "<xbrli:context xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n               xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n               xmlns:ex=\"http://example.com/taxonomy\"\n               id=\"Context_B\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/entity\">DEF_Ltd</xbrli:identifier>\n    <xbrli:segment>\n      <xbrldi:explicitMember dimension=\"ex:LocatoinAxis\">ex:NortMember</xbrldi:explicitMember> \n    </xbrli:segment>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2025-06-30</xbrli:instant>\n  </xbrli:period>\n</xbrli:context>",
+              "question": "📝 **Your Task:** The instance XML contains a dimension with a misspelling.\n\n- Correct `dimension=\"ex:LocatoinAxis\"` to `ex:LocationAxis`.\n- Correct `ex:NortMember` to `ex:NorthMember` (or `ex:SouthMember`).",
+              "validator": "validateBeginner2",
+              "explanation": "✅ Correct spelling ensures instance data matches the taxonomy."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 10,
+            "content": {
+              "title": "🔄 Activity 3: Replace Incorrect Dimensions Using the Taxonomy",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"RegionAxis\" type=\"xbrldi:explicitDimensionItemType\" substitutionGroup=\"xbrldi:dimension\" />\n  <xs:element name=\"AsiaMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n  <xs:element name=\"EuropeMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n\n</xs:schema>",
+              "code": "<xbrli:context xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" \n               xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" \n               xmlns:ex=\"http://example.com/taxonomy\" \n               id=\"C1\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/entity\">XYZ_CORP</xbrli:identifier>\n    <xbrli:segment>\n      <xbrldi:explicitMember dimension=\"ex:WrongRegionAxis\">ex:AsaMember</xbrldi:explicitMember> \n    </xbrli:segment>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2025-06-30</xbrli:instant>\n  </xbrli:period>\n</xbrli:context>",
+              "question": "📝 **Your Task:** Replace `ex:WrongRegionAxis` with `ex:RegionAxis` and `ex:AsaMember` with `ex:AsiaMember` or `ex:EuropeMember`.",
+              "validator": "validateIntermediate1",
+              "explanation": "✅ Dimensions and members must exactly match those defined in the taxonomy."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 11,
+            "content": {
+              "title": "🧹 Activity 4: Remove Dimensions Not Present in Taxonomy",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"RegionAxis\" type=\"xbrldi:explicitDimensionItemType\" substitutionGroup=\"xbrldi:dimension\" />\n  <xs:element name=\"AsiaMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n\n</xs:schema>",
+              "code": "<xbrli:context xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" \n               xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" \n               xmlns:ex=\"http://example.com/taxonomy\" \n               id=\"C2\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/entity\">XYZ_CORP</xbrli:identifier>\n    <xbrli:segment>\n      <xbrldi:explicitMember dimension=\"ex:RegionAxis\">ex:AsiaMember</xbrldi:explicitMember> \n      <xbrldi:explicitMember dimension=\"ex:DepartmentAxis\">ex:SalesDepartmentMember</xbrldi:explicitMember> \n    </xbrli:segment>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2025-06-30</xbrli:instant>\n  </xbrli:period>\n</xbrli:context>",
+              "question": "🧹 **Your Task:** Remove the explicit member that references `ex:DepartmentAxis` and `ex:SalesDepartmentMember`, as they are not defined in the taxonomy.",
+              "validator": "validateIntermediate2",
+              "explanation": "✅ Only dimensions defined in the taxonomy should appear in the instance."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 12,
+            "content": {
+              "title": "💡 Activity 5: Challenge - Validate & Correct Dimension Placement",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"ProductAxis\" type=\"xbrldi:explicitDimensionItemType\" substitutionGroup=\"xbrldi:dimension\" />\n  <xs:element name=\"ElectronicsMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n  <xs:element name=\"FurnitureMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n\n  <xs:element name=\"RegionAxis\" type=\"xbrldi:explicitDimensionItemType\" substitutionGroup=\"xbrldi:dimension\" />\n  <xs:element name=\"AsiaMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n  <xs:element name=\"EuropeMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n\n</xs:schema>",
+              "code": "<xbrli:context xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" \n               xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" \n               xmlns:ex=\"http://example.com/taxonomy\" \n               id=\"C3\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/entity\">XYZ_CORP</xbrli:identifier>\n    <xbrli:segment>\n      <xbrldi:explicitMember dimension=\"ex:RegionAxis\">ex:AsiaMember</xbrldi:explicitMember>\n      <xbrldi:explicitMember dimension=\"ex:ProductAxis\">ex:ElectronicsMember</xbrldi:explicitMember> \n    </xbrli:segment>\n    <xbrli:scenario>\n      <xbrldi:explicitMember dimension=\"ex:RegionAxis\">ex:EuropeMember</xbrldi:explicitMember> \n    </xbrli:scenario>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2025-06-30</xbrli:instant>\n  </xbrli:period>\n</xbrli:context>",
+              "question": "💡 **Your Task:** Remove the duplicate `RegionAxis` from `scenario` and move `ProductAxis` from `segment` to `scenario`.",
+              "validator": "validateAdvanced1",
+              "explanation": "✅ Each dimension axis can appear only once per context. `RegionAxis` belongs in `segment`; `ProductAxis` belongs in `scenario`."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 13,
+            "content": {
+              "title": "💡 Activity 1: Create the Label Resource",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"RevenueFromContractsWithCustomers\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\" />\n</xs:schema>",
+              "code": "<link:labelLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                xmlns:ex=\"http://example.com/taxonomy\"\n                xlink:type=\"extended\"\n                xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RevenueFromContractsWithCustomers\"\n            xlink:type=\"locator\"\n            xlink:label=\"loc_revenue\"/>\n\n  \n\n</link:labelLink>",
+              "question": "💡 **Your Task:** Create the **`<link:label>` element** for the concept `ex:RevenueFromContractsWithCustomers`.\n\n- The label text should be: \"Revenue\"\n- It needs to be a **terse label**.\n\n**Sample structure of a `<link:label>` element:**\n```xml\n<link:label xlink:label=\"[your_internal_id]\" xlink:type=\"resource\" xlink:role=\"[label_role_URI]\">Your Label Text</link:label>\n```\n\n**Here’s how to complete this activity:**\n1.  **Locate the `` comment** in the XML code block.\n2.  **Inside this spot, write ONLY the XML for the `<link:label>` element.** Ensure it has:\n    * An `xlink:label` attribute (e.g., `\"lab_revenue_terse\"`). This is an internal ID you define.\n    * `xlink:type=\"resource\"` (because a label is a resource).\n    * The correct `xlink:role` URI for a **terse label**: `http://www.xbrl.org/2003/role/terseLabel`.\n    * The text content \"Revenue\" between its opening and closing tags.",
+              "validator": "validateLabelPart1",
+              "explanation": "✅ **Correct Solution:**\n\n```xml\n<link:labelLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                xmlns:ex=\"http://example.com/taxonomy\"\n                xlink:type=\"extended\"\n                xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RevenueFromContractsWithCustomers\"\n            xlink:type=\"locator\"\n            xlink:label=\"loc_revenue\"/>\n\n  <link:label xlink:label=\"lab_revenue_terse\"\n              xlink:type=\"resource\"\n              xlink:role=\"http://www.xbrl.org/2003/role/terseLabel\">Revenue</link:label>\n\n</link:labelLink>\n```\n\n**Explanation:**\n\n- We've correctly added the `<link:label>` element.\n- `xlink:label=\"lab_revenue_terse\"` provides a unique identifier for this specific label within the linkbase.\n- `xlink:type=\"resource\"` correctly identifies this element as a resource.\n- `xlink:role=\"http://www.xbrl.org/2003/role/terseLabel\"` marks this as a terse label.\n- The text \"Revenue\" is the actual human-readable label."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 14,
+            "content": {
+              "title": "💡 Activity 2: Connect the Label",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"RevenueFromContractsWithCustomers\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\" />\n</xs:schema>",
+              "code": "<link:labelLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                xmlns:ex=\"http://example.com/taxonomy\"\n                xlink:type=\"extended\"\n                xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RevenueFromContractsWithCustomers\"\n            xlink:type=\"locator\"\n            xlink:label=\"loc_revenue\"/>\n\n  <link:label xlink:label=\"lab_revenue_terse\"\n              xlink:type=\"resource\"\n              xlink:role=\"http://www.xbrl.org/2003/role/terseLabel\">Revenue</link:label>\n\n  \n\n</link:labelLink>",
+              "question": "💡 **Your Task:** Now, create the **`<link:labelArc>` element** to connect the concept `ex:RevenueFromContractsWithCustomers` to the terse label you just created.\n\n- The concept's locator has `xlink:label=\"loc_revenue\"`.\n- Your terse label has `xlink:label=\"lab_revenue_terse\"`.\n\n**Sample structure of a `<link:labelArc>` element:**\n```xml\n<link:labelArc xlink:from=\"[source_xlink:label]\" xlink:to=\"[target_xlink:label]\" xlink:arcrole=\"[arcrole_URI]\" xlink:type=\"arc\"/>\n```\n\n**Here’s how to complete this activity:**\n1.  **Locate the `` comment** in the XML code block.\n2.  **Inside this spot, write ONLY the XML for the `<link:labelArc>` element.** Ensure it has:\n    * `xlink:from=\"loc_revenue\"`\n    * `xlink:to=\"lab_revenue_terse\"`\n    * `xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-label\"`\n    * `xlink:type=\"arc\"`.",
+              "validator": "validateLabelPart2",
+              "explanation": "✅ **Correct Solution:**\n\n```xml\n<link:labelLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                xmlns:ex=\"http://example.com/taxonomy\"\n                xlink:type=\"extended\"\n                xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RevenueFromContractsWithCustomers\"\n            xlink:type=\"locator\"\n            xlink:label=\"loc_revenue\"/>\n\n  <link:label xlink:label=\"lab_revenue_terse\"\n              xlink:type=\"resource\"\n              xlink:role=\"http://www.xbrl.org/2003/role/terseLabel\">Revenue</link:label>\n\n  <link:labelArc xlink:from=\"loc_revenue\"\n                 xlink:to=\"lab_revenue_terse\"\n                 xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-label\"\n                 xlink:type=\"arc\"/>\n\n</link:labelLink>\n```\n\n**Explanation:**\n\n- `<link:labelArc>` connects the concept locator (`loc_revenue`) to the terse label (`lab_revenue_terse`).\n- `xlink:arcrole` is set to the standard concept-label relationship URI.\n- `xlink:type=\"arc\"` identifies this as an arc element in the linkbase."
+            }
+          }
+        ]
+      },
+      {
+        "title": "XBRL Taxonomies",
+        "description": "Prepare filings and validate reports effectively.",
+        "imageUrl": "xbrlImg",
+        "topicOrder": 5,
+        "cards": [
+          {
+            "card_type": "knowledge",
+            "cardOrder": 1,
+            "imageUrl": "https://res.cloudinary.com/daug1ayvk/image/upload/v1754741709/instance-taxonomy_qaka2s.png",
+            "content": {
+              "title": "📄 What is XBRL Schema (XSD)?",
+              "text": "The **XBRL Schema** (often called an **XSD file**) is like the **main blueprint** 🗺️ for an XBRL taxonomy.\n\nIt's the core file that **defines all the basic building blocks** you'll use in your financial reports.\n\n🤔 **Think of it like:** The architectural plans for a building. It tells you:\n- What each 'room' (concept) is. 🏠\n- What kind of content each 'room' can hold (e.g., numbers, text). 🔢\n- How different parts of the building are generally laid out. 🏗️\n\nIt's where you define new concepts and their fundamental properties."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 2,
+            "imageUrl": "",
+            "content": {
+              "title": "📦 Namespaces in Schema (targetNamespace)",
+              "text": "Every XBRL Schema has a **Namespace**, which is a unique internet address (URI) that identifies all the concepts defined within that specific schema. 🌐\n\n**Why is it needed?** Imagine two companies both define an element called 'Sales'. How does XBRL know which 'Sales' you mean?\n\nNamespaces solve this by making sure every concept has a **globally unique identity**. ✨\n\nThe `targetNamespace` attribute in the `<xs:schema>` tag declares this unique identity:\n```xml\n<xs:schema targetNamespace=\"http://example.com/taxonomy\" \n           xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           ... >\n```\n\n**Key Points:**\n- `targetNamespace`: This URI is the **unique address** for all elements you define in *this specific schema file*. 🆔\n- It prevents name clashes when combining concepts from different taxonomies. 🤝"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 3,
+            "imageUrl": "",
+            "content": {
+              "title": "🔗 Schema's Link to Linkbases",
+              "text": "The XBRL Schema (XSD file) also acts as the central hub by **linking to other important files called Linkbases**. 🔗\n\nThink of it like the master index in a book that tells you where to find specific chapters (linkbases) that add more details and relationships to your concepts. 📚\n\nThis is done using the `<linkbaseRef>` tag, usually at the top of the schema file:\n\n```xml\n<linkbaseRef xlink:href=\"label.xml\" \n             xlink:type=\"simple\" \n             xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbaseRef\"/>\n```\n\n**Key Points:**\n- `xlink:href=\"label.xml\"`: This specifies the **file name** of the linkbase being linked (e.g., `label.xml` for the Label Linkbase). 📁\n- `xlink:role`: This tells XBRL **what type of linkbase** it is (e.g., a label linkbase, a presentation linkbase, etc.). 🎯\n\nThis connection is vital because, without linkbases, the concepts defined in the schema would be isolated and lack meaning for human readers or financial analysis tools. 🧩"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 4,
+            "imageUrl": "https://res.cloudinary.com/daug1ayvk/image/upload/v1754741734/linkbases_aaqwk3.png",
+            "content": {
+              "title": "🧩 What are XBRL Linkbases?",
+              "text": "While the XBRL Schema (XSD) defines the basic concepts, **Linkbases** are separate XML files that **add meaning and define relationships** between these concepts. 🔗\n\nImagine schema elements as **puzzle pieces** 🧩. On their own, they are just shapes. Linkbases are the **picture on the box** 🖼️ that shows how all the pieces fit together to form a complete and understandable report.\n\nThey tell you:\n- What a concept is *called* in plain language. 🗣️\n- How concepts are *organized* visually. 📋\n- How concepts *relate mathematically*. ➕➖\n- How concepts define *complex structures* (like dimensions). 🧭\n- Where concepts get their *official definitions*. 📚\n\nThere are 5 common types of linkbases, each serving a specific purpose."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 5,
+            "imageUrl": "",
+            "content": {
+              "title": "🤝 What are Arcroles? (Relationship Types)",
+              "text": "In XBRL, concepts aren't isolated; they are **connected** in meaningful ways. **Arcroles** (Arc Roles) are the key to understanding these connections! 🔗\n\nArcroles define the **specific type of relationship** between two concepts (or resources) in a linkbase. They tell you *how* concepts are related and give meaning to the 'arcs' (the connections).\n\nThink of them as the **labels on arrows** connecting boxes in a flowchart. ➡️\n\n- An arrow from 'Assets' to 'Cash' could be labeled 'has-component' (Parent-Child).\n- An arrow from 'Total Revenue' to 'Online Revenue' could be labeled 'sums-up' (Summation-Item).\n\nArcroles ensure that XBRL software correctly interprets the logical and mathematical connections between your financial concepts. ✅"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 6,
+            "imageUrl": "",
+            "content": {
+              "title": "🖋️ Common Arcroles in Detail",
+              "text": "Here are some of the most common and important **Arcroles** used in XBRL linkbases:\n\n1.  **`parent-child`** 🌳\n    - **Purpose:** Shows **hierarchy** or breakdown relationships. Used mainly in the **Presentation Linkbase**. 📋\n    - **Example:** `elec:TotalAssets` is the parent of `elec:FixedAssets`.\n\n2.  **`summation-item`** ➕➖\n    - **Purpose:** Defines **calculation relationships** where one item is the sum or a component of another. Used in the **Calculation Linkbase**. 🧮\n    - **Example:** `elec:TotalRevenue` is the sum of `elec:OnlineRevenue` and `elec:RetailRevenue`.\n\n3.  **`domain-member`** 🌐\n    - **Purpose:** Connects a **dimension axis** to its allowed **members**. Used primarily in the **Definition Linkbase**. 🧭\n    - **Example:** The dimension axis `elec:RegionAxis` has `elec:AsiaMember` and `elec:EuropeMember` as its allowed members.\n\nUnderstanding these arcroles helps you interpret the structure and logic of an XBRL taxonomy."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 7,
+            "content": {
+              "title": "⚙️ How Arcroles are Written in XBRL",
+              "text": "Arcroles are specified within special 'arc' elements in XBRL linkbases. These arcs create the connections between concepts.\n\nHere's an example of how an arcrole might appear in XML (e.g., in a Presentation Linkbase):\n\n```xml\n<presentationArc\n  xlink:type=\"arc\"\n  xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/parent-child\"\n  xlink:from=\"elec:TotalAssets\"\n  xlink:to=\"elec:FixedAssets\"\n  order=\"1\"\n  use=\"optional\" />\n```\n\n**Key Attributes in an Arc Element:**\n- `xlink:type=\"arc\"`: This always indicates that the element is a relationship 'arc'. 🏹\n- `xlink:arcrole`: This is where the **specific type of relationship** (the arcrole) is defined, using a unique URI (e.g., `parent-child`). 🔗\n- `xlink:from`: Specifies the **starting concept** of the relationship. ➡️ (The 'parent' in parent-child)\n- `xlink:to`: Specifies the **ending concept** of the relationship. ⬅️ (The 'child' in parent-child)\n- `order`, `weight`, `use`: These provide **additional metadata** specific to the relationship type (e.g., `order` for display, `weight` for calculations). ⚙️\n\nThis structure ensures precise and machine-readable semantics for all relationships in XBRL taxonomies. ✅"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 8,
+            "content": {
+              "title": "🏷️ Label Linkbase: Naming Your Concepts",
+              "text": "The **Label Linkbase** 🏷️ is all about making XBRL reports **human-friendly**. It connects the technical concept names (like `NetIncomeLoss`) to labels that people can easily understand (like \"Net Income\").\n\nConcepts can have **different types of labels**, depending on where they are displayed or what level of detail is needed. This flexibility allows XBRL-enabled software to show the most appropriate label for any given view. 📊\n\nHere are the most common types of labels:\n\n1.  **Standard Label** (`http://www.xbrl.org/2003/role/label`)\n    - This is the **primary or default label**. ✅ It's usually a clear, commonly understood name for the concept.\n    - *Use Case:* General display in a financial statement table.\n\n2.  **Terse Label** (`http://www.xbrl.org/2003/role/terseLabel`)\n    - This is a **short, concise label**, often used when space is limited (e.g., in a narrow column or a summary view). 🤏\n    - *Use Case:* Column headers in a compact report, mobile views.\n\n3.  **Verbose Label** (`http://www.xbrl.org/2003/role/verboseLabel`)\n    - This is a **longer, more descriptive label** that provides additional context or explanation for the concept. 💬\n    - *Use Case:* Tooltips, detailed disclosures, or explanations in complex reports.\n\n**Example:** Labeling `NetIncomeLoss` with different roles:\n```xml\n<link:labelLink xlink:type=\"extended\" xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_NetIncomeLoss\" xlink:type=\"locator\" xlink:label=\"loc_netIncome\"/>\n\n  <link:label xlink:label=\"lab_netIncome_std\" xlink:type=\"resource\" xlink:role=\"http://www.xbrl.org/2003/role/label\">Net Income (Loss)</link:label>\n  <link:labelArc xlink:from=\"loc_netIncome\" xlink:to=\"lab_netIncome_std\" xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-label\" xlink:type=\"arc\"/>\n\n  <link:label xlink:label=\"lab_netIncome_trs\" xlink:type=\"resource\" xlink:role=\"http://www.xbrl.org/2003/role/terseLabel\">Net Inc.</link:label>\n  <link:labelArc xlink:from=\"loc_netIncome\" xlink:to=\"lab_netIncome_trs\" xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-label\" xlink:type=\"arc\"/>\n\n  <link:label xlink:label=\"lab_netIncome_vrb\" xlink:type=\"resource\" xlink:role=\"http://www.xbrl.org/2003/role/verboseLabel\">Net income or loss attributable to the reporting entity</link:label>\n  <link:labelArc xlink:from=\"loc_netIncome\" xlink:to=\"lab_netIncome_vrb\" xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-label\" xlink:type=\"arc\"/>\n</link:labelLink>\n```\n\n**Key Elements in a Label Linkbase (Recap):**\n- `<link:labelLink>`: The main container for label relationships.\n- `<link:loc>`: Locators, which point to the concepts you want to label (e.g., `ex:NetIncomeLoss`).\n- `<link:label>`: Defines the actual text of the label and its `xlink:role`.\n- `<link:labelArc>`: Connects the concept (from `<link:loc>`) to its label (to `<link:label>`)."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 9,
+            "content": {
+              "title": "💡 Activity 1: Create the Label Resource",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"RevenueFromContractsWithCustomers\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\" />\n</xs:schema>",
+              "code": "<link:labelLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                xmlns:ex=\"http://example.com/taxonomy\"\n                xlink:type=\"extended\"\n                xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RevenueFromContractsWithCustomers\"\n            xlink:type=\"locator\"\n            xlink:label=\"loc_revenue\"/>\n\n  \n\n</link:labelLink>",
+              "question": "💡 **Your Task:** Create the **`<link:label>` element** for the concept `ex:RevenueFromContractsWithCustomers`.\n\n- The label text should be: \"Revenue\"\n- It needs to be a **terse label**.\n\n**Sample structure of a `<link:label>` element:**\n```xml\n<link:label xlink:label=\"[your_internal_id]\" xlink:type=\"resource\" xlink:role=\"[label_role_URI]\">Your Label Text</link:label>\n```\n\n**Here’s how to complete this activity:**\n1.  **Locate the `` comment** in the XML code block.\n2.  **Inside this spot, write ONLY the XML for the `<link:label>` element.** Ensure it has:\n    * An `xlink:label` attribute (e.g., `\"lab_revenue_terse\"`). This is an internal ID you define.\n    * `xlink:type=\"resource\"` (because a label is a resource).\n    * The correct `xlink:role` URI for a **terse label**: `http://www.xbrl.org/2003/role/terseLabel`.\n    * The text content \"Revenue\" between its opening and closing tags. \n ✏️ **Edit the XML above** to correctly define your terse label.",
+              "hint": "Focus only on the `<link:label>` tag. Remember to set its `xlink:role` attribute to the specific URI for a terse label. The `xlink:label` attribute can be any unique string.",
+              "validator": "validateLabelPart1",
+              "explanation": "✅ **Correct Solution:**\n```xml\n<link:labelLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                xmlns:ex=\"http://example.com/taxonomy\"\n                xlink:type=\"extended\"\n                xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RevenueFromContractsWithCustomers\"\n            xlink:type=\"locator\"\n            xlink:label=\"loc_revenue\"/>\n\n  <link:label xlink:label=\"lab_revenue_terse\"\n              xlink:type=\"resource\"\n              xlink:role=\"http://www.xbrl.org/2003/role/terseLabel\">Revenue</link:label>\n</link:labelLink>\n```\n- `xlink:label=\"lab_revenue_terse\"` provides a unique identifier for this label.\n- `xlink:type=\"resource\"` identifies it as a resource.\n- `xlink:role` for a terse label explicitly states the short label type.\n- Text \"Revenue\" is the human-readable label."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 10,
+            "content": {
+              "title": "💡 Activity 2: Connect the Label",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"RevenueFromContractsWithCustomers\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\" />\n</xs:schema>",
+              "code": "<link:labelLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                xmlns:ex=\"http://example.com/taxonomy\"\n                xlink:type=\"extended\"\n                xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RevenueFromContractsWithCustomers\"\n            xlink:type=\"locator\"\n            xlink:label=\"loc_revenue\"/>\n\n  <link:label xlink:label=\"lab_revenue_terse\"\n              xlink:type=\"resource\"\n              xlink:role=\"http://www.xbrl.org/2003/role/terseLabel\">Revenue</link:label>\n\n  \n\n</link:labelLink>",
+              "question": "💡 **Your Task:** Now, create the **`<link:labelArc>` element** to connect the concept `ex:RevenueFromContractsWithCustomers` to the terse label you just created.\n\n- The concept's locator has `xlink:label=\"loc_revenue\"`.\n- Your terse label has `xlink:label=\"lab_revenue_terse\"`.\n\n**Sample structure of a `<link:labelArc>` element:**\n```xml\n<link:labelArc xlink:from=\"[source_xlink:label]\" xlink:to=\"[target_xlink:label]\" xlink:arcrole=\"[arcrole_URI]\" xlink:type=\"arc\"/>\n```\n\n**Here’s how to complete this activity:**\n1.  **Locate the `` comment** in the XML code block.\n2.  **Inside this spot, write ONLY the XML for the `<link:labelArc>` element.** Ensure it has:\n    * `xlink:from=\"loc_revenue\"` (pointing to the concept).\n    * `xlink:to=\"lab_revenue_terse\"` (pointing to your label).\n    * `xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-label\"` (the standard arcrole for concept-label relationships).\n    * `xlink:type=\"arc`\".\n\n✏️ **Edit the XML above** to correctly connect your concept and label.",
+              "hint": "The `xlink:from` attribute always points to the source of the arc (the concept locator), and `xlink:to` points to the target (your label resource).",
+              "validator": "validateLabelPart2",
+              "explanation": "✅ **Correct Solution:**\n\n```xml\n<link:labelLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                xmlns:ex=\"http://example.com/taxonomy\"\n                xlink:type=\"extended\"\n                xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RevenueFromContractsWithCustomers\"\n            xlink:type=\"locator\"\n            xlink:label=\"loc_revenue\"/>\n\n  <link:label xlink:label=\"lab_revenue_terse\"\n              xlink:type=\"resource\"\n              xlink:role=\"http://www.xbrl.org/2003/role/terseLabel\">Revenue</link:label>\n\n  <link:labelArc xlink:from=\"loc_revenue\"\n                 xlink:to=\"lab_revenue_terse\"\n                 xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-label\"\n                 xlink:type=\"arc\"/>\n\n</link:labelLink>\n```\n\n**Explanation:**\n\n- We've correctly added the `<link:labelArc>` element.\n- `xlink:from=\"loc_revenue\"` correctly points to the `xlink:label` of the concept's locator, making the concept the source of the relationship.\n- `xlink:to=\"lab_revenue_terse\"` correctly points to the `xlink:label` of the label resource we created in the previous step, making the label the target of the relationship.\n- `xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-label\"` is the standard arc role used to define that a concept has a label."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 11,
+            "content": {
+              "title": "📋 Presentation Linkbase: Structuring Your Report",
+              "text": "The **Presentation Linkbase** 📋 organizes how financial concepts appear in a report. It defines the **hierarchy** (parent-child relationships) and the **display order** of concepts, making statements easy to read and understand.\n\nThink of it as the table of contents or the structure of a financial statement, showing which items are subtotals and which are components. 🏗️\n\n**Example:** Showing `Cash` and `Inventory` under `Assets`:\n```xml\n<link:presentationLink xlink:type=\"extended\" xlink:role=\"http://www.xbrl.org/2003/role/statementOfFinancialPosition\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Assets\" xlink:type=\"locator\" xlink:label=\"loc_Assets\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Cash\" xlink:type=\"locator\" xlink:label=\"loc_Cash\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Inventory\" xlink:type=\"locator\" xlink:label=\"loc_Inventory\"/>\n\n  <link:presentationArc xlink:from=\"loc_Assets\" xlink:to=\"loc_Cash\" \n                        xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/parent-child\" order=\"1\"/>\n  <link:presentationArc xlink:from=\"loc_Assets\" xlink:to=\"loc_Inventory\" \n                        xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/parent-child\" order=\"2\"/>\n</link:presentationLink>\n```\n\n**Key Elements in a Presentation Linkbase:**\n- `<link:presentationLink>`: The main container.\n- `<link:loc>`: Locators, pointing to the concepts (e.g., `ex:Assets`, `ex:Cash`).\n- `<link:presentationArc>`: The core element that defines the parent-child relationship.\n  - `xlink:from`: Points to the **parent** concept. ⬆️\n  - `xlink:to`: Points to the **child** concept. ⬇️\n  - `xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/parent-child\"`: This specific arcrole signifies a hierarchical relationship. 🔗\n  - **Understanding the `order` Attribute: 🔢**\n    -   **Purpose:** Specifies display sequence for sibling concepts.\n    -   **Mechanism:** XBRL processors sort sibling arcs in ascending order.\n    -   **Best Practice:** Use increments (e.g., 10, 20, 30) to allow easy insertions later.\n    -   **Default:** If omitted, order may default to alphabetical or unpredictable."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 12,
+            "content": {
+              "title": "💡 Activity 1: Link Parent to First Child",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"TotalOperatingExpenses\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"SalariesAndWages\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"RentExpense\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n</xs:schema>",
+              "code": "<link:presentationLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                           xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                           xmlns:ex=\"http://example.com/taxonomy\"\n                           xlink:type=\"extended\"\n                           xlink:role=\"http://www.xbrl.org/2003/role/linkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_TotalOperatingExpenses\" xlink:type=\"locator\" xlink:label=\"loc_TotalOperatingExpenses\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_SalariesAndWages\" xlink:type=\"locator\" xlink:label=\"loc_SalariesAndWages\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RentExpense\" xlink:type=\"locator\" xlink:label=\"loc_RentExpense\"/>\n\n  <link:presentationArc xlink:from=\"REPLACE_WITH_PARENT_LOCATOR\" xlink:to=\"REPLACE_WITH_CHILD_LOCATOR\" xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/parent-child\" xlink:type=\"arc\" order=\"REPLACE_WITH_ORDER_NUMBER\"/>\n  \n\n</link:presentationLink>",
+              "question": "**Your Task:** Create the **first `<link:presentationArc>` element** to show that `ex:SalariesAndWages` is a child of `ex:TotalOperatingExpenses`.\n\n- Parent locator: `loc_TotalOperatingExpenses`.\n- Child locator: `loc_SalariesAndWages`.\n- Arcrole: `http://www.xbrl.org/2003/arcrole/parent-child`.\n- Order: `10`.",
+              "hint": "The `xlink:from` and `xlink:to` refer to the `xlink:label`s of the `loc` elements. The `order` defines display sequence.",
+              "validator": "validatePresentationPart1",
+              "explanation": "✅ **Correct Solution:**\n\n```xml\n<link:presentationArc xlink:from=\"loc_TotalOperatingExpenses\" xlink:to=\"loc_SalariesAndWages\"\n                      xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/parent-child\"\n                      xlink:type=\"arc\" order=\"10\"/>\n```\n\n- `loc_TotalOperatingExpenses` is the parent.\n- `loc_SalariesAndWages` is the child.\n- Order `10` ensures it appears first."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 13,
+            "content": {
+              "title": "💡 Activity 2: Add Second Child with Order",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"TotalOperatingExpenses\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"SalariesAndWages\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"RentExpense\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n</xs:schema>",
+              "code": "<link:presentationLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                           xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                           xmlns:ex=\"http://example.com/taxonomy\"\n                           xlink:type=\"extended\"\n                           xlink:role=\"http://www.xbrl.org/2003/role/linkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_TotalOperatingExpenses\" xlink:type=\"locator\" xlink:label=\"loc_TotalOperatingExpenses\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_SalariesAndWages\" xlink:type=\"locator\" xlink:label=\"loc_SalariesAndWages\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RentExpense\" xlink:type=\"locator\" xlink:label=\"loc_RentExpense\"/>\n\n  <link:presentationArc xlink:from=\"loc_TotalOperatingExpenses\" xlink:to=\"loc_SalariesAndWages\"\n                        xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/parent-child\" xlink:type=\"arc\" order=\"10\"/>\n  \n  \n\n</link:presentationLink>",
+              "question": "💡 **Your Task:** Create the **second `<link:presentationArc>` element** to show that `ex:RentExpense` is also a child of `ex:TotalOperatingExpenses`.\n\n- Parent locator: `loc_TotalOperatingExpenses`.\n- Child locator: `loc_RentExpense`.\n- Arcrole: `http://www.xbrl.org/2003/arcrole/parent-child`.\n- Order: greater than `10`, preferably `20`.",
+              "validator": "validatePresentationPart2",
+              "explanation": "✅ **Correct Solution:**\n\n```xml\n<link:presentationArc xlink:from=\"loc_TotalOperatingExpenses\" xlink:to=\"loc_RentExpense\"\n                      xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/parent-child\"\n                      xlink:type=\"arc\" order=\"20\"/>\n```\n\n- Links `TotalOperatingExpenses` to `RentExpense`.\n- Order `20` places it after `SalariesAndWages`."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 14,
+            "content": {
+              "title": "➕➖ Calculation Linkbase: Ensuring Mathematical Accuracy",
+              "text": "The **Calculation Linkbase** ➕➖ is essential for defining **mathematical relationships** between numerical concepts. It ensures that your financial data is **consistent and adds up correctly**.\n\nIt defines rules like 'A + B = C' or 'Total = Sum of parts'. 🧮\n\n**Example:** `TotalAssets` is the sum of `Cash` and `Inventory`:\n```xml\n<link:calculationLink xlink:type=\"extended\" xlink:role=\"http://www.xbrl.org/2003/role/calculationLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_TotalAssets\" xlink:type=\"locator\" xlink:label=\"loc_TotalAssets\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Cash\" xlink:type=\"locator\" xlink:label=\"loc_Cash\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Inventory\" xlink:type=\"locator\" xlink:label=\"loc_Inventory\"/>\n\n  <link:calculationArc xlink:from=\"loc_TotalAssets\" xlink:to=\"loc_Cash\" \n                       xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/summation-item\" weight=\"1\"/>\n  <link:calculationArc xlink:from=\"loc_TotalAssets\" xlink:to=\"loc_Inventory\" \n                       xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/summation-item\" weight=\"1\"/>\n</link:calculationLink>\n```\n\n**Key Elements in a Calculation Linkbase:**\n- `<link:calculationLink>`: The main container.\n- `<link:loc>`: Locators, pointing to the numerical concepts.\n- `<link:calculationArc>`: Defines the mathematical relationship.\n  - `xlink:from`: Points to the **summing concept** (the total).\n  - `xlink:to`: Points to a **contributing concept** (a part of the total).\n  - `xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/summation-item\"`: This specific arcrole means 'the `from` concept is the sum of (or impacted by) the `to` concept'. 🔗\n  - `weight`: A crucial attribute! It defines how the `to` concept affects the `from` concept:\n    - `weight=\"1\"`: The `to` concept is **added** to the `from` concept. ✅\n    - `weight=\"-1\"`: The `to` concept is **subtracted** from the `from` concept. ⛔"
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 15,
+            "content": {
+              "title": "💡 Activity 1: Link Total to Component (Addition)",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"NetIncome\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"Revenue\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"CostOfGoodsSold\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n</xs:schema>",
+              "code": "<link:calculationLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                            xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                            xmlns:ex=\"http://example.com/taxonomy\"\n                            xlink:type=\"extended\"\n                            xlink:role=\"http://www.xbrl.org/2003/role/calculationLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_NetIncome\" xlink:type=\"locator\" xlink:label=\"loc_NetIncome\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Revenue\" xlink:type=\"locator\" xlink:label=\"loc_Revenue\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_CostOfGoodsSold\" xlink:type=\"locator\" xlink:label=\"loc_CostOfGoodsSold\"/>\n\n  \n  <link:calculationArc xlink:from=\"[TOTAL_CONCEPT_LOCATOR]\" xlink:to=\"[COMPONENT_CONCEPT_LOCATOR]\"\n                       xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/summation-item\" xlink:type=\"arc\" weight=\"[WEIGHT_VALUE]\"/>\n\n</link:calculationLink>",
+              "question": "💡 **Your Task:** Create the **first `<link:calculationArc>` element** to represent `Revenue` in the formula `NetIncome = Revenue - CostOfGoodsSold`.\n\n- The total concept's locator is `loc_NetIncome`.\n- The component concept's locator is `loc_Revenue`.\n- Use the standard `xlink:arcrole` for summation-item relationships.\n- Set its `weight` attribute to `1` (for addition).\n\n**Sample structure of a `<link:calculationArc>` element:**\n```xml\n<link:calculationArc xlink:from=\"[total_locator_label]\" xlink:to=\"[component_locator_label]\" xlink:arcrole=\"[arcrole_URI]\" xlink:type=\"arc\" weight=\"[number]\"/>\n```",
+              "hint": "The `xlink:from` points to the concept that is the sum (e.g., NetIncome), and `xlink:to` points to a component that contributes to that sum (e.g., Revenue). Use `weight=\"1\"` for addition.",
+              "validator": "validateCalculationPart1",
+              "explanation": "✅ **Correct Solution:**\n\n```xml\n<link:calculationLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                            xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                            xmlns:ex=\"http://example.com/taxonomy\"\n                            xlink:type=\"extended\"\n                            xlink:role=\"http://www.xbrl.org/2003/role/calculationLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_NetIncome\" xlink:type=\"locator\" xlink:label=\"loc_NetIncome\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Revenue\" xlink:type=\"locator\" xlink:label=\"loc_Revenue\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_CostOfGoodsSold\" xlink:type=\"locator\" xlink:label=\"loc_CostOfGoodsSold\"/>\n\n  <link:calculationArc xlink:from=\"loc_NetIncome\" xlink:to=\"loc_Revenue\"\n                            xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/summation-item\" xlink:type=\"arc\" weight=\"1\"/>\n\n</link:calculationLink>\n```\n\n- `xlink:from=\"loc_NetIncome\"` specifies the calculated total.\n- `xlink:to=\"loc_Revenue\"` specifies the contributing item.\n- `weight=\"1\"` means it's added."
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 16,
+            "content": {
+              "title": "💡 Activity 2: Add Second Component (Subtraction)",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"NetIncome\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"Revenue\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"CostOfGoodsSold\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n</xs:schema>",
+              "code": "<link:calculationLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                            xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                            xmlns:ex=\"http://example.com/taxonomy\"\n                            xlink:type=\"extended\"\n                            xlink:role=\"http://www.xbrl.org/2003/role/calculationLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_NetIncome\" xlink:type=\"locator\" xlink:label=\"loc_NetIncome\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Revenue\" xlink:type=\"locator\" xlink:label=\"loc_Revenue\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_CostOfGoodsSold\" xlink:type=\"locator\" xlink:label=\"loc_CostOfGoodsSold\"/>\n\n  <link:calculationArc xlink:from=\"loc_NetIncome\" xlink:to=\"loc_Revenue\"\n                            xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/summation-item\" xlink:type=\"arc\" weight=\"1\"/>\n\n  \n  <link:calculationArc xlink:from=\"[TOTAL_CONCEPT_LOCATOR]\" xlink:to=\"[COMPONENT_CONCEPT_LOCATOR]\"\n                       xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/summation-item\" \n                       xlink:type=\"arc\" weight=\"[WEIGHT_VALUE]\"/>\n\n</link:calculationLink>",
+              "question": "💡 **Your Task:** Create the **second `<link:calculationArc>` element** to represent `CostOfGoodsSold` in the formula `NetIncome = Revenue - CostOfGoodsSold`.\n\n- The total concept's locator is `loc_NetIncome`.\n- The component concept's locator is `loc_CostOfGoodsSold`.\n- Use the standard `xlink:arcrole` for summation-item relationships.\n- **Crucially:** Set its `weight` attribute to `-1` (for subtraction).\n\n**Sample structure of a `<link:calculationArc>` element (also provided in the code!):**\n```xml\n<link:calculationArc xlink:from=\"[total_locator_label]\" xlink:to=\"[component_locator_label]\" xlink:arcrole=\"[arcrole_URI]\" xlink:type=\"arc\" weight=\"[number]\"/>\n```\n\n✏️ **Edit the XML above** to correctly define the subtraction part of your calculation.",
+              "hint": "For items that subtract from the total, the `weight` attribute should be `-1`. The `xlink:from` still points to the sum, and `xlink:to` to the component.",
+              "validator": "validateCalculationPart2",
+              "explanation": "✅ **Correct Solution:**\n\n```xml\n<link:calculationArc xlink:from=\"loc_NetIncome\" xlink:to=\"loc_CostOfGoodsSold\"\n    xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/summation-item\" xlink:type=\"arc\" weight=\"-1\"/>\n```\n\n- Links `NetIncome` to `CostOfGoodsSold` as a subtraction.\n- `weight=\"-1\"` indicates the subtraction in the calculation relationship."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 17,
+            "content": {
+              "title": "🧭 Definition Linkbase: Defining Advanced Relationships (Dimensions!)",
+              "text": "The **Definition Linkbase** 🧭 is a powerful tool for defining relationships that don't fit into the simple presentation (hierarchy) or calculation (math) categories.\n\nIts **most common and crucial use is for XBRL Dimensions**. It establishes the rules for how dimension axes (like `RegionAxis`) relate to their specific members (like `AsiaMember`). 🔗\n\n**Example:** Linking `ProductCategoryAxis` to its member `ElectronicsMember`:\n```xml\n<link:definitionLink xlink:type=\"extended\" xlink:role=\"http://www.xbrl.org/2003/role/definitionLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_ProductCategoryAxis\" xlink:type=\"locator\" xlink:label=\"loc_ProdCatAxis\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_ElectronicsMember\" xlink:type=\"locator\" xlink:label=\"loc_ElectronicsMember\"/>\n\n  <link:definitionArc xlink:from=\"loc_ProdCatAxis\" xlink:to=\"loc_ElectronicsMember\" \n                      xlink:arcrole=\"http://xbrl.org/2003/arcrole/domain-member\"/>\n</link:definitionLink>\n```\n\n**Key Elements in a Definition Linkbase:**\n- `<link:definitionLink>`: The main container.\n- `<link:loc>`: Locators, pointing to the concepts (e.g., a dimension axis, a dimension member).\n- `<link:definitionArc>`: Defines the relationship.\n  - `xlink:from`: Usually points to the **dimension axis** (the category).\n  - `xlink:to`: Usually points to a **dimension member** (a specific value in that category).\n  - `xlink:arcrole=\"http://xbrl.org/2003/arcrole/domain-member\"`: This specific arcrole is used to link a dimension axis to its allowed members. 🎯\n\nThe Definition Linkbase is how you tell XBRL which specific choices are allowed for each of your Explicit Dimensions. ✅"
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 18,
+            "content": {
+              "title": "🔗 Activity: Connect Your Dimensions!",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:xbrldt=\"http://xbrl.org/2005/xbrldt\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"GeographicRegionAxis\" type=\"xbrldt:dimensionItemType\" substitutionGroup=\"xbrli:item\"/>\n\n  <xs:element name=\"EuropeMember\" type=\"xbrli:stringItemType\" substitutionGroup=\"xbrli:item\"/>\n\n  <xs:element name=\"GeographicRegionDomain\" type=\"xbrli:stringItemType\" substitutionGroup=\"xbrli:item\"/>\n\n</xs:schema>",
+              "code": "<link:definitionLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                             xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                             xmlns:xbrldt=\"http://xbrl.org/2005/xbrldt\"\n                             xmlns:ex=\"http://example.com/taxonomy\"\n                             xlink:type=\"extended\"\n                             xlink:role=\"http://www.xbrl.org/2003/role/definitionLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_GeographicRegionAxis\" xlink:type=\"locator\" xlink:label=\"loc_GeoRegionAxis\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_EuropeMember\" xlink:type=\"locator\" xlink:label=\"loc_EuropeMember\"/>\n\n  <!-- Add your definitionArc here -->\n  <link:definitionArc xlink:from=\"[AXIS_LOCATOR]\" xlink:to=\"[MEMBER_LOCATOR]\"\n                        xlink:arcrole=\"http://xbrl.org/2005/arcrole/domain-member\" xlink:type=\"arc\"/>\n</link:definitionLink>",
+              "question": "💡 **Your Task:** Create the **`<link:definitionArc>` element** to connect your `ex:GeographicRegionAxis` to its member `ex:EuropeMember`.\n\n- The dimension axis locator is `loc_GeoRegionAxis`.\n- The dimension member locator is `loc_EuropeMember`.\n- Use the specific `xlink:arcrole` for `domain-member` relationships: `http://xbrl.org/2005/arcrole/domain-member`.\n\n**Sample structure of a `<link:definitionArc>` element:**\n```xml\n<link:definitionArc xlink:from=\"[axis_locator_label]\" xlink:to=\"[member_locator_label]\" xlink:arcrole=\"[domain_member_arcrole_URI]\" xlink:type=\"arc\"/>\n```\n\n**Steps:**\n1. Find the `<!-- Add your definitionArc here -->` comment in the XML.\n2. Replace the placeholder `<link:definitionArc>` with one that points `xlink:from` to `loc_GeoRegionAxis` and `xlink:to` to `loc_EuropeMember`.",
+              "hint": "For `domain-member` arcs, `xlink:from` is the dimension axis, `xlink:to` is the member. The arcrole is already given.",
+              "validator": "validateDefinitionDomainMember",
+              "explanation": "✅ Correct Solution:\n```xml\n<link:definitionArc xlink:from=\"loc_GeoRegionAxis\" xlink:to=\"loc_EuropeMember\"\n                    xlink:arcrole=\"http://xbrl.org/2005/arcrole/domain-member\" xlink:type=\"arc\"/>\n```\n- `xlink:from` points to the axis locator.\n- `xlink:to` points to the member locator.\n- The arcrole specifies a `domain-member` relationship in XBRL Dimensions."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 19,
+            "content": {
+              "title": "📚 Reference Linkbase: Citing Authoritative Guidance",
+              "text": "The **Reference Linkbase** 📚 connects specific XBRL concepts to their **authoritative definitions or guidance** from official sources.\n\nThink of it as adding a footnote or a citation to each financial concept, showing where its meaning comes from (e.g., a specific paragraph in a GAAP or IFRS standard). 📜\n\n**Example:** Linking `LeaseLiability` to ASC 842, Paragraph 25:\n```xml\n<link:referenceLink xlink:type=\"extended\" xlink:role=\"http://www.xbrl.org/2003/role/referenceLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_LeaseLiability\" xlink:type=\"locator\" xlink:label=\"loc_leaseLiab\"/>\n  <link:reference xlink:label=\"ref_leaseLiab\" xlink:type=\"resource\" xlink:role=\"http://www.xbrl.org/2003/role/definitionReference\">\n    <ref:Standard>ASC 842</ref:Standard>\n    <ref:Paragraph>25</ref:Paragraph>\n  </link:reference>\n  <link:referenceArc xlink:from=\"loc_leaseLiab\" xlink:to=\"ref_leaseLiab\" \n                     xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-reference\" xlink:type=\"arc\"/>\n</link:referenceLink>\n```\n\n**Key Elements in a Reference Linkbase:**\n- `<link:referenceLink>`: The main container.\n- `<link:loc>`: Locators, pointing to the concepts (e.g., `ex:LeaseLiability`).\n- `<link:reference>`: Defines the details of the external reference. It can contain various sub-elements like `<ref:Standard>`, `<ref:Paragraph>`, `<ref:URI>`, etc.\n- `<link:referenceArc>`: Connects the concept (from `<link:loc>`) to its reference (to `<link:reference>`).\n  - `xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-reference\"`: This arcrole signifies that a concept is defined or supported by a reference. 🔗"
+            }
+          },
+          {
+            "card_type": "code",
+            "cardOrder": 20,
+            "content": {
+              "title": "📄 Activity: Cite the Source!",
+              "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"Revenue\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n</xs:schema>",
+              "code": "<link:referenceLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                            xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                            xmlns:ref=\"http://www.xbrl.org/2003/ref\"\n                            xmlns:ex=\"http://example.com/taxonomy\"\n                            xlink:type=\"extended\"\n                            xlink:role=\"http://www.xbrl.org/2003/role/referenceLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Revenue\" xlink:type=\"locator\" xlink:label=\"loc_Revenue\"/>\n\n  \n  <link:reference xlink:role=\"http://www.xbrl.org/2003/role/reference\" xlink:type=\"resource\">\n    <ref:Standard>[STANDARD_VALUE]</ref:Standard>\n    <ref:Paragraph>[PARAGRAPH_VALUE]</ref:Paragraph>\n  </link:reference>\n\n  <link:referenceArc xlink:from=\"loc_Revenue\" xlink:to=\"[REFERENCE_LABEL]\"\n                       xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-reference\" xlink:type=\"arc\"/>\n\n</link:referenceLink>",
+              "question": "💡 **Your Task:** You need to add a reference to the concept `ex:Revenue`.\n\n**Scenario:** The definition for `Revenue` comes from **IFRS 15, Paragraph 10**.\n\n**Task:** Replace the sample `<link:reference>` XML snippet. Make sure to include both the `Standard` and `Paragraph` details.\n\n- The concept's locator is `loc_Revenue`.\n- The `link:reference` resource itself needs an `xlink:label` (e.g., `ref_RevenueIFRS15`).\n- The `Standard` is `IFRS 15`.\n- The `Paragraph` is `10`.\n- The `link:referenceArc` needs to link `loc_Revenue` to your reference's label.\n\n**Here’s how to complete this activity:**\n1.  **Locate the `` comment** in the XML code block.\n2.  **Replace the sample `<link:reference>` element and adjust the `link:referenceArc` directly below the comment.**\n    * **For the `<link:reference>`:**\n        * Add an `xlink:label` (e.g., `ref_RevenueIFRS15`).\n        * Set the content of `<ref:Standard>` to `IFRS 15`.\n        * Set the content of `<ref:Paragraph>` to `10`.\n    * **For the `<link:referenceArc>`:**\n        * Ensure `xlink:from` points to `loc_Revenue`.\n        * Ensure `xlink:to` points to the `xlink:label` you assigned to your `link:reference` (e.g., `ref_RevenueIFRS15`).\n        * The `xlink:arcrole` should be `http://www.xbrl.org/2003/arcrole/concept-reference` (already provided).\n        * The `xlink:type` should be `arc` (already provided).",
+              "hint": "The `link:reference` element is a resource, so it needs an `xlink:label`. The `link:referenceArc` then links your concept (`xlink:from`) to that reference resource (`xlink:to`). Remember to fill in the `ref:Standard` and `ref:Paragraph` values.",
+              "validator": "validateReferencePart1",
+              "explanation": "✅ **Correct Solution:**\n\n```xml\n<link:referenceLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                            xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                            xmlns:ref=\"http://www.xbrl.org/2003/ref\"\n                            xmlns:ex=\"http://example.com/taxonomy\"\n                            xlink:type=\"extended\"\n                            xlink:role=\"http://www.xbrl.org/2003/role/referenceLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Revenue\" xlink:type=\"locator\" xlink:label=\"loc_Revenue\"/>\n\n  <link:reference xlink:role=\"http://www.xbrl.org/2003/role/reference\" xlink:type=\"resource\" xlink:label=\"ref_RevenueIFRS15\">\n    <ref:Standard>IFRS 15</ref:Standard>\n    <ref:Paragraph>10</ref:Paragraph>\n  </link:reference>\n\n  <link:referenceArc xlink:from=\"loc_Revenue\" xlink:to=\"ref_RevenueIFRS15\"\n                       xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-reference\" xlink:type=\"arc\"/>\n\n</link:referenceLink>\n```\n\n**Explanation:**\n\n- The `<link:reference>` resource is defined with `xlink:label=\"ref_RevenueIFRS15\"`, which allows it to be linked.\n- Inside the `<link:reference>`, the `<ref:Standard>` and `<ref:Paragraph>` elements are correctly populated with the provided information.\n- The `xlink:role` and `xlink:type` attributes for the reference resource are standard.\n- The `<link:referenceArc>` properly links `loc_Revenue` (`xlink:from`) to the `ref_RevenueIFRS15` (`xlink:to`) using the `http://www.xbrl.org/2003/arcrole/concept-reference` arcrole, establishing the reference for the `Revenue` concept."
+            }
+          }
+        ]
+      },
+      {
+        "title": "XML Basics: Understanding XBRL",
+        "description": "Learn Inline XBRL, dimensions, formula linkbases, and automation.",
+        "imageUrl": "",
+        "topicOrder": 6,
+        "cards": [
+          {
+            "card_type": "knowledge",
+            "cardOrder": 1,
+            "content": {
+              "title": "📚 Introduction to XML: What is it?",
+              "text": "XML stands for **eXtensible Markup Language**. 📜 It's a markup language, just like HTML, but with a different purpose.\n\nWhile HTML is designed to *display* data (how things look on a webpage), XML is designed to *describe* data. It focuses on what the data *is*.\n\nThink of it this way:\n- **HTML:** 'This is a **bold** paragraph.' (Focus on presentation)\n- **XML:** `<product><name>Laptop</name><price>1200</price></product>` (Focus on data meaning)\n\n**Key Characteristics of XML:**\n1.  **Extensible:** You can define your *own* tags (elements) to describe your data. There are no predefined tags like in HTML.\n2.  **Self-Describing:** The tags themselves often give a clue about the data they contain, making it human-readable.\n3.  **Hierarchical:** Data is organized in a tree-like structure with a root element and nested elements.\n4.  **Platform Independent:** XML data can be easily exchanged between different applications and systems.\n5.  **Strict Rules:** XML is much stricter than HTML about syntax. Every start tag must have an end tag, attributes must be quoted, etc. This makes it easier for machines to parse.\n\n**Why is XML important for XBRL?**\nXBRL (eXtensible Business Reporting Language) is *built entirely on XML*. All XBRL documents – taxonomies, instance documents, and linkbases – are essentially XML files that follow specific XBRL rules and structures. Understanding XML is the first step to understanding XBRL. 🧱"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 2,
+            "content": {
+              "title": "🏷️ XML Elements: The Core Building Blocks",
+              "text": "In XML, **elements** are the primary containers for data. They represent distinct pieces of information.\n\nAn element typically consists of three parts:\n1.  **Start Tag:** Marks the beginning of an element (e.g., `<book>`).\n2.  **Content:** The data or other elements contained within the element.\n3.  **End Tag:** Marks the end of an element (e.g., `</book>`).\n\n**Structure of an Element:**\n```xml\n<elementName>Content goes here</elementName>\n```\n\n**Example:**\n```xml\n<product>\n  <name>Wireless Headphones</name>\n  <price>99.99</price>\n  <currency>USD</currency>\n</product>\n```\n\nIn this example:\n- `<product>` is an element containing other elements.\n- `<name>`, `<price>`, and `<currency>` are elements containing text content.\n\n**Rules for Element Naming:**\n- Names can contain letters, numbers, and other characters.\n- Names cannot start with the letters 'xml' (or XML, Xml, etc.).\n- Names cannot start with a number or punctuation character.\n- Names cannot contain spaces.\n- XML names are case-sensitive (`<Book>` is different from `<book>`).\n\n**Empty Elements:**\nAn element can exist without any content. These are called **empty elements**.\nYou can write them in two ways:\n1.  With a separate start and end tag: `<break></break>`\n2.  Using a self-closing tag: `<break/>`\n\n**Example of an empty element:**\n```xml\n<lineBreak/>\n<image src=\"logo.png\"/>\n```\n\nIn XBRL, concepts like `<xbrli:context>` or `<xbrli:unit>` are XML elements, often containing other nested elements to describe their full meaning. Facts like `<ex:Assets>` are also elements."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 3,
+            "content": {
+              "title": "⚙️ XML Attributes: Describing Elements with Detail",
+              "text": "While elements contain the main data, **attributes** provide *additional information* about an element. They are defined directly within the element's start tag.\n\nThink of attributes as properties or characteristics of an element that further describe it.\n\n**Structure of an Attribute:**\n```xml\n<elementName attributeName=\"attributeValue\">\n  Content\n</elementName>\n```\n\n- **`attributeName`**: The name of the attribute.\n- **`attributeValue`**: The value assigned to the attribute. This *must* be enclosed in single (`'`) or double (`\"`) quotes.\n\n**Example:**\n```xml\n<product category=\"electronics\" id=\"P001\">\n  <name>Smartphone</name>\n  <price>799.00</price>\n</product>\n```\n\nHere, `category` and `id` are attributes of the `<product>` element, providing more context about that specific product.\n\n**When to use Elements vs. Attributes?**\nGenerally:\n- **Elements** are best for data that is part of the document's structure or content (e.g., `<name>`, `<price>`).\n- **Attributes** are best for data that describes the data in an element or provides metadata (e.g., `id`, `type`, `status`).\n\n**XBRL and Attributes:**\nAttributes are *extensively* used in XBRL to provide crucial metadata for elements. For example:\n- In a Label Linkbase: `xlink:type=\"resource\"`, `xlink:role=\"http://www.xbrl.org/2003/role/label\"`\n- In an Instance Document: `contextRef=\"C2023_YE\"`, `unitRef=\"USD\"`, `decimals=\"-3\"`\n\nThese attributes provide essential context and define how XBRL processors should interpret the elements they belong to. Without them, the XBRL data would be just plain numbers and text, lacking critical meaning. 💡"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 4,
+            "content": {
+              "title": "🌲 XML Document Structure: The Root and Hierarchy",
+              "text": "Every well-formed XML document must follow a specific structural rule: it must have exactly one **root element**.\n\nThe **root element** is the top-level element that contains all other elements in the document. It's like the trunk of a tree, from which all other branches (child elements) sprout. 🌳\n\n**Example of a simple XML structure:**\n```xml\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<catalog>  \n  <book id=\"bk101\">\n    <author>J.K. Rowling</author>\n    <title>Harry Potter and the Sorcerer's Stone</title>\n    <price>19.99</price>\n  </book>\n  <book id=\"bk102\">\n    <author>George Orwell</author>\n    <title>1984</title>\n    <price>12.50</price>\n  </book>\n</catalog>\n```\n\nIn this example, `<catalog>` is the root element. It contains two `<book>` elements, which in turn contain `<author>`, `<title>`, and `<price>` elements.\n\n**Hierarchy (Parent-Child Relationships):**\n- An element that contains another element is called the **parent**.\n- An element contained within another element is called a **child**.\n- Elements at the same level, sharing the same parent, are called **siblings**.\n\nFrom the example above:\n- `<catalog>` is the parent of the `<book>` elements.\n- The `<book>` elements are children of `<catalog>`.\n- `<author>`, `<title>`, and `<price>` are children of `<book>`.\n- The two `<book>` elements are siblings.\n\n**XBRL and Root Elements:**\n- **XBRL Instance Document:** The root element is always `<xbrl:xbrl>`.\n- **XBRL Taxonomy Schema:** The root element is typically `<xs:schema>`.\n- **XBRL Linkbases (Label, Presentation, etc.):** These also have their own specific root elements, like `<link:labelLink>`.\n\nThis structured, hierarchical nature is what makes XML (and thus XBRL) so powerful for organizing complex data in a consistent and machine-readable way. 🏗️"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 5,
+            "content": {
+              "title": "✨ XML Declaration: Starting Your XML Document",
+              "text": "The very first line in almost every XML document is the **XML Declaration**. It's optional, but highly recommended, as it provides crucial information about the document itself. ℹ️\n\n**Structure:**\n```xml\n<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n```\n\nLet's break down its components:\n\n1.  **`<?xml ... ?>`**: This is the processing instruction syntax for XML declarations. It always starts with `<?xml` and ends with `?>`.\n\n2.  **`version=\"1.0\"`**: This attribute specifies the XML version being used. Currently, `1.0` is the most common and widely supported version.\n\n3.  **`encoding=\"UTF-8\"`**: This attribute specifies the character encoding for the XML document. It tells the XML parser how to interpret the bytes of the document into characters.\n    - **`UTF-8`**: This is the most common and recommended encoding. It supports virtually all characters from all languages, making it highly versatile.\n    - Other common encodings include `ISO-8859-1` (for Western European languages) or `UTF-16`.\n\n4.  **`standalone=\"yes|no\"` (Optional):** This attribute indicates whether the XML document is standalone, meaning it doesn't rely on an external Document Type Definition (DTD) for its validity.\n    - `yes`: The document is standalone (does not require external DTDs).\n    - `no`: The document is not standalone (requires external DTDs).\n    - If omitted, the default is `no` if there's an external DTD, and `yes` otherwise.\n\n**Example in an XBRL Context:**\nYou will see this at the very top of every XBRL schema, instance document, and linkbase file:\n```xml\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xbrl xmlns=\"http://www.xbrl.org/2003/instance\" ...>\n  \n</xbrl>\n```\n\nThe XML declaration ensures that XML parsers (the software that reads and understands XML) correctly interpret the document's characters and version, preventing errors and ensuring proper processing. It's the essential kickoff to any XML file. 🚀"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 6,
+            "content": {
+              "title": "🌐 XML Namespaces: Avoiding Name Collisions (The 'What' and 'Why')",
+              "text": "Imagine you're building a report that includes financial data and product data. Both might have an element named `<date>`. How does an XML parser know if `<date>` means 'reporting date' or 'manufacture date'? This is where **XML Namespaces** come in. 🚧\n\n**What are XML Namespaces?**\nNamespaces provide a way to avoid element and attribute name conflicts by providing a mechanism to uniquely qualify element and attribute names. They effectively create 'families' or 'vocabularies' of XML elements.\n\n**Why do we need Namespaces?**\nIn complex XML documents (like XBRL, which combines multiple standards):\n1.  **Ambiguity:** Prevents confusion when different XML vocabularies (sets of elements) use the same element name for different purposes.\n2.  **Modularity:** Allows for mixing and matching elements from different schemas without name clashes.\n3.  **Uniqueness:** Ensures that an element name is unique within its context.\n\n**How Namespaces Work:**\nNamespaces are identified by a **URI (Uniform Resource Identifier)**. This URI is typically a URL (e.g., `http://www.xbrl.org/2003/instance`), but it doesn't have to point to an actual webpage. Its primary purpose is to serve as a unique identifier for the namespace.\n\nTo use a namespace, you declare it using the `xmlns` attribute (XML Namespace) within an element's tag. This declaration applies to the element it's declared on and all its descendants.\n\n**Example Scenario (without namespaces):**\n```xml\n<report>\n  <date>2023-12-31</date> \n  <item>\n    <date>2023-11-15</date> \n  </item>\n</report>\n```\nHere, `date` is ambiguous.\n\n**Example Scenario (with namespaces):**\n```xml\n<report \n  xmlns:fin=\"http://example.com/financial\"\n  xmlns:prod=\"http://example.com/product\">\n  \n  <fin:date>2023-12-31</fin:date>\n  <prod:item>\n    <prod:date>2023-11-15</prod:date>\n  </prod:item>\n</report>\n```\nNow, `fin:date` clearly refers to a financial date, and `prod:date` refers to a product date. The ambiguity is resolved! ✅\n\nIn XBRL, you'll see namespaces like `xbrli`, `link`, and custom prefixes for taxonomy-specific concepts. This is how XBRL manages its complex structure and integrates definitions from various sources."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 7,
+            "content": {
+              "title": "🏷️ XML Prefixes and the Colon (`:`) in Namespaces",
+              "text": "When you see a colon (`:`) in an XML tag or attribute, like `xbrli:context` or `link:labelArc`, it signifies the use of an **XML Namespace Prefix**.\n\n**What is a Prefix?**\nA prefix is a short, readable alias (nickname) that you associate with a longer, unique namespace URI. Instead of writing the full URI every time you use an element from that namespace, you use the shorter prefix.\n\n**How are Prefixes Declared?**\nPrefixes are declared using the `xmlns:` attribute, followed by the chosen prefix, and then the equal sign and the namespace URI in quotes.\n\n**Structure:** `xmlns:yourPrefix=\"http://the/unique/namespace/uri\"`\n\n**Example:**\n```xml\n<xbrl \n  xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" \n  xmlns:link=\"http://www.xbrl.org/2003/linkbase\" \n  xmlns:ex=\"http://www.example.com/mycompany/taxonomy\">\n  \n  <xbrli:context id=\"c1\">...</xbrli:context>\n  <link:labelLink>...</link:labelLink>\n  <ex:Assets>...</ex:Assets>\n  \n</xbrl>\n```\nIn this example:\n- `xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"` declares that `xbrli` is the prefix for the XBRL instance namespace.\n- `xmlns:link=\"http://www.xbrl.org/2003/linkbase\"` declares `link` for the XBRL linkbase namespace.\n- `xmlns:ex=\"http://www.example.com/mycompany/taxonomy\"` declares `ex` for a custom taxonomy namespace.\n\n**The Role of the Colon (`:`):**\nThe colon separates the **prefix** from the **local name** of the element or attribute.\n\n**Example:** `xbrli:context`\n- `xbrli`: This is the prefix, referring to the `http://www.xbrl.org/2003/instance` namespace.\n- `context`: This is the local name of the element.\n- Together, `xbrli:context` uniquely identifies the 'context' element *within the XBRL instance namespace*.\n\n**Default Namespace (`xmlns` without a prefix):**\nYou can also declare a **default namespace** for an element and its children. This means elements within that scope that *don't* have a prefix belong to that default namespace.\n\n**Example:**\n```xml\n<bookstore xmlns=\"http://www.books.com/namespace\">\n  <book>\n    <title>The XML Guide</title>\n  </book>\n</bookstore>\n```\nHere, `bookstore`, `book`, and `title` all belong to the `http://www.books.com/namespace` because it's the default.\n\nIn XBRL, `xbrli` is often declared as the default namespace on the root `<xbrl>` element, so you might sometimes see `<context>` instead of `<xbrli:context>`, depending on how the document is structured. However, using prefixes explicitly is generally clearer, especially when mixing multiple namespaces. 🎯"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 8,
+            "content": {
+              "title": "📝 XML Schema (XSD): Defining XML Document Rules",
+              "text": "While XML provides a flexible way to structure data, it doesn't enforce *what* data should be there or *how* it should be structured beyond basic well-formedness rules. This is where **XML Schema Definition (XSD)** comes in. 📐\n\nAn **XML Schema** is an XML-based language used to define the structure, content, and data types of XML documents. It's like a blueprint or a contract that specifies what elements and attributes are allowed, their order, their data types, and their relationships.\n\n**Why is XSD important?**\n1. **Validation:** An XSD can be used to validate an XML document, ensuring it conforms to the defined rules. If a document doesn't follow the schema, it's considered 'invalid.'\n2. **Data Consistency:** Enforces consistent data structures across different XML files.\n3. **Data Types:** Allows for defining specific data types (e.g., integer, date, string, monetary) for elements and attributes, enabling better data processing and validation.\n4. **Tool Support:** Many development tools and parsers can use XSDs to provide auto-completion, validation, and data binding.\n\n**Key Elements in an XSD:**\n- `<xs:schema>`: The root element of every XML Schema document.\n- `<xs:element>`: Defines an XML element. You specify its name, type, and other properties.\n- `<xs:attribute>`: Defines an XML attribute.\n- `<xs:complexType>`: Defines elements that can contain other elements and/or attributes.\n- `<xs:simpleType>`: Defines elements or attributes that can only contain text content, but with specific constraints (e.g., a specific pattern, enumeration of allowed values).\n- `targetNamespace`: Specifies the namespace that elements and attributes declared in *this* schema belong to.\n- `xmlns:xs`: Declares the prefix for the XML Schema namespace (`http://www.w3.org/2001/XMLSchema`).\n\n**Example (Simplified XSD Snippet):**\n```xml\n<xs:schema \n  xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n  targetNamespace=\"http://www.example.com/products\"\n  elementFormDefault=\"qualified\">\n\n  <xs:element name=\"product\">\n    <xs:complexType>\n      <xs:sequence>\n        <xs:element name=\"name\" type=\"xs:string\"/>\n        <xs:element name=\"price\" type=\"xs:decimal\"/>\n        <xs:element name=\"availability\" type=\"xs:boolean\" minOccurs=\"0\"/>\n      </xs:sequence>\n      <xs:attribute name=\"id\" type=\"xs:ID\" use=\"required\"/>\n    </xs:complexType>\n  </xs:element>\n\n</xs:schema>\n```\nThis schema defines that a `<product>` element must have a `name` (string), a `price` (decimal), an optional `availability` (boolean), and a required `id` attribute.\n\n**XSD in XBRL:**\nXBRL Taxonomies are fundamentally defined using XML Schema (`.xsd`) files. These schema files define all the financial and business concepts (like 'Assets', 'Revenue', 'NetIncomeLoss') that can be reported. The data types (monetary, date, text) for these concepts are also defined within the schema. This ensures that XBRL reports use consistent definitions and types, making them reliable and comparable. It's the backbone of XBRL's structure. 🏗️"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 9,
+            "content": {
+              "title": "🔗 `xsi:schemaLocation`: Connecting XML to its Schema",
+              "text": "When you have an XML document and an XML Schema (XSD) that defines its structure, how do you tell the XML parser which schema to use for validation? This is done using the `xsi:schemaLocation` attribute. 🤝\n\n**What is `xsi:schemaLocation`?**\nThe `xsi:schemaLocation` attribute is part of the XML Schema instance namespace (`http://www.w3.org/2001/XMLSchema-instance`). It provides a hint to an XML parser about where to find the XML Schema file that defines the elements and attributes used in the XML document.\n\n**Structure:**\n```xml\n<rootElement \n  xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n  xsi:schemaLocation=\"namespaceURI locationOfSchemaFile\">\n</rootElement>\n```\nIt takes a list of pairs of values:\n- **namespaceURI**: The target namespace of the schema you want to associate.\n- **locationOfSchemaFile**: The hint (URL or relative path) to the actual `.xsd` file where that namespace is defined.\n\n**Example:**\n```xml\n<catalog \n  xmlns=\"http://www.example.com/products\" \n  xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n  xsi:schemaLocation=\"http://www.example.com/products products.xsd\">\n  <product id=\"P001\">\n    <name>Laptop</name>\n    <price>1200.00</price>\n  </product>\n</catalog>\n```\nIn this example:\n- `xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"` declares the `xsi` prefix for the XML Schema instance namespace.\n- `xsi:schemaLocation=\"http://www.example.com/products products.xsd\"` tells the parser: 'For elements in the `http://www.example.com/products` namespace, find their definitions in `products.xsd`.'\n\n**XBRL and `xsi:schemaLocation`:**\nThis attribute is crucial in XBRL Instance Documents to link the instance to the specific taxonomy schema(s) defining the concepts used.\n```xml\n<xbrl \n  xmlns:ex=\"http://www.example.com/mycompany/taxonomy\"\n  xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \n  xsi:schemaLocation=\"http://www.example.com/mycompany/taxonomy ../taxonomy.xsd\">\n  <ex:Assets contextRef=\"C1\" unitRef=\"U1\">1000000</ex:Assets>\n</xbrl>\n```\nHere, the instance document declares that concepts from the `http://www.example.com/mycompany/taxonomy` namespace are defined in the `../taxonomy.xsd` file. This allows XBRL processors to load the correct taxonomy and validate the instance."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 10,
+            "content": {
+              "title": "📚 XBRL Core Concepts: Putting XML to Work",
+              "text": "Now that we have a solid understanding of XML fundamentals, let's see how XBRL uses them to define and exchange business information. XBRL stands for **eXtensible Business Reporting Language**.\n\nAt its heart, XBRL takes the flexibility of XML and applies it to financial and business data, adding semantic meaning and validation. 📊\n\n**The Big Picture of XBRL:**\nXBRL creates a standardized, machine-readable format for business reports through two main types of documents:\n\n### 1. XBRL Taxonomies (The Dictionary/Blueprint)\nA **Taxonomy** is a set of XML Schema (`.xsd`) and Linkbase (`.xml`) files that define reporting concepts and their relationships for a specific reporting domain (e.g., IFRS, US GAAP).\n- **XML Schema (`.xsd`)**: Defines the concepts (like 'Assets', 'Revenue') and their data types.\n- **Linkbases (`.xml`)**: Define relationships between concepts:\n  - **Label Linkbase**: Connects technical concepts to human-readable names.\n  - **Presentation Linkbase**: Defines how concepts are grouped/displayed hierarchically.\n  - **Calculation Linkbase**: Specifies math relationships (e.g., Assets = Liabilities + Equity).\n  - **Definition Linkbase**: Defines other semantic relationships.\n  - **Reference Linkbase**: Links concepts to authoritative accounting literature.\n\n### 2. XBRL Instance Documents (The Actual Report Data)\nAn **Instance Document** is an XML file containing the actual facts reported by an entity for a specific period, using the taxonomy concepts.\n\n**Key XML Elements in Instance Documents:**\n- `<xbrli:context>`: Defines the context (entity, period, dimensions).\n- `<xbrli:unit>`: Defines the unit of measure.\n- Fact elements (e.g., `<ex:Assets>`): Actual reported values, linked to concepts from the taxonomy, with attributes like `contextRef` and `unitRef`.\n\n**How it fits together:**\n1. Taxonomy is created (XSD for concepts, Linkbases for relationships).\n2. Instance Document references taxonomy using `xsi:schemaLocation`.\n3. Data facts are entered, tagged with concepts, and associated with context/unit.\n4. XBRL software validates, analyzes, and renders the data.\n\nThis XML-based structure makes XBRL reports standardized, comparable, and automation-friendly, transforming static reports into dynamic datasets. 🚀"
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 11,
+            "content": {
+              "title": "🏢 `xbrli:entity`: Who is Reporting?",
+              "text": "In an XBRL Instance Document, every reported fact must be associated with a **context**, and a key part of that context is the **entity** that is reporting the data.\n\nThe `xbrli:entity` element (part of the XBRL Instance namespace) is used to uniquely identify the reporting organization or person.\n\n**Structure:**\n```xml\n<xbrli:context id=\"C1\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://www.sec.gov/cik\">0001045810</xbrli:identifier>\n  </xbrli:entity>\n</xbrli:context>\n```\n\n**Key Element within `xbrli:entity`:**\n- **`<xbrli:identifier>`:** Provides a unique code or name for the reporting entity.\n  - **`scheme` attribute:** URI identifying the standard by which the identifier is assigned.\n    - Examples:\n      - `http://www.sec.gov/cik`: U.S. SEC Central Index Key (CIK)\n      - `http://standards.iso.org/iso/17442/2012`: Legal Entity Identifier (LEI)\n      - `http://www.companieshouse.gov.uk/id/company`: UK Companies House\n      - Custom URIs for internal identifiers\n  - **Content:** The actual identifier value (e.g., `0001045810`, `549300LS467R7P64C729`).\n\n**Why is `xbrli:entity` important?**\n1. **Identification:** Specifies *who* is providing the data.\n2. **Comparability:** Enables automated systems to retrieve specific entities' data.\n3. **Uniqueness:** Along with period and other context details, ensures each reported fact is uniquely identified.\n\n**Example in a full context:**\n```xml\n<xbrli:context id=\"C_ABC_2023_YE\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://www.sec.gov/cik\">0001234567</xbrli:identifier>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:endDate>2023-12-31</xbrli:endDate>\n  </xbrli:period>\n</xbrli:context>\n\n<ex:Assets contextRef=\"C_ABC_2023_YE\" unitRef=\"USD\" decimals=\"-3\">15000000</ex:Assets>\n```\nHere, the `Assets` fact is clearly reported by entity CIK `0001234567` for the period ending `2023-12-31`."
+            }
+          },
+          {
+            "card_type": "knowledge",
+            "cardOrder": 12,
+            "content": {
+              "title": "⏱️ `xbrli:period`: When was the Data Valid?",
+              "text": "The `xbrli:period` element specifies the time interval or point in time for which a reported fact is valid.\n\nXBRL defines two main types of periods:\n\n### 1. Instant Period (`<xbrli:instant>`) — Point-in-Time Data\nUsed for facts representing a value at a specific date (e.g., balance sheet items).\n```xml\n<xbrli:period>\n  <xbrli:instant>YYYY-MM-DD</xbrli:instant>\n</xbrli:period>\n```\nExample:\n```xml\n<xbrli:context id=\"C_2023_Dec31\">\n  <xbrli:entity>...</xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2023-12-31</xbrli:instant>\n  </xbrli:period>\n</xbrli:context>\n\n<ex:CashAndCashEquivalents contextRef=\"C_2023_Dec31\" unitRef=\"USD\" decimals=\"-3\">1200000</ex:CashAndCashEquivalents>\n```\n\n### 2. Duration Period (`<xbrli:startDate>` and `<xbrli:endDate>`) — Period-of-Time Data\nUsed for facts representing values over a period (e.g., income statement items).\n```xml\n<xbrli:period>\n  <xbrli:startDate>YYYY-MM-DD</xbrli:startDate>\n  <xbrli:endDate>YYYY-MM-DD</xbrli:endDate>\n</xbrli:period>\n```\nExample:\n```xml\n<xbrli:context id=\"C_2023_FY\">\n  <xbrli:entity>...</xbrli:entity>\n  <xbrli:period>\n    <xbrli:startDate>2023-01-01</xbrli:startDate>\n    <xbrli:endDate>2023-12-31</xbrli:endDate>\n  </xbrli:period>\n</xbrli:context>\n\n<ex:Revenue contextRef=\"C_2023_FY\" unitRef=\"USD\" decimals=\"-3\">10000000</ex:Revenue>\n```\n\n**Why is `xbrli:period` important?**\n1. **Temporal Context:** Defines 'when' a fact applies.\n2. **Comparability:** Allows accurate comparisons across reporting periods.\n3. **Data Integrity:** Ensures facts are interpreted within their correct time frame."
+            }
+          }
+        ]
+      }
+    ]
+  }
+]
