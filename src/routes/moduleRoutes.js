@@ -10,14 +10,8 @@ const Card = require('../models/Card'); // Card model is not needed here
 // GET /api/modules -> Get all modules
 router.get('/', async (req, res) => {
   try {
-    const modules = await Module.find().populate({
-      path: 'topics',
-      options: { sort: { 'topicOrder': 1 } },
-      populate: {
-        path: 'cards',
-        options: { sort: { 'cardOrder': 1 } }
-      }
-    });
+    // Select only the fields needed for the module list view
+    const modules = await Module.find({}, 'title description imageUrl department topicOrder');
     res.json(modules);
   } catch (err) {
     res.status(500).json({ message: err.message });
