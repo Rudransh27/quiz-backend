@@ -1,12 +1,10 @@
 // src/routes/authRoutes.js
-
-import express from 'express';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
-import crypto from 'crypto'; // Import crypto for hashing tokens
-import User from '../models/User.js'; // Ensure the .js extension is present
-import auth from '../middleware/auth.js';
-import sendEmail from '../utils/sendEmail.js'; // Ensure the .js extension is present
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto'); // For hashing tokens
+const User = require('../models/User'); // No need for .js in CommonJS
+const sendEmail = require('../utils/sendEmail');
 
 const router = express.Router();
 
@@ -195,4 +193,4 @@ router.post('/validate', async (req, res) => {
 });
 
 
-export default router;
+module.exports = router;

@@ -1,6 +1,6 @@
 // src/validators/codeValidator.js
 
-import { DOMParser } from 'xmldom';
+const { DOMParser } = require('xmldom');
 // The xpath library is no longer needed.
 // import xpath from 'xpath';
 
