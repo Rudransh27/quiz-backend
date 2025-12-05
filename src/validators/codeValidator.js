@@ -33,7 +33,7 @@ function checkParserErrors(xmlDoc) {
 // === Regex-based Validators ===
 
 // Function to validate unitRef attribute
-export function validateUnitRefAnswer(userInput) {
+module.exports = function validateUnitRefAnswer(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -57,7 +57,7 @@ export function validateUnitRefAnswer(userInput) {
 }
 
 // Function to validate contextRef attribute
-export function validateContextRefAnswer(userInput) {
+module.exports = function validateContextRefAnswer(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -81,7 +81,7 @@ export function validateContextRefAnswer(userInput) {
 }
 
 // Function to validate a date range
-export function validateDateRangeAnswer(userInput) {
+module.exports = function validateDateRangeAnswer(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -125,7 +125,7 @@ export function validateDateRangeAnswer(userInput) {
 }
 
 // Function to validate currency code
-export function validateCurrencyCodeAnswer(userInput) {
+module.exports = function validateCurrencyCodeAnswer(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -150,7 +150,7 @@ export function validateCurrencyCodeAnswer(userInput) {
 }
 
 // Function to validate revenue value
-export function validateRevenueValueAnswer(userInput) {
+module.exports = function validateRevenueValueAnswer(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -180,7 +180,7 @@ export function validateRevenueValueAnswer(userInput) {
 }
 
 // Function to validate a complete snippet of XML
-export function validateAllFixesAnswer(inputXml) {
+module.exports = function validateAllFixesAnswer(inputXml) {
   const xmlDoc = parser.parseFromString(inputXml, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -227,7 +227,7 @@ export function validateAllFixesAnswer(inputXml) {
 }
 
 // Function to validate Bushchat Hands-on snippet
-export function validateBushchatHandsOnSnippet(xml) {
+module.exports = function validateBushchatHandsOnSnippet(xml) {
   const xmlDoc = parser.parseFromString(xml, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -275,7 +275,7 @@ export function validateBushchatHandsOnSnippet(xml) {
 }
 
 // Function to validate dimension usage
-export function validateDimensionUsage(inputXml) {
+module.exports = function validateDimensionUsage(inputXml) {
   const xmlDoc = parser.parseFromString(inputXml, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -310,7 +310,7 @@ export function validateDimensionUsage(inputXml) {
 }
 
 // Function to validate calculation
-export function validateCalculation(inputXml) {
+module.exports = function validateCalculation(inputXml) {
   const xmlDoc = parser.parseFromString(inputXml, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -343,7 +343,7 @@ export function validateCalculation(inputXml) {
 }
 
 // Function to validate dimension and calculation
-export function validateDimensionAndCalculation(inputXml) {
+module.exports = function validateDimensionAndCalculation(inputXml) {
   const xmlDoc = parser.parseFromString(inputXml, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -372,7 +372,7 @@ export function validateDimensionAndCalculation(inputXml) {
 }
 
 // Function to validate beginner level XML snippet 1
-export function validateBeginner1(instanceXmlString) {
+module.exports = function validateBeginner1(instanceXmlString) {
   const xmlDoc = parser.parseFromString(instanceXmlString, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -403,7 +403,7 @@ export function validateBeginner1(instanceXmlString) {
 }
 
 // Function to validate beginner level XML snippet 2
-export function validateBeginner2(instanceXmlString) {
+module.exports = function validateBeginner2(instanceXmlString) {
   const xmlDoc = parser.parseFromString(instanceXmlString, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -433,7 +433,7 @@ export function validateBeginner2(instanceXmlString) {
 }
 
 // Function to validate intermediate level XML snippet 1
-export function validateIntermediate1(userInput) {
+module.exports = function validateIntermediate1(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -456,7 +456,7 @@ export function validateIntermediate1(userInput) {
 }
 
 // Function to validate intermediate level XML snippet 2
-export function validateIntermediate2(userInput) {
+module.exports = function validateIntermediate2(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -487,7 +487,7 @@ export function validateIntermediate2(userInput) {
 }
 
 // Function to validate advanced level XML snippet 1
-export function validateAdvanced1(userInput) {
+module.exports = function validateAdvanced1(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -534,7 +534,7 @@ export function validateAdvanced1(userInput) {
 }
 
 // Function to validate label part 1
-export function validateLabelPart1(userInput) {
+module.exports = function validateLabelPart1(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -557,7 +557,7 @@ export function validateLabelPart1(userInput) {
 }
 
 // Function to validate label part 2
-export function validateLabelPart2(userInput) {
+module.exports = function validateLabelPart2(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -580,7 +580,7 @@ export function validateLabelPart2(userInput) {
 }
 
 // Function to validate presentation part 1
-export function validatePresentationPart1(userInput) {
+module.exports = function validatePresentationPart1(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -603,7 +603,7 @@ export function validatePresentationPart1(userInput) {
 }
 
 // Function to validate presentation part 2
-export function validatePresentationPart2(userInput) {
+module.exports = function validatePresentationPart2(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -643,7 +643,7 @@ export function validatePresentationPart2(userInput) {
 }
 
 // Function to validate calculation part 1
-export function validateCalculationPart1(userInput) {
+module.exports = function validateCalculationPart1(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -666,7 +666,7 @@ export function validateCalculationPart1(userInput) {
 }
 
 // Function to validate calculation part 2
-export function validateCalculationPart2(userInput) {
+module.exports = function validateCalculationPart2(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -696,7 +696,7 @@ export function validateCalculationPart2(userInput) {
 }
 
 // Function to validate definition domain member
-export function validateDefinitionDomainMember(userInput) {
+module.exports = function validateDefinitionDomainMember(userInput) {
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
   if (parserError) {
@@ -719,7 +719,7 @@ export function validateDefinitionDomainMember(userInput) {
 }
 
 
-export function validateReferencePart1(userInput) {
+module.exports = function validateReferencePart1(userInput) {
   // First, validate if the input is well-formed XML
   const xmlDoc = parser.parseFromString(userInput, "application/xml");
   const parserError = checkParserErrors(xmlDoc);
