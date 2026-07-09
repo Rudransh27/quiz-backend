@@ -1,120 +1,166 @@
-// user.js
-
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
-const crypto = require("crypto"); // Import the crypto module
+const crypto = require("crypto");
 
 const userSchema = new mongoose.Schema({
-    username: {
-        type: String,
-        required: [true, "Please provide a username"],
-        unique: true,
+  username: {
+    type: String,
+    required: [true, "Please provide a username"],
+    unique: true,
+  },
+  email: {
+    type: String,
+    required: [true, "Please provide an email"],
+    unique: true,
+    lowercase: true,
+    validate: {
+      validator: function (v) {
+        const allowedDomains = ["irisregtech.com", "irisbusiness.com"];
+        return allowedDomains.some((domain) =>
+          v.toLowerCase().endsWith(`@${domain}`)
+        );
+      },
+      message: (props) =>
+        `Email domain is not allowed. Only corporate emails from '@irisregtech.com' or '@irisbusiness.com' are allowed.`,
     },
-    email: {
-        type: String,
-        required: [true, "Please provide an email"],
-        unique: true,
-        lowercase: true,
-        validate: {
-            validator: function(v) {
-                const allowedDomain = "irisbusiness.com";
-                return v.toLowerCase().endsWith(`@${allowedDomain}`);
-            },
-            message: props => `Email domain is not allowed. Only '@irisbusiness.com' emails can register.`,
-        }
-    },
-    password: {
-        type: String,
-        required: [true, "Please provide a password"],
-        minlength: 6,
-        select: false,
-    },
-    role: {
-        type: String,
-        enum: ["user", "admin"],
-        default: "user",
-    },
-    avatarUrl: {
-        type: String,
-        default:
-            "https://res.cloudinary.com/your_cloud_name/image/upload/v1/default_avatar.png",
-        required: false,
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now,
-    },
-    xp: {
-        type: Number,
-        default: 100,
-        min: 0,
-    },
-    // --- New fields for EMAIL VERIFICATION ---
-    isVerified: { // 🚨 NEW FIELD
-        type: Boolean,
-        default: false,
-    },
-    emailVerificationToken: String, // 🚨 NEW FIELD: Hashed token for verification
-    emailVerificationExpire: Date,  // 🚨 NEW FIELD: Expiration for the verification token
-    // ----------------------------------------
-    
-    // --- Existing fields for password reset ---
-    resetPasswordToken: String,
-    resetPasswordExpire: Date,
-    // ------------------------------------------
+  },
+  password: {
+    type: String,
+    required: [true, "Please provide a password"],
+    minlength: 6,
+    select: false, 
+  },
+  role: {
+    type: String,
+    enum: ["user", "admin", "superadmin"],
+    default: "user",
+  },
+  avatarUrl: {
+    type: String,
+    default: "https://res.cloudinary.com/your_cloud_name/image/upload/v1/default_avatar.png",
+    required: false,
+  },
+  avatarId: {
+    type: String,
+    enum: ["dev", "xbrl", "db", "cyber", "custom"],
+    default: "dev",
+    required: true,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  xp: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
+  emailVerificationToken: String,
+  emailVerificationExpire: Date,
+  resetPasswordToken: String,
+  resetPasswordExpire: Date,
+  
+  // 🏢 LAYER 2: Department Placement (Carbon, iFile, iDeal, DataTech)
+  department: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Department", 
+    // Required false ONLY for superadmins who oversee the absolute macro cluster
+    required: function() { return this.role !== "superadmin"; },
+  },
+  
+  // 👥 LAYER 3: Specific Team Scoping (Finance, Sales, DevOps, Developer)
+  team: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Team",
+    required: false,
+  },
+
+  // ── Streak & engagement tracking ────────────────────────────────────────────
+  currentStreak: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  longestStreak: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  // Stored as "YYYY-MM-DD" for timezone-safe comparison without time drift
+  lastActiveDate: {
+    type: String,
+    default: null,
+  },
+  // Rolling engagement log — one entry per day the user was active
+  engagementHistory: [{
+    date:               { type: String, required: true },  // "YYYY-MM-DD"
+    qualifiesForStreak: { type: Boolean, default: false }, // true when 1+ of 3 actions done
+    actions: [{
+      type: String,
+      enum: ['daily_read', 'module_progress', 'idea_submission'],
+    }],
+  }],
 });
 
-// Add this pre-save hook to hash the password before it is saved
-userSchema.pre("save", async function (next) {
-    // Only hash the password if it has been modified (or is new)
-    if (!this.isModified("password")) return next();
+// =========================================================================
+// 🌊 1. CASCADING DELETE TRIGGER MIDDLEWARE
+// =========================================================================
+userSchema.pre("findOneAndDelete", async function (next) {
+  try {
+    const query = this.getQuery();
+    const userId = query._id;
 
-    // Generate a salt and hash the password
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    if (userId) {
+      console.log(`Summary Clear Interceptor fired for User ID: ${userId}`);
+
+      const UserCardProgress = mongoose.model("UserCardProgress");
+      const UserTopicProgress = mongoose.model("UserTopicProgress");
+
+      const cardDeleteResult = await UserCardProgress.deleteMany({ user_id: userId });
+      const topicDeleteResult = await UserTopicProgress.deleteMany({ user_id: userId });
+
+      console.log(`Orphan progress tracks purged! Cards Cleared: ${cardDeleteResult.deletedCount}, Topics Cleared: ${topicDeleteResult.deletedCount}`);
+    }
     next();
+  } catch (error) {
+    console.error("Cascading Delete Failure Engine Blocked:", error.message);
+    next(error); 
+  }
 });
 
-// Method to compare entered password with the hashed password
+// =========================================================================
+// 🔐 2. PRE-SAVE SECURITY HOOK
+// =========================================================================
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
+
+// =========================================================================
+// 🧠 3. CUSTOM INSTANCE SCHEMAS METHODS
+// =========================================================================
 userSchema.methods.matchPassword = async function (enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.password);
+  return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// --- Method to generate and manage the reset password token (EXISTING, CONFIRMED) ---
 userSchema.methods.getResetPasswordToken = function () {
-    // Generate a random token
-    const resetToken = crypto.randomBytes(20).toString("hex");
-
-    // Hash the generated token using SHA256 and store it
-    this.resetPasswordToken = crypto
-        .createHash("sha256")
-        .update(resetToken)
-        .digest("hex");
-
-    // Set the expiration date for the token (e.g., 10 minutes from now)
-    this.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // Adjusted to 10 minutes for better security
-
-    // Return the original, unhashed token to be sent to the user's email
-    return resetToken;
+  const resetToken = crypto.randomBytes(20).toString("hex");
+  this.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000; 
+  return resetToken;
 };
 
-// --- NEW method to generate and manage the email verification token ---
 userSchema.methods.getEmailVerificationToken = function () {
-    // Generate a random, unhashed token (or code)
-    const verificationToken = crypto.randomBytes(32).toString("hex");
-
-    // Hash the token using SHA256 and store the hash in the database
-    this.emailVerificationToken = crypto
-        .createHash("sha256")
-        .update(verificationToken)
-        .digest("hex");
-
-    // Set the expiration date (e.g., 24 hours)
-    this.emailVerificationExpire = Date.now() + 24 * 60 * 60 * 1000;
-
-    // Return the original, unhashed token to be used in the verification link
-    return verificationToken;
+  const verificationToken = crypto.randomBytes(32).toString("hex");
+  this.emailVerificationToken = crypto.createHash("sha256").update(verificationToken).digest("hex");
+  this.emailVerificationExpire = Date.now() + 24 * 60 * 60 * 1000;
+  return verificationToken;
 };
-// ------------------------------------------------------------------------------------
 
 module.exports = mongoose.model("User", userSchema);

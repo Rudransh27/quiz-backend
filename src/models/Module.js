@@ -1,22 +1,107 @@
-const mongoose = require('mongoose');
+// src/models/Module.js
+const mongoose = require("mongoose");
 
-const moduleSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: true,
-  },
-  description: String,
-  imageUrl: String,
-  department: {
-    type: String,
-    enum: ['ifile', 'ideal', 'carbon'], // This ensures only these values are allowed
-    required: true,
-  },
-  // We can use an array of ObjectId to reference the topics
-  topics: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Topic'
-  }]
-});
+const moduleSchema = new mongoose.Schema(
+  {
+    title: { 
+      type: String, 
+      required: [true, "Please provide a module title"],
+      trim: true 
+    },
+    description: {
+      type: String,
+      trim: true
+    },
+    imageUrl: {
+      type: String,
+      default: ""
+    },
 
-module.exports = mongoose.model('Module', moduleSchema);
+    // ⏱️ Admin-set estimate, in minutes — feeds computePointsReward() alongside
+    // this module's card count (see src/utils/pointsCalculator.js).
+    estimatedTime: {
+      type: Number,
+      default: 0
+    },
+
+    // 🔀 HYBRID STRUCTURAL CONTROL
+    // True: Module ➔ Topics ➔ Cards (For large structured modules)
+    // False: Module ➔ Cards directly (For multi-card flat sets including interactive HTML cards)
+    hasTopics: {
+      type: Boolean,
+      default: true,
+      required: true
+    },
+
+    // 🔀 ENGINE STRATEGY SELECTOR
+    // Reverted back to the two primary data layout pipelines.
+    // HTML sandboxes will now be processed as inline cards inside these pipelines!
+    engineStrategy: {
+      type: String,
+      enum: ["STANDARD", "EXPRESS_FLAT"],
+      default: "STANDARD",
+      required: true
+    },
+
+    // 🌐 MODULE TYPE — 'html_sandbox' modules are EXPRESS_FLAT modules with a single
+    // auto-managed backing Card{card_type:'html_sandbox'}; the whole module IS the sandbox.
+    moduleType: {
+      type: String,
+      enum: ["standard", "html_sandbox"],
+      default: "standard",
+      required: true
+    },
+
+    // 🔥 PLATFORM-WIDE HOT MODULE — singleton flag; only one module may hold this
+    // at a time (enforced via the PATCH /:id/hot-module route, not this schema).
+    isHotModule: {
+      type: Boolean,
+      default: false
+    },
+
+    // ⭐ CURATED "Popular Modules" dashboard row — capped at 4 (enforced via the
+    // PATCH /:id/popular route, not this schema).
+    isPopular: {
+      type: Boolean,
+      default: false
+    },
+
+    // 🎯 THE THREE-LAYER VISIBILITY CONTROL
+    visibility: {
+      type: String,
+      enum: ["Global", "Departmental", "Team-Specific"],
+      default: "Departmental",
+      required: true
+    },
+    
+    // Required false ONLY if visibility is 'Global'.
+    // Must be mapped if visibility is 'Departmental' or 'Team-Specific'.
+    department: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Department", 
+      required: function () {
+        return this.visibility !== "Global";
+      },
+    },
+    
+    // 👥 TARGET TEAMS ARRAY
+    // Array of team references (e.g., Sales, DevOps, Developer).
+    // Used when visibility is 'Team-Specific'. 
+    // If visibility is 'Departmental', this remains empty so the entire department has access.
+    targetTeams: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Team"
+      }
+    ]
+  },
+  { timestamps: true }
+);
+
+// =========================================================================
+// 🔍 PERFORMANCE ACCELERATION INDEXES
+// =========================================================================
+// Optimizes multi-tenant $or queries used to compile available modules on the user learn page
+moduleSchema.index({ visibility: 1, department: 1 });
+
+module.exports = mongoose.model("Module", moduleSchema);

@@ -3,7 +3,7 @@
     "title": "Module 1: Introduction to XBRL",
     "description": "Learn the fundamentals of XBRL, the global standard for exchanging business information.",
     "imageUrl": "https://example.com/images/xbrl-module.png",
-    "department": "ifile",
+    "department": "6a2a5ac2e3a4709fecbc359e",
     "topics": [
       {
         "title": "Understanding the Basics",
@@ -181,7 +181,7 @@
           {
             "card_type": "knowledge",
             "cardOrder": 1,
-            "imageUrl": "concept_img",
+            "imageUrl": "",
             "content": {
               "title": "🔖 What is a Concept?",
               "text": "👕 **Analogy: Shirt Sizes**\n\n👚 Just like **\"Size\"** is a defined label for clothes,  \n💵 **\"Revenue\"** is a defined tag in XBRL.\n\n---\n\nIn **XBRL**, a *concept* is like a **defined tag** for a business item — such as \"Cash\", \"Revenue\", or \"Net Profit\".\n\n- To define a concept in XBRL, we use **XSD (XML Schema Definition)**.  \n- Each concept is an XML element with properties like type, balance, periodType.\n\n✅ **This is how Concept is defined in Taxonomy**:\n```xml\n<element name=\"Revenue\"\n         id=\"el_Revenue\"\n         type=\"xbrli:monetaryItemType\"\n         periodType=\"duration\"\n         balance=\"credit\"/>\n```\n\n📌 This tells XBRL software:\n- What the tag `<Revenue>` means\n- That it's a **monetary** value\n- It applies to a **period** (eg.1 year)\n- It’s a **credit**-type account\n\nConcepts are defined in the **taxonomy**, so computers know:\n- What each tag means\n- What kind of data it holds\n- How it behaves"

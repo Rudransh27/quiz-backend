@@ -1,139 +1,89 @@
 // src/routes/progress.js
-
 const express = require('express');
 const auth = require('../middleware/auth');
-const UserProgress = require('../models/UserProgress');
-const User = require('../models/User');
-const Card = require('../models/Card');
-const Topic = require('../models/Topic');
+const admin = require('../middleware/admin');
+const progressController = require('../controllers/progressController');
 
 const router = express.Router();
 
-// Helper function to calculate XP for a card
-const calculateXp = (cardType, isCorrect) => {
-    if (cardType === 'knowledge') {
-        return 1;
-    }
-    if (cardType === 'quiz') {
-        return isCorrect ? 5 : -2;
-    }
-    else if(cardType === 'code'){
-        return isCorrect ? 10 : -2;
-    }
-    return 0;
-};
+// @route    POST /api/progress/card-completed
+// @desc     Records card completion with retake & gamification sync
+// @access   Private
+router.post('/card-completed', auth, progressController.recordCardCompletion);
 
-// @route   POST /api/progress/card-completed
-// @desc    Records a card as completed, awards XP, and handles topic completion
-// @access  Private
-router.post('/card-completed', auth, async (req, res) => {
-    const { cardId, topicId, moduleId, isCorrect } = req.body;
-    const userId = req.user.id;
+// @route    GET /api/progress
+// @desc     Fetch computed flat analytics (arrays + counts) for frontend hydration
+// @access   Private
+router.get('/', auth, progressController.getUserProgress);
 
-    if (!cardId || !topicId || !moduleId) {
-        return res.status(400).json({ message: 'Missing card, topic, or module ID.' });
-    }
+// @route    GET /api/progress/admin/users
+// @desc     Admin: list all users with basic stats (XP, cards completed)
+// @access   Admin / Superadmin
+router.get('/admin/users', auth, admin, progressController.getAdminUsersList);
 
-    try {
-        // Find the card to get its type
-        const card = await Card.findById(cardId);
-        if (!card) {
-            return res.status(404).json({ message: 'Card not found.' });
-        }
+// @route    GET /api/progress/sandbox/:cardId
+// @desc     Logged-in user gets their own full question-by-question results for a sandbox card
+// @access   Private
+router.get('/sandbox/:cardId', auth, progressController.getSandboxDetail);
 
-        // Find or create user progress document in a single, atomic operation
-        let userProgress = await UserProgress.findOne({ user: userId });
-        if (!userProgress) {
-            userProgress = new UserProgress({ user: userId, modules: [] });
-        }
+// @route    GET /api/progress/admin/sandbox/:cardId
+// @desc     Admin: all users' answers + accuracy stats for a specific sandbox card
+// @access   Admin / Superadmin
+router.get('/admin/sandbox/:cardId', auth, admin, progressController.getAdminSandboxResults);
 
-        let moduleProgress = userProgress.modules.find(m => m.moduleId.toString() === moduleId);
-        if (!moduleProgress) {
-            moduleProgress = { moduleId: moduleId, topics: [] };
-            userProgress.modules.push(moduleProgress);
-        }
+// @route    GET /api/progress/admin/user/:userId/sandbox-answers
+// @desc     Admin: all sandbox question answers for a specific user across all cards
+// @access   Admin / Superadmin
+router.get('/admin/user/:userId/sandbox-answers', auth, admin, progressController.getUserSandboxAnswersForAdmin);
 
-        let topicProgress = moduleProgress.topics.find(t => t.topicId.toString() === topicId);
-        if (!topicProgress) {
-            topicProgress = { topicId: topicId, cardsCovered: [], isCompleted: false, xpEarned: 0 };
-            moduleProgress.topics.push(topicProgress);
-        }
+// @route    GET /api/progress/admin/user/:userId
+// @desc     Admin: full analytics breakdown for a specific user (quiz accuracy, sandbox scores, progress)
+// @access   Admin / Superadmin
+router.get('/admin/user/:userId', auth, admin, progressController.getAdminUserAnalytics);
 
-        let xpChange = 0;
-        let isTopicCompleted = topicProgress.isCompleted;
+// @route    POST /api/progress/admin/import-grades
+// @desc     Admin: bulk import assigned scores from grading template, update user XP
+// @access   Admin / Superadmin
+router.post('/admin/import-grades', auth, admin, progressController.importGrades);
 
-        // Ensure a card is only counted once
-        if (!topicProgress.cardsCovered.includes(cardId)) {
-            xpChange = calculateXp(card.card_type, isCorrect);
-            topicProgress.cardsCovered.push(cardId);
-            
-            // Add XP to the topic's running total
-            topicProgress.xpEarned = (topicProgress.xpEarned || 0) + xpChange;
+// @route    PUT /api/progress/admin/card/:cardId/user/:userId/grade
+// @desc     Admin: grade a single user's sandbox submission (slider/entry UI), update user XP
+// @access   Admin / Superadmin
+router.put('/admin/card/:cardId/user/:userId/grade', auth, admin, progressController.gradeSingleSubmission);
 
-            // Update the user's total XP directly on the User model
-            await User.findByIdAndUpdate(userId, { $inc: { xp: xpChange } });
-        }
+// @route    GET /api/progress/admin/dept-sandbox-answers
+// @desc     Admin: all sandbox answers for all users in the admin's own department
+// @access   Admin / Superadmin
+router.get('/admin/dept-sandbox-answers', auth, admin, progressController.getDeptSandboxAnswers);
 
-        // Check if all cards in the topic are now covered
-        const topic = await Topic.findById(topicId);
-        const totalCardsInTopic = topic?.cards?.length || 0;
-        
-        if (!isTopicCompleted && topicProgress.cardsCovered.length >= totalCardsInTopic && totalCardsInTopic > 0) {
-            topicProgress.isCompleted = true;
-            isTopicCompleted = true;
+// @route    GET /api/progress/my-sandbox-results
+// @desc     User: all of the logged-in user's sandbox submissions with admin grading
+// @access   Private
+router.get('/my-sandbox-results', auth, progressController.getMySandboxResults);
 
-            // --- Consolidated Logic: Find and unlock the next topic ---
-            const moduleTopics = await Topic.find({ moduleId }).sort({ order: 1 });
-            const currentTopicIndex = moduleTopics.findIndex(t => t._id.toString() === topicId);
+// @route    GET /api/progress/admin/platform-stats
+// @desc     Platform-wide XP totals, daily activity charts, card type breakdown
+// @access   Admin / Superadmin
+router.get('/admin/platform-stats', auth, admin, progressController.getAdminPlatformStats);
 
-            if (currentTopicIndex !== -1 && currentTopicIndex < moduleTopics.length - 1) {
-                const nextTopicId = moduleTopics[currentTopicIndex + 1]._id;
+// @route    GET /api/progress/admin/module-engagement
+// @desc     Per-module users started, completion counts, sandbox avg score
+// @access   Admin / Superadmin
+router.get('/admin/module-engagement', auth, admin, progressController.getAdminModuleEngagement);
 
-                let nextTopicProgress = moduleProgress.topics.find(t => t.topicId.toString() === nextTopicId);
-                if (!nextTopicProgress) {
-                    nextTopicProgress = { topicId: nextTopicId, cardsCovered: [], isCompleted: false, xpEarned: 0 };
-                    moduleProgress.topics.push(nextTopicProgress);
-                }
-            }
-        }
+// @route    GET /api/progress/admin/department-stats
+// @desc     Department-level XP totals, avg XP, cards/topics completed, top earner
+// @access   Admin / Superadmin
+router.get('/admin/department-stats', auth, admin, progressController.getAdminDepartmentStats);
 
-        await userProgress.save();
+// @route    POST /api/progress/streak/verify
+// @desc     Record a daily engagement action and apply the 2/3 streak rule
+// @access   Private
+router.post('/streak/verify', auth, progressController.verifyDailyStreak);
 
-        res.json({
-            message: 'Progress updated successfully.',
-            xpChange: xpChange,
-            cardsCovered: topicProgress.cardsCovered.length,
-            totalCardsInTopic,
-            isTopicCompleted,
-        });
-
-    } catch (err) {
-        console.error(err);
-        if (err.name === 'VersionError') {
-            return res.status(409).json({ message: 'Concurrency error. Please try again.' });
-        }
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// @route   GET /api/progress
-// @desc    Get all user progress data, including card completion status per topic
-// @access  Private
-router.get('/', auth, async (req, res) => {
-    try {
-        let progress = await UserProgress.findOne({ user: req.user.id });
-        if (!progress) {
-            progress = new UserProgress({ user: req.user.id, modules: [] });
-            await progress.save();
-        }
-        res.json(progress);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// The separate /topic-completed route is no longer needed.
-// Its logic has been merged into the /card-completed route.
+// @route    GET /api/progress/streak
+// @desc     Get the authenticated user's streak counters + last-30-day engagement history
+// @access   Private
+router.get('/streak', auth, progressController.getMyStreak);
 
 module.exports = router;
