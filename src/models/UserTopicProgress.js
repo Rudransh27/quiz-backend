@@ -31,6 +31,12 @@ const UserTopicProgressSchema = new mongoose.Schema({
   pointsAwarded: {
     type: Boolean,
     default: false
+  },
+  // Accumulated active time (seconds) spent on cards inside this topic —
+  // accrued incrementally by recordCardCompletion via $inc, never overwritten.
+  timeSpentSeconds: {
+    type: Number,
+    default: 0
   }
 }, { timestamps: true });
 

@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const Module = require("../models/Module");
 const Topic = require("../models/Topic");
 const Card = require("../models/Card");
+const Team = require("../models/Team");
 const ModuleRating = require("../models/ModuleRating");
 const progressController = require("../controllers/progressController");
 const { computePointsReward } = require("../utils/pointsCalculator");
@@ -15,6 +16,26 @@ const admin = require("../middleware/admin");
 const getDepartmentIdString = (doc) => {
   if (!doc) return null;
   return doc._id ? doc._id.toString() : doc.toString();
+};
+
+// 🔒 Resolves a requested targetTeams value (single ID, array, or falsy) down
+// to only the team IDs that actually belong to departmentId — never trusts
+// client-submitted team IDs outright. Used for BOTH module creation and
+// updates so a Department Admin can't target another department's team just
+// by knowing/guessing its ID.
+const resolveOwnedTeamIds = async (requestedTeams, departmentId) => {
+  if (!requestedTeams) return [];
+  const requestedList = Array.isArray(requestedTeams) ? requestedTeams : [requestedTeams];
+  const validObjectIds = requestedList
+    .filter((t) => t && mongoose.Types.ObjectId.isValid(t.toString()))
+    .map((t) => new mongoose.Types.ObjectId(t.toString()));
+  if (validObjectIds.length === 0) return [];
+
+  const ownedTeams = await Team.find({
+    _id: { $in: validObjectIds },
+    department_id: departmentId,
+  }).select("_id").lean();
+  return ownedTeams.map((t) => t._id);
 };
 
 
@@ -81,13 +102,35 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
           as: "allocatedTopics"
         }
       },
-      // 🚀 Look up cards count for EXPRESS_FLAT strategy modules
+      // 🚀 Cards attached directly to the module (EXPRESS_FLAT / hasTopics:false)
       {
         $lookup: {
           from: "cards",
           localField: "_id",
           foreignField: "module_id",
-          as: "allocatedCards"
+          as: "directCards"
+        }
+      },
+      // 🔧 Cards inside a hierarchy module (STANDARD / hasTopics:true) attach
+      // to their TOPIC, not the module directly — the direct-module_id
+      // lookup above misses them entirely. This was the exact cause of a
+      // topic-based module (e.g. "Introduction to XBRL") showing 0 total
+      // cards and 0 Plasma here: its 88 cards all carry topic_id, none carry
+      // module_id, so `directCards` alone was always empty for it. Union
+      // both sources into the real card list this module actually has.
+      {
+        $lookup: {
+          from: "cards",
+          let: { topicIds: "$allocatedTopics._id" },
+          pipeline: [
+            { $match: { $expr: { $in: ["$topic_id", "$$topicIds"] } } }
+          ],
+          as: "topicCards"
+        }
+      },
+      {
+        $addFields: {
+          allocatedCards: { $concatArrays: ["$directCards", "$topicCards"] }
         }
       },
       {
@@ -111,17 +154,32 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
           // Card IDs for all cards in this module (for per-module progress calc in frontend)
           allCardIds: { $map: { input: "$allocatedCards", as: "c", in: "$$c._id" } },
           // Total card count (always the real card count regardless of strategy)
-          totalCardCount: { $size: "$allocatedCards" }
+          totalCardCount: { $size: "$allocatedCards" },
+          // 🎯 Lightweight per-card type info (not the full card documents) so
+          // computePointsReward can sum real per-type point values instead of
+          // just multiplying a raw count by a flat rate.
+          cardsForPoints: {
+            $map: {
+              input: "$allocatedCards",
+              as: "c",
+              in: { card_type: "$$c.card_type", content: "$$c.content" }
+            }
+          }
         }
       }
     ]);
 
-    // pointsReward is derived (not stored) from totalCardCount + estimatedTime,
-    // both already computed above — computed here in JS rather than as a second
-    // Mongo aggregation expression so the formula only ever lives in one place.
+    // pointsReward is derived (not stored) from the real per-card-type sum +
+    // estimatedTime — computed here in JS rather than as a second Mongo
+    // aggregation expression so the formula only ever lives in one place.
+    // NOTE: this listing view sums the module's cards directly regardless of
+    // whether it's a flat or topic-hierarchy module — a reasonable preview
+    // approximation for a listing page; the per-topic/whole-module Type A/B
+    // split (topics summed for a hierarchy module) is computed precisely on
+    // the single-module GET route below, which has the real topic structure.
     const dataWithPoints = workspaceModules.map((mod) => ({
       ...mod,
-      pointsReward: computePointsReward(mod.totalCardCount, mod.estimatedTime),
+      pointsReward: computePointsReward(mod.cardsForPoints),
     }));
 
     return res.json({ success: true, data: dataWithPoints });
@@ -221,6 +279,11 @@ router.get("/", auth, async (req, res) => {
           isHotModule: 1,
           isPopular: 1,
           estimatedTime: 1,
+          // 👤 Needed by the admin edit forms to determine ownership for the
+          // Global-scope RBAC gate — without this, editData.createdBy would
+          // always be undefined and every Department Admin would look like
+          // a non-owner regardless of who actually created the module.
+          createdBy: 1,
           department: "$departmentDetails",
           avgRating: { $ifNull: [{ $avg: "$allRatings.rating" }, 0] },
           totalReviews: { $size: "$allRatings" },
@@ -319,7 +382,9 @@ router.get("/:id", auth, async (req, res) => {
 
       structuralPayload.cards = normalizedCards;
       structuralPayload.topics = [];
-      structuralPayload.pointsReward = computePointsReward(normalizedCards.length, moduleData.estimatedTime);
+      // Module Type B (direct cards, no topic hierarchy) — aggregate the
+      // card XPs directly.
+      structuralPayload.pointsReward = computePointsReward(normalizedCards);
     }
     else {
       console.log(`📚 Loading Standard 3-Layer Course Architecture for Module: ${moduleData.title}`);
@@ -369,12 +434,21 @@ router.get("/:id", auth, async (req, res) => {
           ...topic,
           id: topic._id.toString(),
           cards: matchingCards,
-          pointsReward: computePointsReward(matchingCards.length, topic.estimatedTime)
+          // Topic Card — its own calculated XP, aggregated from the cards it contains.
+          pointsReward: computePointsReward(matchingCards)
         };
       });
 
       structuralPayload.cards = [];
-      structuralPayload.pointsReward = computePointsReward(allCards.length, moduleData.estimatedTime);
+      // Module Type A (contains Topics) — aggregate the XP of all its
+      // underlying Topics (each of which already includes its own time
+      // bonus) rather than recomputing directly from the raw card list +
+      // the module's own estimatedTime — those are two different numbers
+      // whenever individual topics have their own estimatedTime set.
+      structuralPayload.pointsReward = structuralPayload.topics.reduce(
+        (sum, t) => sum + (t.pointsReward || 0),
+        0
+      );
     }
 
     return res.json(structuralPayload);
@@ -428,6 +502,10 @@ router.post("/", [auth, admin], async (req, res) => {
     const isSuperAdmin = req.user.role === "superadmin";
     const { visibility, department, targetTeams, engineStrategy } = req.body;
 
+    // 🔐 SCOPE RBAC (create path): a Department Admin's module is always
+    // anchored to their OWN department regardless of what (if anything) they
+    // submit in `department` — only a Super Admin's submitted department is
+    // trusted. Matches the identical rule enforced on the update route below.
     const finalDepartment = isSuperAdmin ? department : req.user.department;
 
     if (visibility !== "Global" && !finalDepartment) {
@@ -436,9 +514,15 @@ router.post("/", [auth, admin], async (req, res) => {
 
     let processedTeams = [];
     if (visibility === "Team-Specific" && targetTeams) {
-      processedTeams = Array.isArray(targetTeams) 
-        ? targetTeams.map(t => new mongoose.Types.ObjectId(t.toString()))
-        : [new mongoose.Types.ObjectId(targetTeams.toString())];
+      if (isSuperAdmin) {
+        processedTeams = Array.isArray(targetTeams)
+          ? targetTeams.map(t => new mongoose.Types.ObjectId(t.toString()))
+          : [new mongoose.Types.ObjectId(targetTeams.toString())];
+      } else {
+        // 🔒 Same team-ownership guard as the update route — a Department
+        // Admin can only target teams that belong to their own department.
+        processedTeams = await resolveOwnedTeamIds(targetTeams, req.user.department);
+      }
     }
 
     const isHtmlSandboxModule = req.body.moduleType === 'html_sandbox';
@@ -451,7 +535,22 @@ router.post("/", [auth, admin], async (req, res) => {
       visibility,
       targetTeams: processedTeams,
       engineStrategy: cleanStrategy,
-      hasTopics: cleanHasTopics
+      hasTopics: cleanHasTopics,
+      // 🔧 An html_sandbox module's real admin-entered duration only ever
+      // arrived as `estimatedDurationMin` (saved below onto the sandbox
+      // Card's own content) — the Module's own `estimatedTime` field was
+      // never populated from it, so it silently stayed at its schema
+      // default (0), which then made the frontend's duration display fall
+      // through to its `estimateDuration()` estimate — a flat "~5 min" for
+      // any single-card module, regardless of what was actually entered.
+      // Sync the two here so the real value is what gets displayed.
+      ...(isHtmlSandboxModule ? { estimatedTime: Number(req.body.estimatedDurationMin) || 0 } : {}),
+      // 👤 Whoever creates a module is its owner — this is what lets a
+      // Department Admin freely choose Global for their OWN new module
+      // (they trivially satisfy the ownership check below on any future
+      // scope change) while being blocked from doing the same to a
+      // colleague's or Superadmin's module.
+      createdBy: req.user.id,
     });
 
     const module = await newModule.save();
@@ -465,7 +564,7 @@ router.post("/", [auth, admin], async (req, res) => {
           content: {
             title: module.title,
             htmlSource: req.body.htmlSource || '',
-            maxPoints: Number(req.body.maxPoints) || 15,
+            maxPoints: Number(req.body.maxPoints) || 10,
             baseTimeThresholdSec: Number(req.body.baseTimeThresholdSec) || 0,
             estimatedDurationMin: Number(req.body.estimatedDurationMin) || 0,
           }
@@ -492,19 +591,85 @@ router.put("/:id", [auth, admin], async (req, res) => {
       return res.status(404).json({ message: "Module not found" });
     }
 
-    if (req.user.role !== "superadmin") {
+    // =========================================================================
+    // 🔐 SCOPE-CHANGE RBAC
+    // Super Admin:    unrestricted — any visibility, any department, any teams.
+    // Department Admin: may only ever leave a module scoped to Global, their
+    //   OWN department, or a team under their OWN department — never another
+    //   department. This block is the single source of truth for department/
+    //   targetTeams on this route; nothing below re-touches those two fields.
+    // =========================================================================
+    const isSuperAdmin = req.user.role === "superadmin";
+    const incomingVisibility = req.body.visibility || targetModule.visibility;
+
+    if (!isSuperAdmin) {
+      // A Department Admin may only ever touch a module that already belongs
+      // to their own department (a Global module has department:null, so it
+      // passes this check too — promoting it INTO their department below is
+      // allowed; reassigning an ALREADY-departmental module that belongs to
+      // someone else is not).
       if (targetModule.department && targetModule.department.toString() !== req.user.department.toString()) {
         return res.status(403).json({ message: "Access Denied: Cannot modify foreign assets." });
       }
-      req.body.department = targetModule.department;
-    }
 
-    if (req.body.visibility === "Team-Specific" && req.body.targetTeams) {
-      req.body.targetTeams = Array.isArray(req.body.targetTeams)
-        ? req.body.targetTeams.map(t => new mongoose.Types.ObjectId(t.toString()))
-        : [new mongoose.Types.ObjectId(req.body.targetTeams.toString())];
-    } else if (req.body.visibility === "Departmental") {
-      req.body.targetTeams = []; 
+      // 🔒 OWNERSHIP GATE: a Department Admin may only cross the Global
+      // boundary — pushing a module OUT to Global, or pulling a Global
+      // module BACK into their own department — if they created it. This is
+      // only checked when a transition is actually happening (visibility is
+      // genuinely changing AND either side of that change is Global); simply
+      // re-saving a module that's already Global without touching its scope
+      // isn't "changing it to Global", so it isn't gated here. Departmental
+      // <-> Team-Specific reshuffles that never touch Global are never
+      // ownership-gated at all, per spec ("allowed to change its scope to
+      // team-wise within their own department" regardless of who created it).
+      const wasGlobal = targetModule.visibility === "Global";
+      const isVisibilityChanging = incomingVisibility !== targetModule.visibility;
+      const crossesGlobalBoundary = isVisibilityChanging && (incomingVisibility === "Global" || wasGlobal);
+      const isOwner = targetModule.createdBy && targetModule.createdBy.toString() === req.user.id.toString();
+
+      if (crossesGlobalBoundary && !isOwner) {
+        return res.status(403).json({
+          message: "Access Denied: Only this module's creator can change its scope to or from Global.",
+        });
+      }
+
+      if (incomingVisibility === "Global") {
+        req.body.department = null;
+        req.body.targetTeams = [];
+      } else {
+        // Departmental or Team-Specific — ALWAYS the admin's own department.
+        // 🎯 THE ACTUAL BUG FIX: the previous version copied the module's
+        // EXISTING department onto req.body here — for a module that was
+        // Global, that existing value is null, so "promote a Global module
+        // back to Departmental" left department null and failed schema
+        // validation with exactly the reported error. A Department Admin
+        // can never assign a module to any OTHER department anyway, so their
+        // own department is always the only correct value, regardless of
+        // what the module's prior department was or what the client sent.
+        req.body.department = req.user.department;
+
+        if (incomingVisibility === "Team-Specific") {
+          // 🔒 Never trust client-submitted team IDs outright — silently
+          // keep only the ones that actually belong to this admin's own
+          // department, so a Department Admin can't target another
+          // department's team just by knowing/guessing its ID.
+          req.body.targetTeams = await resolveOwnedTeamIds(req.body.targetTeams, req.user.department);
+        } else {
+          req.body.targetTeams = [];
+        }
+      }
+    } else {
+      // Super Admin — fully trusted; still normalize shape/consistency.
+      if (incomingVisibility === "Global") {
+        req.body.department = null;
+        req.body.targetTeams = [];
+      } else if (incomingVisibility === "Team-Specific" && req.body.targetTeams) {
+        req.body.targetTeams = Array.isArray(req.body.targetTeams)
+          ? req.body.targetTeams.map(t => new mongoose.Types.ObjectId(t.toString()))
+          : [new mongoose.Types.ObjectId(req.body.targetTeams.toString())];
+      } else if (incomingVisibility === "Departmental") {
+        req.body.targetTeams = [];
+      }
     }
 
     if (req.body.engineStrategy) {
@@ -515,13 +680,26 @@ router.put("/:id", [auth, admin], async (req, res) => {
     if (isHtmlSandboxModule) {
       req.body.engineStrategy = 'EXPRESS_FLAT';
       req.body.hasTopics = false;
+      // 🔧 Same sync as the create route above — keep Module.estimatedTime
+      // in step with the sandbox card's own estimatedDurationMin instead of
+      // leaving it stale/0 on every edit.
+      if (req.body.estimatedDurationMin !== undefined) {
+        req.body.estimatedTime = Number(req.body.estimatedDurationMin) || 0;
+      }
     }
 
-    const updatedModule = await Module.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true },
-    );
+    // 🎯 STRUCTURAL FIX: switched from findByIdAndUpdate to assign+save.
+    // Module.js's conditional `required: function(){ return this.visibility
+    // !== 'Global' }` on `department` needs `this` to be the full, merged
+    // document to evaluate correctly — that's exactly how `.save()` works.
+    // findByIdAndUpdate's update-validators run with `this` bound to the
+    // query object instead, so a conditional validator reading a SIBLING
+    // field's new value is unreliable there even with `runValidators: true`
+    // — this is a well-documented Mongoose limitation, not specific to this
+    // schema. Reusing the targetModule already fetched above for the
+    // permission check also saves a second DB round-trip.
+    Object.assign(targetModule, req.body);
+    const updatedModule = await targetModule.save();
 
     if (isHtmlSandboxModule) {
       const cardContentUpdate = {};

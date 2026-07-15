@@ -86,14 +86,26 @@ const moduleSchema = new mongoose.Schema(
     
     // 👥 TARGET TEAMS ARRAY
     // Array of team references (e.g., Sales, DevOps, Developer).
-    // Used when visibility is 'Team-Specific'. 
+    // Used when visibility is 'Team-Specific'.
     // If visibility is 'Departmental', this remains empty so the entire department has access.
     targetTeams: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Team"
       }
-    ]
+    ],
+
+    // 👤 OWNERSHIP — who created this module. Gates whether a Department
+    // Admin (never a Superadmin, who is unrestricted) may cross the Global
+    // scope boundary: push a module they don't own out to Global, or pull a
+    // Global module they don't own into their own department. Modules
+    // created before this field existed have no recorded creator — treated
+    // as NOT owned by any Department Admin (safe default), so only a
+    // Superadmin can move those across the Global boundary.
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    }
   },
   { timestamps: true }
 );

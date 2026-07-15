@@ -103,7 +103,7 @@ router.put("/:ideaId/curate", auth, async (req, res) => {
   const { ideaId } = req.params;
 
   try {
-    // 1. Fetch the original idea log first to check its current status and author ID
+    // 1. Fetch the original idea log first to check its author ID / existence
     const originalIdea = await Idea.findById(ideaId);
     if (!originalIdea) {
       return res.status(404).json({ success: false, message: "Target idea log entity not found." });
@@ -116,18 +116,29 @@ router.put("/:ideaId/curate", auth, async (req, res) => {
       { new: true }
     );
 
-    // 3. 🎯 THE XP GAMIFICATION ENGINE TRIGGER:
-    // If the status is being moved to 'building' and it wasn't already 'building' (to prevent double-claiming)
-    if (status === "building" && originalIdea.status !== "building") {
-      console.log(`🚀 [XP Engine] Awarding +25 XP to User ID: ${originalIdea.userId} for approved innovation.`);
-      
-      // Import your User model if not already imported at the top of the file
-      const User = require("../models/User"); 
-      
-      await User.findByIdAndUpdate(
-        originalIdea.userId,
-        { $inc: { xp: 25 } } // Atomically increments user's XP profile field by 25 points
+    // 3. 🎯 THE XP GAMIFICATION ENGINE TRIGGER — made atomic and permanent:
+    // `xpAwarded` is a persistent one-time flag (not a "current status"
+    // check), so this closes two bugs at once — (a) two concurrent curate
+    // requests racing on a stale `originalIdea.status` read could both pass
+    // the old check, and (b) rejecting then re-approving the same idea used
+    // to re-award +25 XP every single time. The findOneAndUpdate's filter
+    // only matches (and only one caller can ever win it) if the flag hasn't
+    // been set yet — this is the actual compare-and-swap, not the earlier
+    // `originalIdea` read.
+    if (status === "building") {
+      const claimedAward = await Idea.findOneAndUpdate(
+        { _id: ideaId, xpAwarded: { $ne: true } },
+        { $set: { xpAwarded: true } }
       );
+
+      if (claimedAward) {
+        console.log(`🚀 [XP Engine] Awarding +25 XP to User ID: ${originalIdea.userId} for approved innovation.`);
+        const User = require("../models/User");
+        await User.findByIdAndUpdate(
+          originalIdea.userId,
+          { $inc: { xp: 25 } } // Atomically increments user's XP profile field by 25 points
+        );
+      }
     }
 
     res.json({

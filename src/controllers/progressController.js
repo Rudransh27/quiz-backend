@@ -8,7 +8,7 @@ const Module = require('../models/Module');
 const Topic = require('../models/Topic');
 const Department = require('../models/Department');
 const UserNotification = require('../models/UserNotification');
-const { computePointsReward } = require('../utils/pointsCalculator');
+const { parseHtmlSandboxPoints } = require('../utils/pointsCalculator');
 
 /*
  * STANDARD HTML SANDBOX postMessage FORMAT
@@ -38,22 +38,42 @@ const { computePointsReward } = require('../utils/pointsCalculator');
  */
 
 // 🚀 UPDATED HELPER: Added clear tracking weight definitions for the HTML Sandbox
+//
+// 🎯 BUG FIX (quiz reattempt/lives audit): wrong quiz/code answers used to
+// dock -2 XP on top of costing a life — a double-penalty for one mistake in
+// a 5-lives system, where losing the life IS the punishment. That -2 also
+// polluted the "clean" completion-XP total: get it wrong then right on retry
+// used to net +3 (-2 then +5) instead of a clean +5, since the wrong
+// attempt's award and the eventual-correct award are two separate
+// increments (see recordCardCompletion's isFirstTime / wrong->correct
+// transition guard below — that guard already correctly prevents re-award
+// on a THIRD/later resubmission, but couldn't undo the first wrong
+// attempt's own penalty). Now a wrong answer awards 0, so no matter how
+// many attempts a card takes, the total awarded for it is always exactly
+// its one correct-completion value — never more, never less.
 const calculateXp = (cardType, isCorrect) => {
   if (cardType === 'knowledge') return 2;
   if (cardType === 'pdf') return 5;
   if (cardType === 'ppt' || cardType === 'pptx') return 5;
   if (cardType === 'video') return 10;
   if (cardType === 'html_sandbox') return 15; // 🎯 Fixed baseline award weight for completing an interactive simulator task
-  if (cardType === 'quiz') return isCorrect ? 5 : -2;
-  if (cardType === 'code') return isCorrect ? 10 : -2;
+  if (cardType === 'quiz') return isCorrect ? 5 : 0;
+  if (cardType === 'code') return isCorrect ? 10 : 0;
   return 0;
 };
 
 // 🌐 HTML SANDBOX MODULE XP: score-proportional (vs the flat calculateXp() baseline used
 // by html_sandbox cards embedded inside topic/express-flat modules). Only used when the
 // card's parent Module has moduleType==='html_sandbox'.
+//
+// 🎯 maxPoints is now derived by parsing the card's authored HTML for its
+// embedded quiz (5pt) / descriptive (10pt) questions, instead of trusting a
+// single flat admin-set number regardless of how many questions the sandbox
+// actually contains — falls back to the admin field only if parsing finds
+// nothing (e.g. an empty/not-yet-authored sandbox).
 const computeSandboxModuleXp = (card, answeredScore, totalPossibleWeight) => {
-  const maxPoints = Number(card?.content?.maxPoints) || 15;
+  const parsed = parseHtmlSandboxPoints(card?.content?.htmlSource);
+  const maxPoints = parsed.total > 0 ? parsed.total : (Number(card?.content?.maxPoints) || 10);
   const maxScore = Number(totalPossibleWeight) || 0;
   if (maxScore <= 0) return 0;
   const ratio = Math.min(1, Math.max(0, (Number(answeredScore) || 0) / maxScore));
@@ -65,7 +85,11 @@ const computeSandboxModuleXp = (card, answeredScore, totalPossibleWeight) => {
 // =========================================================================
 exports.recordCardCompletion = async (req, res) => {
   // 🚀 INJECTED EXTBOY: Added structural score allocations and custom text responses arrays
-  const { cardId, topicId, moduleId, isCorrect, answeredScore, totalPossibleWeight, textResponses } = req.body;
+  const { cardId, topicId, moduleId, isCorrect, answeredScore, totalPossibleWeight, textResponses, timeSpentDelta } = req.body;
+
+  // Clamp against a stuck/backgrounded tab reporting an inflated elapsed time
+  // (e.g. laptop left open overnight on this card) inflating the total.
+  const clampedTimeDelta = Math.min(1800, Math.max(0, Number(timeSpentDelta) || 0));
   
   // ✅ Resilient User ID Extraction mapping layers safely
   const contextUser = req.user && req.user.user ? req.user.user : req.user;
@@ -85,15 +109,25 @@ exports.recordCardCompletion = async (req, res) => {
     const card = await Card.findById(cardId);
     if (!card) return res.status(404).json({ success: false, message: 'Card not found.' });
 
-    const parentModuleDoc = await Module.findById(moduleId, 'moduleType estimatedTime').lean();
-    const isSandboxModuleType = card.card_type === 'html_sandbox' && parentModuleDoc?.moduleType === 'html_sandbox';
+    // 🎯 BUG FIX (html_sandbox card always awarding a flat 15 instead of its
+    // real parsed content total): this used to also require the PARENT
+    // MODULE's own moduleType to be 'html_sandbox' before using the
+    // content-aware calculation — but parseHtmlSandboxPoints only ever reads
+    // the CARD's own content.htmlSource, so that extra condition was wrong.
+    // An html_sandbox card embedded as a plain card inside a 'standard'
+    // module (built via the Curriculum Map's generic Module → Cards flow,
+    // e.g. "Carbon NITI AI Module 1") fell through to calculateXp's flat
+    // `if (cardType === 'html_sandbox') return 15;` baseline instead — any
+    // html_sandbox card, regardless of its parent module's type, must use
+    // the same real-content calculation.
+    const isHtmlSandboxCard = card.card_type === 'html_sandbox';
 
     const existingProgress = await UserCardProgress.findOne({ user_id: userId, card_id: cardId });
     const isFirstTime = !existingProgress;
     let xpChange = 0;
 
     if (isFirstTime) {
-      xpChange = isSandboxModuleType
+      xpChange = isHtmlSandboxCard
         ? computeSandboxModuleXp(card, answeredScore, totalPossibleWeight)
         : calculateXp(card.card_type, isCorrect);
     } else {
@@ -137,6 +171,11 @@ exports.recordCardCompletion = async (req, res) => {
     let totalCardsInScope = 0;
     let userCompletedCardsInScope = 0;
     let currentCalculatedScopeXP = 0;
+    // Hoisted out of the branch-local `isModuleCompletedNow`/`isTopicCompletedNow`
+    // consts below (each declared with `const` inside its own `if`/`else` block,
+    // so they don't exist by that name once execution reaches the shared code
+    // after the if/else) — this is what the post-branch socket emit reads.
+    let isScopeCompletedNow = false;
 
     if (isExpressFlatTrack) {
       totalCardsInScope = await Card.countDocuments({ module_id: moduleId });
@@ -154,30 +193,35 @@ exports.recordCardCompletion = async (req, res) => {
       for (const record of userModuleProgressList) {
         const cardMeta = cardMap[record.card_id.toString()];
         if (!cardMeta) continue;
-        if (isSandboxModuleType && cardMeta.card_type === 'html_sandbox') {
+        if (cardMeta.card_type === 'html_sandbox') {
           currentCalculatedScopeXP += computeSandboxModuleXp(cardMeta, record.score, record.maxScore);
         } else {
           currentCalculatedScopeXP += calculateXp(cardMeta.card_type, record.isCorrect);
         }
       }
 
-      // 🏁 One-time module-completion pointsReward bonus (EXPRESS_FLAT only —
-      // STANDARD modules get the equivalent bonus per-topic below instead).
-      // Dedupe-guarded via UserModuleProgress.pointsAwarded so re-POSTing an
-      // already-complete module never re-awards the bonus.
+      // 🎯 BUG FIX (41 points awarded as 88): this used to ALSO award
+      // computePointsReward(targetCardsDetailsList, ...) as a "module
+      // completion bonus" here — on top of the per-card XP each of those
+      // same cards already received individually as they were completed
+      // (the $inc above, and the identical per-card sum accumulating in
+      // currentCalculatedScopeXP). Once every card in the module is done,
+      // the sum of individually-awarded XP already EQUALS the module's
+      // total worth — a separate "bonus" of that same total again is a
+      // straight double-count, not a real bonus. Removed entirely; only the
+      // completion/dedupe bookkeeping below remains (still useful for
+      // "is this module completed" tracking elsewhere), with no XP attached.
       const isModuleCompletedNow = (userCompletedCardsInScope === totalCardsInScope && totalCardsInScope > 0);
+      isScopeCompletedNow = isModuleCompletedNow;
       const existingModuleProgress = await UserModuleProgress.findOne({ user_id: userId, module_id: moduleId });
-
-      if (isModuleCompletedNow && !existingModuleProgress?.pointsAwarded) {
-        const moduleBonus = computePointsReward(totalCardsInScope, parentModuleDoc?.estimatedTime);
-        await User.findByIdAndUpdate(userId, { $inc: { xp: moduleBonus } });
-      }
 
       await UserModuleProgress.findOneAndUpdate(
         { user_id: userId, module_id: moduleId },
         {
           isCompleted: isModuleCompletedNow,
-          pointsAwarded: isModuleCompletedNow ? true : (existingModuleProgress?.pointsAwarded || false)
+          pointsAwarded: isModuleCompletedNow ? true : (existingModuleProgress?.pointsAwarded || false),
+          bestXP: currentCalculatedScopeXP,
+          $inc: { timeSpentSeconds: clampedTimeDelta }
         },
         { upsert: true, new: true }
       );
@@ -186,6 +230,7 @@ exports.recordCardCompletion = async (req, res) => {
       userCompletedCardsInScope = await UserCardProgress.countDocuments({ user_id: userId, topic_id: topicId });
       
       const isTopicCompletedNow = (userCompletedCardsInScope === totalCardsInScope && totalCardsInScope > 0);
+      isScopeCompletedNow = isTopicCompletedNow;
 
       const userCardsProgressList = await UserCardProgress.find({ user_id: userId, topic_id: topicId }).lean();
       const completedCardIds = userCardsProgressList.map(p => p.card_id);
@@ -193,27 +238,30 @@ exports.recordCardCompletion = async (req, res) => {
       
       const cardMap = {};
       targetCardsDetailsList.forEach(c => {
-        cardMap[c._id.toString()] = c.card_type;
+        cardMap[c._id.toString()] = c;
       });
 
+      // 🎯 Same fix as the EXPRESS_FLAT branch above — an html_sandbox card
+      // nested under a Topic must also use the real-content calculation,
+      // not the flat calculateXp('html_sandbox', ...) baseline. This branch
+      // previously had no such case at all.
       for (const record of userCardsProgressList) {
-        const type = cardMap[record.card_id.toString()];
-        if (type) {
-          currentCalculatedScopeXP += calculateXp(type, record.isCorrect);
+        const cardMeta = cardMap[record.card_id.toString()];
+        if (!cardMeta) continue;
+        if (cardMeta.card_type === 'html_sandbox') {
+          currentCalculatedScopeXP += computeSandboxModuleXp(cardMeta, record.score, record.maxScore);
+        } else {
+          currentCalculatedScopeXP += calculateXp(cardMeta.card_type, record.isCorrect);
         }
       }
 
-      // 🏁 One-time topic-completion pointsReward bonus — on top of the
-      // per-card XP already summed above, awarded exactly once via the
-      // pointsAwarded dedupe flag (fetched BEFORE the upsert below so we see
-      // its prior state, not the value we're about to write).
+      // 🎯 BUG FIX (41 points awarded as 88): same double-count as the module
+      // branch above — this used to ALSO award computePointsReward(...) as a
+      // "topic completion bonus" on top of the per-card XP each card already
+      // received individually. Removed entirely; pointsAwarded/isCompleted
+      // bookkeeping stays (still useful for completion-tracking elsewhere),
+      // just no longer gates an XP award since there isn't one anymore.
       const existingTopicProgress = await UserTopicProgress.findOne({ user_id: userId, topic_id: topicId });
-
-      if (isTopicCompletedNow && !existingTopicProgress?.pointsAwarded) {
-        const topicDoc = await Topic.findById(topicId, 'estimatedTime').lean();
-        const topicBonus = computePointsReward(totalCardsInScope, topicDoc?.estimatedTime);
-        await User.findByIdAndUpdate(userId, { $inc: { xp: topicBonus } });
-      }
 
       await UserTopicProgress.findOneAndUpdate(
         { user_id: userId, topic_id: topicId },
@@ -221,10 +269,29 @@ exports.recordCardCompletion = async (req, res) => {
           module_id: moduleId,
           isCompleted: isTopicCompletedNow,
           bestXP: currentCalculatedScopeXP,
-          pointsAwarded: isTopicCompletedNow ? true : (existingTopicProgress?.pointsAwarded || false)
+          pointsAwarded: isTopicCompletedNow ? true : (existingTopicProgress?.pointsAwarded || false),
+          $inc: { timeSpentSeconds: clampedTimeDelta }
         },
         { upsert: true, new: true }
       );
+    }
+
+    // 🎯 Live-update channel for the Learn/module-card grid — this handler
+    // previously had zero Socket.IO emit, so a module card open in another
+    // tab (or the Learn grid sitting mounted while progress happens
+    // elsewhere) had no way to learn its progress changed except a manual
+    // refresh. Reuses the exact activeUserSockets/io.to(socketId) pattern
+    // already established for the 'xp_award' event below in this file.
+    const strUidForProgress = userId.toString();
+    if (global.activeUserSockets?.has(strUidForProgress)) {
+      global.activeUserSockets.get(strUidForProgress).forEach(socketId => {
+        global.io.to(socketId).emit('module_progress_update', {
+          moduleId,
+          cardsCovered: userCompletedCardsInScope,
+          totalCards: totalCardsInScope,
+          isCompleted: isScopeCompletedNow,
+        });
+      });
     }
 
     return res.status(200).json({
@@ -255,9 +322,10 @@ exports.getUserProgress = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Unauthorized: User parsing failed.' });
     }
 
-    const [cardRecords, topicRecords] = await Promise.all([
+    const [cardRecords, topicRecords, moduleRecords] = await Promise.all([
       UserCardProgress.find({ user_id: userId }).lean(),
-      UserTopicProgress.find({ user_id: userId }).lean() 
+      UserTopicProgress.find({ user_id: userId }).lean(),
+      UserModuleProgress.find({ user_id: userId }).lean()
     ]);
 
     if (!cardRecords || cardRecords.length === 0) {
@@ -267,23 +335,46 @@ exports.getUserProgress = async (req, res) => {
         completedTopicsCount: 0,
         completedModulesCount: 0,
         completedCardIds: [],
+        correctCardIds: [],
         completedTopicIds: [],
         completedModuleIds: [],
-        topicXpMap: {} 
+        topicXpMap: {},
+        moduleXpMap: {}
       });
     }
 
     const completedCardIds = cardRecords.map(rec => rec.card_id.toString());
-    
+
+    // 🎯 ACCURACY FIX: completedCardIds is "attempted" (a UserCardProgress doc
+    // exists the moment a card is first submitted, right or wrong) — it is
+    // NOT "answered correctly". A module's completion % must not credit a
+    // wrongly-answered quiz/code card as "done". correctCardIds filters to
+    // rec.isCorrect === true; passive card types (knowledge/video/pdf/ppt)
+    // are always recorded with isCorrect: true by the existing frontend call
+    // sites, so this only ever excludes genuinely wrong quiz/code attempts.
+    const correctCardIds = cardRecords
+      .filter(rec => rec.isCorrect === true)
+      .map(rec => rec.card_id.toString());
+
     const completedTopicIds = topicRecords
       .filter(rec => rec.isCompleted === true)
       .map(rec => rec.topic_id.toString());
-      
-    const completedModuleIds = [...new Set(
-      topicRecords
+
+    // 🎯 BUG FIX: this used to be derived ONLY from UserTopicProgress, so a
+    // fully-finished EXPRESS_FLAT (flat-card, no topic hierarchy) module
+    // could never appear as "completed" here — that model has no topic
+    // records at all (see UserModuleProgress.js's own comment: it exists
+    // specifically for EXPRESS_FLAT modules, which complete at the whole-
+    // module level, not the topic level). Merge in module-level completions
+    // from UserModuleProgress (already fetched above as `moduleRecords`).
+    const completedModuleIds = [...new Set([
+      ...topicRecords
         .filter(rec => rec.isCompleted === true)
-        .map(rec => rec.module_id ? rec.module_id.toString() : '')
-    )].filter(id => id !== '');
+        .map(rec => rec.module_id ? rec.module_id.toString() : ''),
+      ...moduleRecords
+        .filter(rec => rec.isCompleted === true)
+        .map(rec => rec.module_id ? rec.module_id.toString() : ''),
+    ])].filter(id => id !== '');
 
     const topicXpMap = {};
     topicRecords.forEach(rec => {
@@ -292,15 +383,28 @@ exports.getUserProgress = async (req, res) => {
       }
     });
 
+    // 🎯 BUG FIX: this was never computed before, so EXPRESS_FLAT modules had
+    // no resume value — the frontend's `userProgressInApp.moduleXpMap` check
+    // (useQuizEngine.jsx) always fell through to 0 no matter how much XP a
+    // learner had actually earned in that module previously.
+    const moduleXpMap = {};
+    moduleRecords.forEach(rec => {
+      if (rec.module_id) {
+        moduleXpMap[rec.module_id.toString()] = rec.bestXP || 0;
+      }
+    });
+
     return res.status(200).json({
       success: true,
       completedCardsCount: completedCardIds.length,
       completedTopicsCount: completedTopicIds.length,
       completedModulesCount: completedModuleIds.length,
-      completedCardIds,   
-      completedTopicIds,  
+      completedCardIds,
+      correctCardIds,
+      completedTopicIds,
       completedModuleIds,
-      topicXpMap          
+      topicXpMap,
+      moduleXpMap
     });
 
   } catch (err) {
@@ -315,8 +419,19 @@ exports.getUserProgress = async (req, res) => {
 // =========================================================================
 exports.getAdminUsersList = async (req, res) => {
   try {
+    // 🔒 DEPARTMENT SCOPING: Department Admins (role 'admin') must only ever see
+    // users inside their own department — Super Admins bypass entirely.
+    const isSuperAdmin = req.user.role === 'superadmin';
+    const adminDept = req.user.department;
+    if (!isSuperAdmin && !adminDept) {
+      return res.status(400).json({ success: false, message: 'Admin profile missing department mapping.' });
+    }
+
+    const userQuery = { isVerified: true };
+    if (!isSuperAdmin) userQuery.department = adminDept;
+
     // Fetch users without populate — department may contain legacy strings, not ObjectIds
-    const users = await User.find({ isVerified: true }, 'username email xp role createdAt department').lean();
+    const users = await User.find(userQuery, 'username email xp role createdAt department').lean();
 
     // Validate ObjectId format before querying Department (avoids CastError on legacy string values)
     const isValidObjectId = (v) => v && /^[a-fA-F0-9]{24}$/.test(String(v));
@@ -423,18 +538,35 @@ exports.getAdminSandboxResults = async (req, res) => {
   try {
     const { cardId } = req.params;
 
+    // 🔒 DEPARTMENT SCOPING: filtering by USER department (not by which module/
+    // card authored it) matches the product rule — a Department Admin only ever
+    // sees people who belong to their department, even on Global-visibility
+    // modules shared across departments. Super Admins bypass entirely.
+    const isSuperAdmin = req.user.role === 'superadmin';
+    const adminDept = req.user.department;
+    if (!isSuperAdmin && !adminDept) {
+      return res.status(400).json({ success: false, message: 'Admin profile missing department mapping.' });
+    }
+
     const card = await Card.findById(cardId).lean();
     if (!card) return res.status(404).json({ success: false, message: 'Card not found.' });
     if (card.card_type !== 'html_sandbox') {
       return res.status(400).json({ success: false, message: 'This endpoint is only for html_sandbox cards.' });
     }
 
-    const allProgress = await UserCardProgress.find({ card_id: cardId }).lean();
+    const allProgressRaw = await UserCardProgress.find({ card_id: cardId }).lean();
 
-    const userIds = allProgress.map(p => p.user_id);
-    const users = await User.find({ _id: { $in: userIds } }, 'username email department').lean();
+    const userIds = allProgressRaw.map(p => p.user_id);
+    const userQuery = { _id: { $in: userIds } };
+    if (!isSuperAdmin) userQuery.department = adminDept;
+    const users = await User.find(userQuery, 'username email department').lean();
     const userMap = {};
     users.forEach(u => { userMap[u._id.toString()] = u; });
+
+    // Drop any submission whose user didn't resolve above (i.e. outside this
+    // admin's department) — keeps both the results list and the aggregate
+    // stats below scoped to exactly the cohort this admin is allowed to see.
+    const allProgress = allProgressRaw.filter(p => userMap[p.user_id.toString()]);
 
     // Build per-question accuracy stats across all submissions
     const questionAccMap = {};
@@ -514,6 +646,16 @@ exports.getAdminUserAnalytics = async (req, res) => {
 
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
 
+    // 🔒 DEPARTMENT SCOPING: a Department Admin may only pull analytics for a
+    // user inside their own department. Super Admins bypass entirely.
+    if (req.user.role !== 'superadmin') {
+      const adminDept = req.user.department;
+      if (!adminDept || !user.department || user.department.toString() !== adminDept.toString()) {
+        console.warn(`SECURITY: Admin ${req.user.id} attempted to read analytics for user ${userId} outside their department.`);
+        return res.status(403).json({ success: false, message: 'Forbidden: this user is outside your department.' });
+      }
+    }
+
     // Pull card details for type info
     const cardIds = cardRecords.map(r => r.card_id);
     const cards = await Card.find({ _id: { $in: cardIds } }, 'card_type content.title').lean();
@@ -538,6 +680,16 @@ exports.getAdminUserAnalytics = async (req, res) => {
       : null;
 
     // Sandbox summary
+    // 🎯 BUG FIX: `score`/`maxScore` are the raw fields the sandbox HTML's own
+    // JS posts as a single combined number across MCQ + descriptive questions
+    // — that raw pair is unreliable (this is the "40/5" bug: maxScore ends up
+    // being a question COUNT in some sandbox modules, not a true points sum).
+    // adminScore/adminFeedback were also missing entirely here (present on
+    // the sibling admin/sandbox and admin/user/:id/sandbox-answers endpoints
+    // but not this one) — without them the frontend has no way to know the
+    // manually-graded descriptive score at all. Both are now included so the
+    // frontend can recompute an accurate total from questions[] instead of
+    // trusting the raw score/maxScore pair.
     const sandboxSummary = sandboxRecords.map(r => {
       const c = cardMap[r.card_id.toString()];
       const percentage = r.maxScore > 0 ? Math.round((r.score / r.maxScore) * 100) : null;
@@ -551,7 +703,9 @@ exports.getAdminUserAnalytics = async (req, res) => {
         percentage,
         timesAttempted: r.timesAttempted,
         lastAttempted: r.updatedAt,
-        questions
+        questions,
+        adminScore: rawLogs?.adminScore ?? null,
+        adminFeedback: rawLogs?.adminFeedback || ''
       };
     });
 
@@ -694,8 +848,18 @@ exports.getUserSandboxAnswersForAdmin = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const user = await User.findById(userId, 'username email').lean();
+    const user = await User.findById(userId, 'username email department').lean();
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    // 🔒 DEPARTMENT SCOPING: a Department Admin may only pull answers for a
+    // user inside their own department. Super Admins bypass entirely.
+    if (req.user.role !== 'superadmin') {
+      const adminDept = req.user.department;
+      if (!adminDept || !user.department || user.department.toString() !== adminDept.toString()) {
+        console.warn(`SECURITY: Admin ${req.user.id} attempted to read sandbox answers for user ${userId} outside their department.`);
+        return res.status(403).json({ success: false, message: 'Forbidden: this user is outside your department.' });
+      }
+    }
 
     const progressRecords = await UserCardProgress.find({ user_id: userId }).lean();
     const cardIds = progressRecords.map(r => r.card_id);
@@ -821,8 +985,37 @@ exports.importGrades = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No grade records provided.' });
     }
 
+    // 🔒 DEPARTMENT SCOPING (write path): a Department Admin's bulk import
+    // must never be able to award/adjust XP for a user outside their own
+    // department, even if their uploaded workbook contains foreign rows
+    // (e.g. an old export, a copy-pasted sheet, or a deliberate tamper
+    // attempt). Resolve every target user's department up front and only
+    // grade the ones that resolve inside this admin's own department —
+    // Super Admins bypass this check entirely.
+    const isSuperAdmin = req.user.role === 'superadmin';
+    let allowedUserIds = null;
+
+    if (!isSuperAdmin) {
+      const adminDept = req.user.department ? req.user.department.toString() : null;
+      if (!adminDept) {
+        return res.status(400).json({ success: false, message: 'Admin profile missing department mapping.' });
+      }
+      const targetUserIds = [...new Set(grades.map(g => g.userId).filter(Boolean).map(String))];
+      const targetUsers = await User.find({ _id: { $in: targetUserIds } }, 'department').lean();
+      allowedUserIds = new Set(
+        targetUsers
+          .filter(u => u.department && u.department.toString() === adminDept)
+          .map(u => u._id.toString())
+      );
+    }
+
     const results = [];
     for (const grade of grades) {
+      if (!isSuperAdmin && !allowedUserIds.has(String(grade.userId))) {
+        console.warn(`SECURITY: Admin ${req.user.id} attempted to bulk-grade user ${grade.userId} outside their department.`);
+        results.push({ userId: grade.userId, cardId: grade.cardId, status: 'forbidden' });
+        continue;
+      }
       const result = await applyAdminGrade(grade);
       results.push(result);
     }
@@ -843,6 +1036,18 @@ exports.gradeSingleSubmission = async (req, res) => {
   try {
     const { cardId, userId } = req.params;
     const { assignedScore, adminFeedback, moduleTitle } = req.body;
+
+    // 🔒 DEPARTMENT SCOPING (write path): block a Department Admin from
+    // awarding/adjusting XP for a user outside their own department by
+    // simply editing the :userId in the request. Super Admins bypass.
+    if (req.user.role !== 'superadmin') {
+      const adminDept = req.user.department ? req.user.department.toString() : null;
+      const targetUser = await User.findById(userId, 'department').lean();
+      if (!adminDept || !targetUser?.department || targetUser.department.toString() !== adminDept) {
+        console.warn(`SECURITY: Admin ${req.user.id} attempted to grade user ${userId} outside their department.`);
+        return res.status(403).json({ success: false, message: 'Forbidden: this user is outside your department.' });
+      }
+    }
 
     const result = await applyAdminGrade({ userId, cardId, assignedScore, adminFeedback, moduleTitle });
 
@@ -870,16 +1075,37 @@ exports.exportModuleSubmissionsCsv = async (req, res) => {
     const { buildCsv } = require('../utils/csvBuilder');
     const moduleId = req.params.id;
 
+    // 🔒 DEPARTMENT SCOPING: the CSV export must inherit the identical
+    // per-user department restriction as the on-screen results — otherwise a
+    // Department Admin could pull a full cross-department data dump just by
+    // downloading instead of viewing. Super Admins bypass entirely.
+    const isSuperAdmin = req.user.role === 'superadmin';
+    const adminDept = req.user.department;
+    if (!isSuperAdmin && !adminDept) {
+      return res.status(400).json({ success: false, message: 'Admin profile missing department mapping.' });
+    }
+
     const card = await Card.findOne({ module_id: moduleId, card_type: 'html_sandbox' }).lean();
     if (!card) return res.status(404).json({ success: false, message: 'No html_sandbox card found for this module.' });
 
-    const submissions = await UserCardProgress.find({ card_id: card._id }).lean();
-    const userIds = submissions.map(s => s.user_id);
-    const users = await User.find({ _id: { $in: userIds } }, 'username email').lean();
+    const submissionsRaw = await UserCardProgress.find({ card_id: card._id }).lean();
+    const userIds = submissionsRaw.map(s => s.user_id);
+    const userQuery = { _id: { $in: userIds } };
+    if (!isSuperAdmin) userQuery.department = adminDept;
+    const users = await User.find(userQuery, 'username email').lean();
     const userMap = {};
     users.forEach(u => { userMap[u._id.toString()] = u; });
 
-    const headers = ['User ID', 'Name', 'Objective Score', 'Text Question ID', 'Raw Written Text Response', 'Assigned Points Manually'];
+    // Only export rows for users that resolved above (i.e. inside this
+    // admin's department).
+    const submissions = submissionsRaw.filter(s => userMap[s.user_id.toString()]);
+
+    // 🎯 Card ID + Module ID are included so a downloaded, admin-edited copy
+    // of this CSV can be re-uploaded via importModuleGradesCsv and matched
+    // back to the exact submission it came from — the export previously had
+    // no way to identify which card/module a row belonged to, so it could
+    // never round-trip back into a real grade update.
+    const headers = ['User ID', 'Name', 'Module ID', 'Card ID', 'Objective Score', 'Text Question ID', 'Raw Written Text Response', 'Assigned Points Manually'];
     const rows = [];
 
     submissions.forEach(sub => {
@@ -893,10 +1119,10 @@ exports.exportModuleSubmissionsCsv = async (req, res) => {
       const textQuestions = questions.filter(q => q.type === 'text' || q.type === 'code');
 
       if (textQuestions.length === 0) {
-        rows.push([sub.user_id.toString(), userName, objectiveScore, '', '', assignedManually]);
+        rows.push([sub.user_id.toString(), userName, moduleId, card._id.toString(), objectiveScore, '', '', assignedManually]);
       } else {
         textQuestions.forEach(q => {
-          rows.push([sub.user_id.toString(), userName, objectiveScore, q.id || '', q.userAnswer || '', assignedManually]);
+          rows.push([sub.user_id.toString(), userName, moduleId, card._id.toString(), objectiveScore, q.id || '', q.userAnswer || '', assignedManually]);
         });
       }
     });
@@ -912,12 +1138,102 @@ exports.exportModuleSubmissionsCsv = async (req, res) => {
 };
 
 // =========================================================================
+// CONTROLLER 9E: Admin — CSV import of a single module's graded submissions
+// POST /api/progress/admin/module/:moduleId/import-grades-csv
+// Body: multipart file field "file" — the CSV downloaded from
+// exportModuleSubmissionsCsv, edited to fill in "Assigned Points Manually".
+// =========================================================================
+exports.importModuleGradesCsv = async (req, res) => {
+  try {
+    const { parseCsv } = require('../utils/csvBuilder');
+    const { moduleId } = req.params;
+
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ success: false, message: 'No CSV file uploaded.' });
+    }
+
+    const rows = parseCsv(req.file.buffer.toString('utf-8'));
+    if (rows.length === 0) {
+      return res.status(400).json({ success: false, message: 'CSV is empty or could not be parsed.' });
+    }
+
+    // 🔒 DEPARTMENT SCOPING (write path): identical guard to importGrades —
+    // resolve every target user's department up front so a Department
+    // Admin's upload can never grade/award XP for a user outside their own
+    // department, even if the CSV contains foreign rows.
+    const isSuperAdmin = req.user.role === 'superadmin';
+    let allowedUserIds = null;
+    if (!isSuperAdmin) {
+      const adminDept = req.user.department ? req.user.department.toString() : null;
+      if (!adminDept) {
+        return res.status(400).json({ success: false, message: 'Admin profile missing department mapping.' });
+      }
+      const targetUserIds = [...new Set(rows.map(r => r['User ID']).filter(Boolean).map(String))];
+      const targetUsers = await User.find({ _id: { $in: targetUserIds } }, 'department').lean();
+      allowedUserIds = new Set(
+        targetUsers.filter(u => u.department && u.department.toString() === adminDept).map(u => u._id.toString())
+      );
+    }
+
+    const moduleDoc = await Module.findById(moduleId, 'title').lean();
+
+    // Group by (User ID, Card ID) — "Assigned Points Manually" is ONE total
+    // per submission, repeated on every one of that submission's question
+    // rows (see exportModuleSubmissionsCsv), so the last non-blank value
+    // wins rather than being summed (summing would multiply the score by
+    // however many question-rows that submission happened to span).
+    const graded = {};
+    rows.forEach(row => {
+      const rawScore = row['Assigned Points Manually'];
+      if (!row['User ID'] || !row['Card ID'] || rawScore === '' || rawScore === undefined) return;
+      const score = Number(rawScore);
+      if (isNaN(score)) return;
+      const key = `${row['User ID']}::${row['Card ID']}`;
+      graded[key] = { userId: String(row['User ID']), cardId: String(row['Card ID']), assignedScore: score, moduleTitle: moduleDoc?.title || '' };
+    });
+
+    const grades = Object.values(graded);
+    if (grades.length === 0) {
+      return res.status(400).json({ success: false, message: "No valid rows found. Fill in 'Assigned Points Manually' and try again." });
+    }
+
+    const results = [];
+    for (const grade of grades) {
+      if (!isSuperAdmin && !allowedUserIds.has(grade.userId)) {
+        console.warn(`SECURITY: Admin ${req.user.id} attempted to bulk-grade user ${grade.userId} outside their department.`);
+        results.push({ userId: grade.userId, cardId: grade.cardId, status: 'forbidden' });
+        continue;
+      }
+      results.push(await applyAdminGrade(grade));
+    }
+
+    return res.status(200).json({ success: true, moduleId, results });
+  } catch (err) {
+    console.error('importModuleGradesCsv error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// =========================================================================
 // CONTROLLER 9: Department-level analytics — XP totals, avg XP, completions, top earner
 // GET /api/progress/admin/department-stats
 // =========================================================================
 exports.getAdminDepartmentStats = async (req, res) => {
   try {
-    const departments = await Department.find().lean();
+    // 🔒 DEPARTMENT SCOPING: a Department Admin should only ever see their
+    // own department's aggregate row, not every department's totals/top
+    // earner. Super Admins bypass entirely to keep the platform-wide view.
+    const isSuperAdmin = req.user.role === 'superadmin';
+    const deptQuery = {};
+    if (!isSuperAdmin) {
+      const adminDept = req.user.department;
+      if (!adminDept) {
+        return res.status(400).json({ success: false, message: 'Admin profile missing department mapping.' });
+      }
+      deptQuery._id = adminDept;
+    }
+
+    const departments = await Department.find(deptQuery).lean();
 
     const stats = await Promise.all(departments.map(async (dept) => {
       const users = await User.find({ department: dept._id, isVerified: true }, '_id xp username').lean();
@@ -1192,6 +1508,158 @@ exports.getMyStreak = async (req, res) => {
     });
   } catch (err) {
     console.error('getMyStreak error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// =========================================================================
+// CONTROLLER 14: Admin — unified per-user/per-module progress table
+// GET /api/progress/admin/module-progress-table
+// One row per (user, module) the user has actually touched. Standard
+// modules report % complete + time spent; html_sandbox modules report a
+// grading status so the frontend can conditionally show CSV actions.
+// =========================================================================
+exports.getAdminModuleProgressTable = async (req, res) => {
+  try {
+    // 🔒 DEPARTMENT SCOPING: identical pattern to getAdminUsersList — a
+    // Department Admin only ever sees their own department's users/rows.
+    const isSuperAdmin = req.user.role === 'superadmin';
+    const adminDept = req.user.department;
+    if (!isSuperAdmin && !adminDept) {
+      return res.status(400).json({ success: false, message: 'Admin profile missing department mapping.' });
+    }
+    const userQuery = { isVerified: true };
+    if (!isSuperAdmin) userQuery.department = adminDept;
+
+    const users = await User.find(userQuery, 'username email').lean();
+    if (users.length === 0) return res.status(200).json({ success: true, rows: [] });
+
+    const userIds = users.map(u => u._id);
+    const userMap = {};
+    users.forEach(u => { userMap[u._id.toString()] = u; });
+
+    const [modules, cardRecords, topicRecords, moduleRecords, allCards, allTopics] = await Promise.all([
+      Module.find({}, 'title moduleType hasTopics').lean(),
+      UserCardProgress.find({ user_id: { $in: userIds } }).lean(),
+      UserTopicProgress.find({ user_id: { $in: userIds } }).lean(),
+      UserModuleProgress.find({ user_id: { $in: userIds } }).lean(),
+      Card.find({}, 'module_id topic_id card_type').lean(),
+      Topic.find({}, 'module_id').lean(),
+    ]);
+
+    const moduleMap = {};
+    modules.forEach(m => { moduleMap[m._id.toString()] = m; });
+
+    const topicToModule = {};
+    allTopics.forEach(t => { topicToModule[t._id.toString()] = t.module_id ? t.module_id.toString() : null; });
+
+    // Total card count per module (direct cards + cards nested under that module's topics)
+    const moduleCardTotal = {};
+    // One html_sandbox card per html_sandbox module (Module.js's own contract)
+    const sandboxCardByModule = {};
+    allCards.forEach(c => {
+      const modId = c.module_id ? c.module_id.toString() : (c.topic_id ? topicToModule[c.topic_id.toString()] : null);
+      if (modId) moduleCardTotal[modId] = (moduleCardTotal[modId] || 0) + 1;
+      if (c.card_type === 'html_sandbox' && c.module_id) sandboxCardByModule[c.module_id.toString()] = c._id.toString();
+    });
+
+    // Total topic count per module (for STANDARD/hasTopics completion %)
+    const moduleTopicTotal = {};
+    allTopics.forEach(t => {
+      if (!t.module_id) return;
+      const modId = t.module_id.toString();
+      moduleTopicTotal[modId] = (moduleTopicTotal[modId] || 0) + 1;
+    });
+
+    // Group card progress by (user, module) — completed-card counts + the
+    // sandbox card's own submission record (for grading status)
+    const cardCountByKey = {};
+    const sandboxProgressByKey = {};
+    cardRecords.forEach(r => {
+      if (!r.module_id) return;
+      const key = `${r.user_id.toString()}::${r.module_id.toString()}`;
+      cardCountByKey[key] = (cardCountByKey[key] || 0) + 1;
+      const sandboxCardId = sandboxCardByModule[r.module_id.toString()];
+      if (sandboxCardId && r.card_id.toString() === sandboxCardId) sandboxProgressByKey[key] = r;
+    });
+
+    // Topic-level completion + time, aggregated up to (user, module)
+    const topicAggByKey = {};
+    topicRecords.forEach(r => {
+      if (!r.module_id) return;
+      const key = `${r.user_id.toString()}::${r.module_id.toString()}`;
+      if (!topicAggByKey[key]) topicAggByKey[key] = { completedTopics: 0, timeSpentSeconds: 0 };
+      if (r.isCompleted) topicAggByKey[key].completedTopics++;
+      topicAggByKey[key].timeSpentSeconds += r.timeSpentSeconds || 0;
+    });
+
+    const moduleProgressByKey = {};
+    moduleRecords.forEach(r => {
+      if (!r.module_id) return;
+      moduleProgressByKey[`${r.user_id.toString()}::${r.module_id.toString()}`] = r;
+    });
+
+    const rows = [];
+    Object.keys(cardCountByKey).forEach(key => {
+      const [userId, moduleId] = key.split('::');
+      const user = userMap[userId];
+      const mod = moduleMap[moduleId];
+      if (!user || !mod) return;
+
+      const base = {
+        userId, username: user.username, email: user.email,
+        moduleId, moduleTitle: mod.title, moduleType: mod.moduleType,
+      };
+
+      if (mod.moduleType === 'html_sandbox') {
+        const sandboxProgress = sandboxProgressByKey[key];
+        const rawLogs = sandboxProgress?.metaFeedbackLogs;
+        const questions = Array.isArray(rawLogs) ? rawLogs : (rawLogs?.questions || []);
+        const hasDescriptive = questions.some(q => q.type !== 'mcq' && q.type !== 'true_false');
+        const adminScore = rawLogs?.adminScore;
+        const status = (adminScore !== undefined && adminScore !== null)
+          ? 'Evaluated'
+          : (hasDescriptive ? 'Pending Evaluation' : 'Completed');
+
+        rows.push({
+          ...base,
+          percent: sandboxProgress ? 100 : 0,
+          status,
+          timeSpentSeconds: moduleProgressByKey[key]?.timeSpentSeconds || 0,
+          cardId: sandboxCardByModule[moduleId] || null,
+          hasDescriptive,
+        });
+      } else if (mod.hasTopics) {
+        const agg = topicAggByKey[key] || { completedTopics: 0, timeSpentSeconds: 0 };
+        const totalTopics = moduleTopicTotal[moduleId] || 0;
+        const percent = totalTopics > 0 ? Math.round((agg.completedTopics / totalTopics) * 100) : 0;
+
+        rows.push({
+          ...base,
+          percent,
+          status: (totalTopics > 0 && agg.completedTopics === totalTopics) ? 'Completed' : 'In Progress',
+          timeSpentSeconds: agg.timeSpentSeconds,
+        });
+      } else {
+        const modProgress = moduleProgressByKey[key];
+        const completedCards = cardCountByKey[key] || 0;
+        const totalCards = moduleCardTotal[moduleId] || completedCards;
+        const percent = totalCards > 0 ? Math.round((completedCards / totalCards) * 100) : 0;
+
+        rows.push({
+          ...base,
+          percent,
+          status: modProgress?.isCompleted ? 'Completed' : 'In Progress',
+          timeSpentSeconds: modProgress?.timeSpentSeconds || 0,
+        });
+      }
+    });
+
+    rows.sort((a, b) => a.username.localeCompare(b.username) || a.moduleTitle.localeCompare(b.moduleTitle));
+
+    return res.status(200).json({ success: true, rows });
+  } catch (err) {
+    console.error('getAdminModuleProgressTable error:', err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };

@@ -2,6 +2,7 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
+const upload = require('../middleware/multer');
 const progressController = require('../controllers/progressController');
 
 const router = express.Router();
@@ -75,6 +76,16 @@ router.get('/admin/module-engagement', auth, admin, progressController.getAdminM
 // @desc     Department-level XP totals, avg XP, cards/topics completed, top earner
 // @access   Admin / Superadmin
 router.get('/admin/department-stats', auth, admin, progressController.getAdminDepartmentStats);
+
+// @route    POST /api/progress/admin/module/:moduleId/import-grades-csv
+// @desc     Admin: import a single module's graded submissions from a re-uploaded CSV
+// @access   Admin / Superadmin
+router.post('/admin/module/:moduleId/import-grades-csv', auth, admin, upload.single('file'), progressController.importModuleGradesCsv);
+
+// @route    GET /api/progress/admin/module-progress-table
+// @desc     Admin: unified per-user/per-module progress table (standard % + sandbox grading status)
+// @access   Admin / Superadmin
+router.get('/admin/module-progress-table', auth, admin, progressController.getAdminModuleProgressTable);
 
 // @route    POST /api/progress/streak/verify
 // @desc     Record a daily engagement action and apply the 2/3 streak rule

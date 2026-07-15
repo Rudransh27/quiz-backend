@@ -14,8 +14,15 @@ module.exports = function (req, res, next) {
 
   // LAYER 2: DEPARTMENT / CONTENT AUTHOR ADMIN
   if (req.user.role === 'admin') {
-    // Normalizes parameter intercept lookups from requests safely
-    const targetDepartmentId = req.body.departmentId || req.body.department || req.params.departmentId || req.params.department;
+    // Normalizes parameter intercept lookups from requests safely.
+    // 🐛 FIX: req.body is `undefined` (not `{}`) on GET requests that don't
+    // send a JSON body/Content-Type — which is exactly how every admin
+    // analytics GET endpoint is called from the frontend. Reading
+    // `req.body.departmentId` unconditionally crashed with a 500 for every
+    // Department Admin GET request (Super Admins never reached this line,
+    // since their branch returns earlier) — very plausibly the real cause
+    // behind Department Admins seeing "blocked/empty" screens.
+    const targetDepartmentId = (req.body && (req.body.departmentId || req.body.department)) || req.params.departmentId || req.params.department;
 
     if (targetDepartmentId) {
       if (!req.user.department || req.user.department.toString() !== targetDepartmentId.toString()) {

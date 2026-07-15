@@ -20,6 +20,7 @@ const imageRoutes = require('./routes/imageRoutes');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes'); 
 const dailyReadRoutes = require('./routes/dailyReadRoutes');
+const newsRoutes = require('./routes/newsRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const ideaRoutes = require("./routes/ideaRoutes");
@@ -30,8 +31,16 @@ const app = express();
 // =========================================================================
 // 🔒 CRITICAL FIX 1: GLOBAL CORS SECURITY LAYER (MUST RUN AT ABSOLUTE ENTRY)
 // =========================================================================
+// CLIENT_URL supports a comma-separated list (e.g. VM IP + a domain added
+// later) so production doesn't need a code change to add an origin — falls
+// back to the local dev addresses only when CLIENT_URL isn't set at all.
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173,http://127.0.0.1:5173")
+    .split(",")
+    .map(o => o.trim())
+    .filter(Boolean);
+
 app.use(cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"], // Explicitly white-list your frontend development instances
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization", "x-module-id"],
     credentials: true
@@ -55,6 +64,7 @@ app.use('/api/image', imageRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes); 
 app.use('/api/daily-reads', dailyReadRoutes);
+app.use('/api/news', newsRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/teams', teamRoutes);
 app.use("/api/ideas", ideaRoutes);
@@ -64,7 +74,7 @@ app.use('/api/notifications', notificationRoutes);
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:5173", "http://127.0.0.1:5173"], 
+        origin: allowedOrigins,
         methods: ["GET", "POST"],
         credentials: true
     }

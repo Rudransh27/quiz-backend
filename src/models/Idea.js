@@ -33,6 +33,14 @@ const IdeaSchema = new mongoose.Schema({
     type: String,
     default: "", // Stores notes like "Thanks, this is a very good suggestion..."
   },
+  // Guards the one-time +25 XP curation bonus so it can only ever be paid
+  // out once per idea — without this, a status oscillation (e.g. rejected
+  // then re-approved) or two concurrent curate requests could both re-award
+  // it, since the old check only compared against the idea's PRIOR status.
+  xpAwarded: {
+    type: Boolean,
+    default: false,
+  },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",

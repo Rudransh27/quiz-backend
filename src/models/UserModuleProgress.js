@@ -24,6 +24,20 @@ const UserModuleProgressSchema = new mongoose.Schema({
   pointsAwarded: {
     type: Boolean,
     default: false
+  },
+  // Running per-card XP total for this module scope — mirrors
+  // UserTopicProgress.bestXP. Without this, reopening a partially-completed
+  // EXPRESS_FLAT module had nowhere to read a resume value from, so the
+  // in-session XP counter always restarted at 0.
+  bestXP: {
+    type: Number,
+    default: 0
+  },
+  // Accumulated active time (seconds) spent on cards inside this module —
+  // accrued incrementally by recordCardCompletion via $inc, never overwritten.
+  timeSpentSeconds: {
+    type: Number,
+    default: 0
   }
 }, { timestamps: true });
 

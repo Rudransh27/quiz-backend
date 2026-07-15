@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest --runInBand",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "build": "echo 'No build step required'",
@@ -15,6 +15,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@azure/msal-node": "^5.4.0",
     "@types/prismjs": "^1.26.6",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.2",
@@ -41,6 +42,9 @@
     "xpath": "^0.0.34"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "jest": "^30.4.2",
+    "mongodb-memory-server": "^11.2.0",
+    "nodemon": "^3.1.11",
+    "supertest": "^7.2.2"
   }
 }

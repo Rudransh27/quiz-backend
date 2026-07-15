@@ -26,14 +26,33 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, "Please provide a password"],
+    // Only required for locally-registered accounts — SSO accounts
+    // authenticate via Microsoft and never set a password here.
+    required: function () { return this.authProvider === "local"; },
     minlength: 6,
-    select: false, 
+    select: false,
   },
   role: {
     type: String,
     enum: ["user", "admin", "superadmin"],
     default: "user",
+  },
+  // 🔐 SSO — how this account authenticates. "microsoft" accounts are
+  // auto-created on first Entra ID SSO login (see authRoutes.js) and skip
+  // both the password field and the OTP verification flow, since Microsoft
+  // has already verified their identity.
+  authProvider: {
+    type: String,
+    enum: ["local", "microsoft"],
+    default: "local",
+  },
+  // Azure AD's stable per-user object id (the `oid` claim) — used to find/
+  // link this account on repeat SSO logins. Sparse so local-only accounts
+  // (which never set this) don't collide on the unique index.
+  microsoftId: {
+    type: String,
+    unique: true,
+    sparse: true,
   },
   avatarUrl: {
     type: String,
@@ -67,9 +86,12 @@ const userSchema = new mongoose.Schema({
   // 🏢 LAYER 2: Department Placement (Carbon, iFile, iDeal, DataTech)
   department: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Department", 
-    // Required false ONLY for superadmins who oversee the absolute macro cluster
-    required: function() { return this.role !== "superadmin"; },
+    ref: "Department",
+    // Required false for superadmins (who oversee the absolute macro cluster)
+    // AND for freshly auto-created SSO accounts, which are saved before the
+    // user has picked a department on the one-time /complete-profile screen
+    // (see authRoutes.js's /microsoft/callback + PUT /complete-profile).
+    required: function() { return this.role !== "superadmin" && this.authProvider !== "microsoft"; },
   },
   
   // 👥 LAYER 3: Specific Team Scoping (Finance, Sales, DevOps, Developer)
