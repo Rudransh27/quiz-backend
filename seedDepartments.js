@@ -20,7 +20,7 @@ const seedDepts = [
     description: "SaaS disclosure management and digital ESG reporting platform enabling enterprises to safely author, cross-reference, and execute structured automated XBRL/iXBRL filings for global capital market authorities." //
   },
   { 
-    name: "DATATECH", 
+    name: "DATATECH (MSME)", 
     code: "DATATECH", 
     description: "Core high-performance data engineering and automated validation framework layer focused on transforming financial raw assets into clean, auditable BSON and XML information standard formats." //
   }
