@@ -27,7 +27,7 @@ const seedCarbonTeams = async () => {
     await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/xbrl_app");
     console.log("✅ Database connected successfully.");
 
-    const carbonDept = await Department.findOne({ name: "Carbon" });
+    const carbonDept = await Department.findOne({ name: "CARBON" });
     if (!carbonDept) {
       throw new Error("Carbon department not found. Run seedDepartments.js first.");
     }
