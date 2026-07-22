@@ -17,7 +17,8 @@ const carbonTeams = [
   { name: "ABM", code: "ABM" },
   { name: "SDR", code: "SDR" },
   { name: "CEM", code: "CEM" },
-  { name: "Operations", code: "OPERATIONS" }
+  { name: "Operations", code: "OPERATIONS" },
+  { name: "Council members", code: "COUNCIL_MEMBERS" }
 ];
 
 const seedCarbonTeams = async () => {

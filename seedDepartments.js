@@ -5,7 +5,7 @@ require("dotenv").config();
 
 const seedDepts = [
   { 
-    name: "iFile", 
+    name: "iFILE", 
     code: "IFILE", 
     description: "Supervisory technology (SupTech) platform utilized by global central banks and regulators to collect, process, and automatically validate structured business data and regulatory financial filings." //
   },
@@ -15,12 +15,12 @@ const seedDepts = [
     description: "Automated regulatory and prudential compliance reporting solution designed specifically for commercial banking, mutual funds, and BFSI financial institutions to manage ratio audits." //
   },
   { 
-    name: "Carbon", 
+    name: "CARBON", 
     code: "CARBON", 
     description: "SaaS disclosure management and digital ESG reporting platform enabling enterprises to safely author, cross-reference, and execute structured automated XBRL/iXBRL filings for global capital market authorities." //
   },
   { 
-    name: "Datatech", 
+    name: "DATATECH", 
     code: "DATATECH", 
     description: "Core high-performance data engineering and automated validation framework layer focused on transforming financial raw assets into clean, auditable BSON and XML information standard formats." //
   }
