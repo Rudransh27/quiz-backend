@@ -97,4 +97,16 @@ router.post('/streak/verify', auth, progressController.verifyDailyStreak);
 // @access   Private
 router.get('/streak', auth, progressController.getMyStreak);
 
+// @route    GET /api/progress/module-scope-state
+// @desc     Ordered per-card progress + submitted answers for one module/topic
+//           scope — powers Linear Locking + Review Mode on the frontend
+// @access   Private
+router.get('/module-scope-state', auth, progressController.getModuleScopeState);
+
+// @route    POST /api/progress/module-reset
+// @desc     Learner self-service reset/reattempt — archives this user's
+//           progress for a module (or topic), claws back its XP, clean slate
+// @access   Private
+router.post('/module-reset', auth, progressController.resetModuleProgress);
+
 module.exports = router;

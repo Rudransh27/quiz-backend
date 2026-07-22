@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose'); 
+const mongoose = require('mongoose');
 const User = require('../models/User');
-const auth = require('../middleware/auth'); 
+const auth = require('../middleware/auth');
+const { checkAndAwardBadges, getOrbitTier, getLast7Days, getMyDepartmentRank } = require('../utils/achievements');
 
 // =========================================================================
 // @route   GET /api/users/count-verified
@@ -100,10 +101,46 @@ router.get("/department-leaderboard", auth, async (req, res) => {
       };
     });
 
-    return res.json({ success: true, data: rankedLeaderboard });
+    // 🎯 The requester's own rank/xp, computed even when they're outside the
+    // top 10 — the profile page's leaderboard-rank teaser needs this and
+    // shouldn't require scanning the whole department client-side. The JWT
+    // payload (contextUser) doesn't carry xp, so the real DB record is
+    // needed here, not the token's own department-only fields.
+    const me = await User.findById(contextUser.id, "xp department").lean();
+    const myRank = me ? await getMyDepartmentRank(me) : null;
+
+    return res.json({
+      success: true,
+      data: rankedLeaderboard,
+      myRank,
+      myXp: me?.xp || 0,
+    });
   } catch (err) {
     console.error("Leaderboard Aggregation Failure:", err.message);
     return res.status(500).json({ message: "Internal server error reading rankings." });
+  }
+});
+
+// =========================================================================
+// 🏅 GET /api/users/me/gamification
+// @desc    Badges (evaluated + lazily awarded), Your Orbit XP tier, and the
+//          7-day streak-calendar strip — one call for the Profile page.
+// =========================================================================
+router.get("/me/gamification", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    const [badges] = await Promise.all([checkAndAwardBadges(req.user.id)]);
+    const orbitTier = getOrbitTier(user.xp || 0);
+    const last7Days = getLast7Days(user);
+
+    return res.json({ success: true, data: { badges, orbitTier, last7Days } });
+  } catch (err) {
+    console.error("Gamification Summary Failure:", err.message);
+    return res.status(500).json({ success: false, message: "Internal server error computing gamification summary." });
   }
 });
 

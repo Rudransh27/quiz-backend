@@ -21,7 +21,7 @@ const IdeaSchema = new mongoose.Schema({
   },
   tag: {
     type: String,
-    enum: ["product", "market", "process", "publish"],
+    enum: ["product", "process", "technology", "culture"],
     required: true,
   },
   status: {

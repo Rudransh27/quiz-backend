@@ -37,6 +37,13 @@ const UserTopicProgressSchema = new mongoose.Schema({
   timeSpentSeconds: {
     type: Number,
     default: 0
+  },
+  // 🎯 RESET/REATTEMPT: singleton doc per (user, topic) — reset resets these
+  // fields in place rather than archiving (no multi-row history problem here
+  // the way there is for UserCardProgress). Incremented each reset.
+  resetCount: {
+    type: Number,
+    default: 0
   }
 }, { timestamps: true });
 

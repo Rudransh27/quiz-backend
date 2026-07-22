@@ -38,6 +38,14 @@ const UserModuleProgressSchema = new mongoose.Schema({
   timeSpentSeconds: {
     type: Number,
     default: 0
+  },
+  // 🎯 RESET/REATTEMPT: this is a singleton doc per (user, module) — a reset
+  // resets its fields in place (isCompleted/pointsAwarded/bestXP back to
+  // fresh) rather than archiving, since there's no multi-row history problem
+  // here the way there is for UserCardProgress. Incremented each reset.
+  resetCount: {
+    type: Number,
+    default: 0
   }
 }, { timestamps: true });
 

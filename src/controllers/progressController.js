@@ -2,6 +2,7 @@
 const UserCardProgress = require('../models/UserCardProgress');
 const UserTopicProgress = require('../models/UserTopicProgress');
 const UserModuleProgress = require('../models/UserModuleProgress');
+const ModuleResetLog = require('../models/ModuleResetLog');
 const User = require('../models/User');
 const Card = require('../models/Card');
 const Module = require('../models/Module');
@@ -9,6 +10,7 @@ const Topic = require('../models/Topic');
 const Department = require('../models/Department');
 const UserNotification = require('../models/UserNotification');
 const { parseHtmlSandboxPoints } = require('../utils/pointsCalculator');
+const { resolveClientToday, shiftDateKey } = require('../utils/localDate');
 
 /*
  * STANDARD HTML SANDBOX postMessage FORMAT
@@ -85,7 +87,7 @@ const computeSandboxModuleXp = (card, answeredScore, totalPossibleWeight) => {
 // =========================================================================
 exports.recordCardCompletion = async (req, res) => {
   // 🚀 INJECTED EXTBOY: Added structural score allocations and custom text responses arrays
-  const { cardId, topicId, moduleId, isCorrect, answeredScore, totalPossibleWeight, textResponses, timeSpentDelta } = req.body;
+  const { cardId, topicId, moduleId, isCorrect, answeredScore, totalPossibleWeight, textResponses, timeSpentDelta, selectedOption, userCodeAnswer } = req.body;
 
   // Clamp against a stuck/backgrounded tab reporting an inflated elapsed time
   // (e.g. laptop left open overnight on this card) inflating the total.
@@ -122,7 +124,7 @@ exports.recordCardCompletion = async (req, res) => {
     // the same real-content calculation.
     const isHtmlSandboxCard = card.card_type === 'html_sandbox';
 
-    const existingProgress = await UserCardProgress.findOne({ user_id: userId, card_id: cardId });
+    const existingProgress = await UserCardProgress.findOne({ user_id: userId, card_id: cardId, isArchived: { $ne: true } });
     const isFirstTime = !existingProgress;
     let xpChange = 0;
 
@@ -139,12 +141,22 @@ exports.recordCardCompletion = async (req, res) => {
     // =========================================================================
     // ⚙️ TELEMETRY CONTEXT PAYLOAD COMPILATION
     // =========================================================================
-    const cardProgressUpdate = { 
+    const cardProgressUpdate = {
       module_id: moduleId,
-      topic_id: isExpressFlatTrack ? null : topicId, 
+      topic_id: isExpressFlatTrack ? null : topicId,
       isCorrect: isCorrect,
-      $inc: { timesAttempted: 1 } 
+      isArchived: false,
+      $inc: { timesAttempted: 1, xpAwarded: xpChange }
     };
+
+    // 🎯 REVIEW MODE: persist the actual submitted answer so a later revisit
+    // can rehydrate a genuine read-only replay instead of a blank card.
+    if (selectedOption !== undefined && selectedOption !== null) {
+      cardProgressUpdate.selectedOption = Number(selectedOption);
+    }
+    if (userCodeAnswer !== undefined && userCodeAnswer !== null) {
+      cardProgressUpdate.userCodeAnswer = String(userCodeAnswer);
+    }
 
     // If the card is an HTML simulation, append the score numbers and text responses into the DB record
     if (card.card_type === 'html_sandbox') {
@@ -157,8 +169,12 @@ exports.recordCardCompletion = async (req, res) => {
         : (rawResponses || {});
     }
 
+    // 🎯 RESET/REATTEMPT: filtering the upsert match on isArchived:false means
+    // a prior reset (which flips the old doc's isArchived to true) can never
+    // collide with this upsert — a brand-new active doc gets created instead
+    // of resurrecting the archived one, matching the partial unique index.
     await UserCardProgress.findOneAndUpdate(
-      { user_id: userId, card_id: cardId },
+      { user_id: userId, card_id: cardId, isArchived: false },
       cardProgressUpdate,
       { upsert: true, new: true }
     );
@@ -179,9 +195,9 @@ exports.recordCardCompletion = async (req, res) => {
 
     if (isExpressFlatTrack) {
       totalCardsInScope = await Card.countDocuments({ module_id: moduleId });
-      userCompletedCardsInScope = await UserCardProgress.countDocuments({ user_id: userId, module_id: moduleId });
+      userCompletedCardsInScope = await UserCardProgress.countDocuments({ user_id: userId, module_id: moduleId, isArchived: { $ne: true } });
 
-      const userModuleProgressList = await UserCardProgress.find({ user_id: userId, module_id: moduleId }).lean();
+      const userModuleProgressList = await UserCardProgress.find({ user_id: userId, module_id: moduleId, isArchived: { $ne: true } }).lean();
       const completedCardIds = userModuleProgressList.map(p => p.card_id);
       const targetCardsDetailsList = await Card.find({ _id: { $in: completedCardIds } }).lean();
 
@@ -227,12 +243,12 @@ exports.recordCardCompletion = async (req, res) => {
       );
     } else {
       totalCardsInScope = await Card.countDocuments({ topic_id: topicId });
-      userCompletedCardsInScope = await UserCardProgress.countDocuments({ user_id: userId, topic_id: topicId });
-      
+      userCompletedCardsInScope = await UserCardProgress.countDocuments({ user_id: userId, topic_id: topicId, isArchived: { $ne: true } });
+
       const isTopicCompletedNow = (userCompletedCardsInScope === totalCardsInScope && totalCardsInScope > 0);
       isScopeCompletedNow = isTopicCompletedNow;
 
-      const userCardsProgressList = await UserCardProgress.find({ user_id: userId, topic_id: topicId }).lean();
+      const userCardsProgressList = await UserCardProgress.find({ user_id: userId, topic_id: topicId, isArchived: { $ne: true } }).lean();
       const completedCardIds = userCardsProgressList.map(p => p.card_id);
       const targetCardsDetailsList = await Card.find({ _id: { $in: completedCardIds } }).lean();
       
@@ -311,26 +327,21 @@ exports.recordCardCompletion = async (req, res) => {
 };
 
 // =========================================================================
-// CONTROLLER 2: Fetch Computed Analytics for Frontend Hydration
+// Shared helper: computes the same card/topic/module completion stats used
+// by getUserProgress below — also reused by achievements.js's "Module
+// Master" badge check, so both stay in sync off a single query path.
 // =========================================================================
-exports.getUserProgress = async (req, res) => {
-  try {
-    const contextUser = req.user && req.user.user ? req.user.user : req.user;
-    const userId = contextUser ? (contextUser.id || contextUser._id) : null;
-
-    if (!userId) {
-      return res.status(401).json({ success: false, message: 'Unauthorized: User parsing failed.' });
-    }
-
+exports.getProgressStats = async (userId) => {
     const [cardRecords, topicRecords, moduleRecords] = await Promise.all([
-      UserCardProgress.find({ user_id: userId }).lean(),
+      // 🎯 CURRENT-STATE query — archived (reset) cards must not still count
+      // as "completed" toward dashboard/Learn/Progress-page checkmarks.
+      UserCardProgress.find({ user_id: userId, isArchived: { $ne: true } }).lean(),
       UserTopicProgress.find({ user_id: userId }).lean(),
       UserModuleProgress.find({ user_id: userId }).lean()
     ]);
 
     if (!cardRecords || cardRecords.length === 0) {
-      return res.status(200).json({
-        success: true,
+      return {
         completedCardsCount: 0,
         completedTopicsCount: 0,
         completedModulesCount: 0,
@@ -339,8 +350,9 @@ exports.getUserProgress = async (req, res) => {
         completedTopicIds: [],
         completedModuleIds: [],
         topicXpMap: {},
-        moduleXpMap: {}
-      });
+        moduleXpMap: {},
+        moduleDatesMap: {}
+      };
     }
 
     const completedCardIds = cardRecords.map(rec => rec.card_id.toString());
@@ -394,8 +406,26 @@ exports.getUserProgress = async (req, res) => {
       }
     });
 
-    return res.status(200).json({
-      success: true,
+    // 🎯 Real (non-fabricated) per-module "date started" / "date finished" for
+    // the Progress tab's activity table — derived from each card's own
+    // createdAt rather than a separate tracked field, since none exists yet.
+    // startedAt = earliest card attempt in that module; lastActivityAt = most
+    // recent one, which doubles as "date finished" the moment the module
+    // actually reaches 100% (the frontend gates on that, not this endpoint).
+    const moduleDatesMap = {};
+    cardRecords.forEach(rec => {
+      if (!rec.module_id) return;
+      const modId = rec.module_id.toString();
+      const ts = rec.createdAt;
+      if (!moduleDatesMap[modId]) {
+        moduleDatesMap[modId] = { startedAt: ts, lastActivityAt: ts };
+      } else {
+        if (ts < moduleDatesMap[modId].startedAt) moduleDatesMap[modId].startedAt = ts;
+        if (ts > moduleDatesMap[modId].lastActivityAt) moduleDatesMap[modId].lastActivityAt = ts;
+      }
+    });
+
+    return {
       completedCardsCount: completedCardIds.length,
       completedTopicsCount: completedTopicIds.length,
       completedModulesCount: completedModuleIds.length,
@@ -404,9 +434,26 @@ exports.getUserProgress = async (req, res) => {
       completedTopicIds,
       completedModuleIds,
       topicXpMap,
-      moduleXpMap
-    });
+      moduleXpMap,
+      moduleDatesMap
+    };
+};
 
+// =========================================================================
+// CONTROLLER 2: Fetch Computed Analytics for Frontend Hydration
+// GET /api/progress
+// =========================================================================
+exports.getUserProgress = async (req, res) => {
+  try {
+    const contextUser = req.user && req.user.user ? req.user.user : req.user;
+    const userId = contextUser ? (contextUser.id || contextUser._id) : null;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized: User parsing failed.' });
+    }
+
+    const stats = await exports.getProgressStats(userId);
+    return res.status(200).json({ success: true, ...stats });
   } catch (err) {
     console.error("Analytics Error Compilation Failure:", err.message);
     return res.status(500).json({ success: false, message: 'Server error failed to compile metrics' });
@@ -496,7 +543,9 @@ exports.getSandboxDetail = async (req, res) => {
 
     const [card, progress] = await Promise.all([
       Card.findById(cardId).lean(),
-      UserCardProgress.findOne({ user_id: userId, card_id: cardId }).lean()
+      // 🎯 CURRENT-STATE query — after a reset, only the fresh (non-archived)
+      // attempt should ever be returned to the learner as "my results."
+      UserCardProgress.findOne({ user_id: userId, card_id: cardId, isArchived: { $ne: true } }).lean()
     ]);
 
     if (!card) return res.status(404).json({ success: false, message: 'Card not found.' });
@@ -919,7 +968,9 @@ async function applyAdminGrade({ userId, cardId, assignedScore, adminFeedback, m
   const score = Number(assignedScore);
   if (isNaN(score)) return { userId, cardId, status: 'invalid' };
 
-  const progress = await UserCardProgress.findOne({ user_id: userId, card_id: cardId });
+  // 🎯 CURRENT-STATE query — grade the live (non-archived) submission only;
+  // a stale, reset-archived doc must never be resurrected/mutated by grading.
+  const progress = await UserCardProgress.findOne({ user_id: userId, card_id: cardId, isArchived: { $ne: true } });
   if (!progress) return { userId, cardId, status: 'not_found' };
 
   // Delta is against the PREVIOUS admin score — makes re-grading/re-upload idempotent
@@ -928,7 +979,7 @@ async function applyAdminGrade({ userId, cardId, assignedScore, adminFeedback, m
 
   // Store admin grading inside metaFeedbackLogs without touching the questions array
   await UserCardProgress.findOneAndUpdate(
-    { user_id: userId, card_id: cardId },
+    { user_id: userId, card_id: cardId, isArchived: { $ne: true } },
     {
       $set: {
         'metaFeedbackLogs.adminScore':    Math.round(score),
@@ -936,6 +987,10 @@ async function applyAdminGrade({ userId, cardId, assignedScore, adminFeedback, m
         'metaFeedbackLogs.adminGradedAt': new Date(),
         'metaFeedbackLogs.moduleTitle':   moduleTitle || '',
       },
+      // 🎯 Keep xpAwarded in lockstep with every XP delta ever applied to
+      // this doc, admin-graded or not — this is exactly what a future
+      // module reset sums up to compute its clawback amount.
+      $inc: { xpAwarded: xpDelta },
     }
   );
 
@@ -1344,16 +1399,14 @@ exports.getDeptSandboxAnswers = async (req, res) => {
 };
 
 // =========================================================================
-// CONTROLLER 11: User-facing — all of the logged-in user's sandbox results
-// GET /api/progress/my-sandbox-results
+// Shared helper: computes the same sandbox-results list used by
+// getMySandboxResults below — also reused by achievements.js's "Sharp
+// Shooter" badge check.
 // =========================================================================
-exports.getMySandboxResults = async (req, res) => {
-  try {
-    const contextUser = req.user && req.user.user ? req.user.user : req.user;
-    const userId = contextUser ? (contextUser.id || contextUser._id) : null;
-    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized.' });
-
-    const progressRecords = await UserCardProgress.find({ user_id: userId }).lean();
+exports.getSandboxResultsForUser = async (userId) => {
+    // 🎯 CURRENT-STATE query — a reset sandbox result shouldn't reappear in
+    // the learner's own "my results" list until they redo it.
+    const progressRecords = await UserCardProgress.find({ user_id: userId, isArchived: { $ne: true } }).lean();
     const cardIds = progressRecords.map(r => r.card_id);
 
     const cards = await Card.find({ _id: { $in: cardIds }, card_type: 'html_sandbox' }, 'card_type content.title module_id').lean();
@@ -1388,6 +1441,20 @@ exports.getMySandboxResults = async (req, res) => {
         };
       });
 
+    return sandboxResults;
+};
+
+// =========================================================================
+// CONTROLLER 11: User-facing — all of the logged-in user's sandbox results
+// GET /api/progress/my-sandbox-results
+// =========================================================================
+exports.getMySandboxResults = async (req, res) => {
+  try {
+    const contextUser = req.user && req.user.user ? req.user.user : req.user;
+    const userId = contextUser ? (contextUser.id || contextUser._id) : null;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized.' });
+
+    const sandboxResults = await exports.getSandboxResultsForUser(userId);
     return res.status(200).json({ success: true, sandboxResults });
   } catch (err) {
     console.error('getMySandboxResults error:', err.message);
@@ -1406,14 +1473,18 @@ exports.verifyDailyStreak = async (req, res) => {
     const userId = contextUser ? (contextUser.id || contextUser._id) : null;
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized.' });
 
-    const { actionType } = req.body;
+    const { actionType, localDate } = req.body;
     const VALID_ACTIONS = ['daily_read', 'module_progress', 'idea_submission'];
     if (!VALID_ACTIONS.includes(actionType)) {
       return res.status(400).json({ success: false, message: `Invalid actionType. Must be one of: ${VALID_ACTIONS.join(', ')}.` });
     }
 
-    // Use local date string "YYYY-MM-DD" — avoids timezone drift between server and client
-    const today = new Date().toISOString().split('T')[0];
+    // The client's own local "YYYY-MM-DD" (falls back to the server's UTC
+    // date for any caller that hasn't been updated to send one) — using the
+    // server's UTC date unconditionally here used to make "today" resolve
+    // to the wrong calendar date for hours at a time for any user not at
+    // UTC+0, see utils/localDate.js.
+    const today = resolveClientToday(localDate);
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
@@ -1437,9 +1508,7 @@ exports.verifyDailyStreak = async (req, res) => {
 
     // Only mutate streak counters at the exact moment the threshold is first crossed
     if (qualifiesNow && !wasAlreadyQualified) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const yesterdayStr = shiftDateKey(today, -1);
 
       const streakContinues = user.lastActiveDate === yesterdayStr || user.lastActiveDate === today;
       user.currentStreak = streakContinues ? (user.currentStreak || 0) + 1 : 1;
@@ -1480,8 +1549,8 @@ exports.getMyStreak = async (req, res) => {
     const user = await User.findById(userId, 'currentStreak longestStreak lastActiveDate engagementHistory');
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
 
-    const today     = new Date().toISOString().split('T')[0];
-    const yesterday = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().split('T')[0]; })();
+    const today     = resolveClientToday(req.query.localDate);
+    const yesterday = shiftDateKey(today, -1);
 
     // Auto-break: if the user missed a day (lastActiveDate is neither today nor yesterday), reset streak to 0
     const streakExpired = user.lastActiveDate && user.lastActiveDate !== today && user.lastActiveDate !== yesterday;
@@ -1492,7 +1561,7 @@ exports.getMyStreak = async (req, res) => {
 
     const todayEntry = (user.engagementHistory || []).find(e => e.date === today);
 
-    const cutoff = (() => { const d = new Date(); d.setDate(d.getDate() - 29); return d.toISOString().split('T')[0]; })();
+    const cutoff = shiftDateKey(today, -29);
     const recentHistory = (user.engagementHistory || [])
       .filter(e => e.date >= cutoff)
       .map(e => ({ date: e.date, qualified: e.qualifiesForStreak, actions: e.actions }));
@@ -1540,7 +1609,11 @@ exports.getAdminModuleProgressTable = async (req, res) => {
 
     const [modules, cardRecords, topicRecords, moduleRecords, allCards, allTopics] = await Promise.all([
       Module.find({}, 'title moduleType hasTopics').lean(),
-      UserCardProgress.find({ user_id: { $in: userIds } }).lean(),
+      // 🎯 CURRENT-STATE query — this table computes a per-user completion
+      // percentage (cardCountByKey below); including an archived doc
+      // alongside its post-reset replacement would double-count that card
+      // and could push percent past 100%.
+      UserCardProgress.find({ user_id: { $in: userIds }, isArchived: { $ne: true } }).lean(),
       UserTopicProgress.find({ user_id: { $in: userIds } }).lean(),
       UserModuleProgress.find({ user_id: { $in: userIds } }).lean(),
       Card.find({}, 'module_id topic_id card_type').lean(),
@@ -1661,5 +1734,161 @@ exports.getAdminModuleProgressTable = async (req, res) => {
   } catch (err) {
     console.error('getAdminModuleProgressTable error:', err.message);
     return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// =========================================================================
+// CONTROLLER 15: Ordered per-card progress + submitted answers for one
+// module/topic scope — powers Linear Locking (attempted → unlocks the next
+// card) and Review Mode (isCorrect/selectedOption/userCodeAnswer rehydrate a
+// revisited card read-only) on the frontend. This is the single hydration
+// call useQuizEngine makes on mount, replacing the previously-broken
+// `completedCardIds` reference that was never actually populated.
+// GET /api/progress/module-scope-state?moduleId=&topicId=
+// =========================================================================
+exports.getModuleScopeState = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { moduleId, topicId } = req.query;
+
+    if (!moduleId) {
+      return res.status(400).json({ success: false, message: 'moduleId is required.' });
+    }
+
+    // Same string-heuristic branch used everywhere else in this file
+    // (recordCardCompletion) — must stay in lockstep with it, not a
+    // semantically-similar check against Module.hasTopics.
+    const isExpressFlatTrack = !topicId || topicId === "undefined" || topicId.toString().trim() === "";
+
+    const cardQuery = isExpressFlatTrack ? { module_id: moduleId } : { topic_id: topicId };
+    const cards = await Card.find(cardQuery, 'card_type cardOrder').sort({ cardOrder: 1 }).lean();
+
+    if (cards.length === 0) {
+      return res.status(200).json({ success: true, cards: [] });
+    }
+
+    const cardIds = cards.map(c => c._id);
+    const progressDocs = await UserCardProgress.find({
+      user_id: userId,
+      card_id: { $in: cardIds },
+      isArchived: { $ne: true },
+    }).lean();
+
+    const progressMap = {};
+    progressDocs.forEach(p => { progressMap[p.card_id.toString()] = p; });
+
+    const cardsOut = cards.map(c => {
+      const p = progressMap[c._id.toString()];
+      return {
+        cardId: c._id,
+        cardType: c.card_type,
+        attempted: !!p,
+        isCorrect: p ? !!p.isCorrect : false,
+        selectedOption: (p && p.selectedOption !== undefined) ? p.selectedOption : null,
+        userCodeAnswer: p ? (p.userCodeAnswer || '') : '',
+        score: p ? (p.score || 0) : 0,
+        maxScore: p ? (p.maxScore || 0) : 0,
+        metaFeedbackLogs: p ? (p.metaFeedbackLogs || {}) : {},
+        timesAttempted: p ? (p.timesAttempted || 0) : 0,
+      };
+    });
+
+    return res.status(200).json({ success: true, cards: cardsOut });
+  } catch (err) {
+    console.error('getModuleScopeState error:', err.message);
+    return res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+// =========================================================================
+// CONTROLLER 16: Learner self-service — reset/reattempt a module (or, for a
+// STANDARD/topic-hierarchy module, just the current topic) from a clean
+// slate. Archives (never deletes) this user's UserCardProgress docs in
+// scope, so admin analytics/grading history/CSV round-trips stay intact —
+// claws back exactly the XP those docs ever contributed (summed from the
+// persisted `xpAwarded` field, never recomputed — see UserCardProgress.js
+// for why a recompute would be unsafe for html_sandbox/admin-graded cards).
+// POST /api/progress/module-reset   Body: { moduleId, topicId? }
+// =========================================================================
+exports.resetModuleProgress = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { moduleId, topicId } = req.body;
+
+    if (!moduleId) {
+      return res.status(400).json({ success: false, message: 'moduleId is required.' });
+    }
+
+    const isExpressFlatTrack = !topicId || topicId === "undefined" || topicId.toString().trim() === "";
+
+    const cardQuery = isExpressFlatTrack ? { module_id: moduleId } : { topic_id: topicId };
+    const cardIds = (await Card.find(cardQuery, '_id').lean()).map(c => c._id);
+
+    const scopeDocs = await UserCardProgress.find({
+      user_id: userId,
+      card_id: { $in: cardIds },
+      isArchived: { $ne: true },
+    }).lean();
+
+    const xpClawedBack = scopeDocs.reduce((sum, d) => sum + (d.xpAwarded || 0), 0);
+
+    if (scopeDocs.length > 0) {
+      await UserCardProgress.updateMany(
+        { _id: { $in: scopeDocs.map(d => d._id) } },
+        { $set: { isArchived: true } }
+      );
+    }
+
+    if (xpClawedBack !== 0) {
+      // Clamp the floor at 0 defensively — a single module's clawback should
+      // never be able to push a user's total XP negative.
+      const user = await User.findById(userId, 'xp');
+      const nextXp = Math.max(0, (user?.xp || 0) - xpClawedBack);
+      await User.findByIdAndUpdate(userId, { $set: { xp: nextXp } });
+    }
+
+    if (isExpressFlatTrack) {
+      await UserModuleProgress.findOneAndUpdate(
+        { user_id: userId, module_id: moduleId },
+        { isCompleted: false, pointsAwarded: false, bestXP: 0, $inc: { resetCount: 1 } },
+        { upsert: true }
+      );
+    } else {
+      // STANDARD modules have no whole-module completion record — only the
+      // current topic's UserTopicProgress doc is in scope for this reset.
+      await UserTopicProgress.findOneAndUpdate(
+        { user_id: userId, topic_id: topicId },
+        { module_id: moduleId, isCompleted: false, pointsAwarded: false, bestXP: 0, $inc: { resetCount: 1 } },
+        { upsert: true }
+      );
+    }
+
+    await ModuleResetLog.create({
+      user_id: userId,
+      module_id: moduleId,
+      topic_id: isExpressFlatTrack ? null : topicId,
+      xpClawedBack,
+      cardsAffected: scopeDocs.length,
+    });
+
+    // Live-update channel — reuses the exact activeUserSockets/io.to(socketId)
+    // pattern already established for recordCardCompletion's own emit, so
+    // any other open tab on this module refreshes to the clean-slate state.
+    const strUidForProgress = userId.toString();
+    if (global.activeUserSockets?.has(strUidForProgress)) {
+      global.activeUserSockets.get(strUidForProgress).forEach(socketId => {
+        global.io.to(socketId).emit('module_progress_update', {
+          moduleId,
+          cardsCovered: 0,
+          totalCards: cardIds.length,
+          isCompleted: false,
+        });
+      });
+    }
+
+    return res.status(200).json({ success: true, xpClawedBack, cardsAffected: scopeDocs.length });
+  } catch (err) {
+    console.error('resetModuleProgress error:', err.message);
+    return res.status(500).json({ success: false, message: 'Server error.' });
   }
 };

@@ -8,6 +8,7 @@ const sendEmail = require("../utils/sendEmail");
 const auth = require("../middleware/auth");
 const authController = require("../controllers/authController");
 const { msalClient, MICROSOFT_SCOPES, getMicrosoftRedirectUri } = require("../utils/msalClient");
+const { resolveClientToday, shiftDateKey } = require("../utils/localDate");
 
 const router = express.Router();
 
@@ -526,8 +527,9 @@ router.post("/validate", auth, async (req, res) => {
     }
 
     // Auto-break streak if user missed a day before returning the live snapshot
-    const today     = new Date().toISOString().split('T')[0];
-    const yesterday = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().split('T')[0]; })();
+    // (client's own local calendar day when sent — see utils/localDate.js)
+    const today     = resolveClientToday(req.body.localDate);
+    const yesterday = shiftDateKey(today, -1);
     if (freshUserDoc.lastActiveDate && freshUserDoc.lastActiveDate !== today && freshUserDoc.lastActiveDate !== yesterday && freshUserDoc.currentStreak > 0) {
       freshUserDoc.currentStreak = 0;
       await freshUserDoc.save();
@@ -597,6 +599,47 @@ router.put("/update-profile", auth, async (req, res) => {
   } catch (err) {
     console.error("❌ Profile update error:", err.message);
     res.status(500).json({ success: false, message: "Failed to update profile." });
+  }
+});
+
+// =========================================================================
+// @route    PUT /api/auth/change-password
+// @desc     Change the logged-in user's own password (local accounts only —
+//           SSO accounts authenticate via Microsoft and have no local
+//           password to change).
+// @access   Private
+// =========================================================================
+router.put("/change-password", auth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  try {
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: "Current and new password are both required." });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: "New password must be at least 6 characters." });
+    }
+
+    const user = await User.findById(req.user.id).select("+password");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    if (user.authProvider !== "local") {
+      return res.status(400).json({ success: false, message: "SSO accounts sign in via Microsoft and don't use a local password." });
+    }
+
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Current password is incorrect." });
+    }
+
+    user.password = newPassword; // pre("save") hook rehashes this
+    await user.save();
+
+    res.json({ success: true, message: "Password updated successfully." });
+  } catch (err) {
+    console.error("❌ Change password error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to change password." });
   }
 });
 

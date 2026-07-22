@@ -34,7 +34,19 @@ const DailyReadSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-  
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+
+  // UTC "YYYY-MM-DD" for the calendar day this read belongs to (same
+  // day-boundary convention as User.engagementHistory's streak entries).
+  // Backs the "one per department per day" rule below.
+  dateKey: {
+    type: String,
+    index: true,
+  },
+
   // 🎯 STRICT SINGLE-LAYER VISIBILITY CONFIGURATION
   // Global option completely excised to isolate article streams to single business lines
   visibility: {
@@ -59,5 +71,10 @@ const DailyReadSchema = new mongoose.Schema({
 // Refactored compound index: Excised visibility from indexing vectors since it is now static.
 // This directly accelerates real-time sorting loops for department news feeds.
 DailyReadSchema.index({ department: 1, createdAt: -1 });
+
+// Enforces "one Daily Read per department per day" at the DB layer.
+// sparse: true so legacy documents saved before dateKey existed (all
+// missing the field) don't collide with each other under the unique index.
+DailyReadSchema.index({ department: 1, dateKey: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model("DailyRead", DailyReadSchema);

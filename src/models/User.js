@@ -126,6 +126,14 @@ const userSchema = new mongoose.Schema({
       enum: ['daily_read', 'module_progress', 'idea_submission'],
     }],
   }],
+
+  // 🏅 Achievement badges — once earned, permanently kept (e.g. a streak
+  // badge stays even after the current streak later resets), unlike the
+  // live counters above which reflect current state.
+  badges: [{
+    key:      { type: String, required: true },
+    earnedAt: { type: Date, default: Date.now },
+  }],
 });
 
 // =========================================================================
