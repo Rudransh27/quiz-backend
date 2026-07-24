@@ -117,6 +117,13 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  // Separate from lastActiveDate (which tracks the 3 streak-qualifying
+  // actions) — this gates the standalone "+1 for showing up today" login
+  // bonus, awarded once per calendar day regardless of streak activity.
+  lastLoginBonusDate: {
+    type: String,
+    default: null,
+  },
   // Rolling engagement log — one entry per day the user was active
   engagementHistory: [{
     date:               { type: String, required: true },  // "YYYY-MM-DD"

@@ -29,9 +29,23 @@ const seedDepts = [
 mongoose.connect(process.env.MONGO_URI || process.env.DATABASE_URL)
   .then(async () => {
     console.log("📡 Connected to MongoDB. Syncing real department collections...");
-    await Department.deleteMany({}); // Purana code parameters drop
-    const docs = await Department.insertMany(seedDepts);
-    console.log("🚀 Real uniform departments seeded successfully:", docs);
+    // Upsert by `code` instead of deleteMany+insertMany. The old delete-then-
+    // reinsert approach handed every department a brand-new _id on every run
+    // — any Module/DailyRead/News/User already referencing the old _id was
+    // silently orphaned (that _id no longer resolves to any Department),
+    // which is exactly why re-signing-up under the "same" department could
+    // end up with an ID nothing else recognizes. Upserting preserves each
+    // department's _id across repeated runs.
+    const docs = await Promise.all(
+      seedDepts.map((dept) =>
+        Department.findOneAndUpdate(
+          { code: dept.code.toLowerCase() },
+          { $set: dept },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        )
+      )
+    );
+    console.log("🚀 Real uniform departments synced successfully:", docs);
     process.exit();
   })
   .catch(err => {

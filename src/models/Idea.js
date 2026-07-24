@@ -24,10 +24,15 @@ const IdeaSchema = new mongoose.Schema({
     enum: ["product", "process", "technology", "culture"],
     required: true,
   },
+  // Lowercase to match every real write path (the curate route and the
+  // admin UI have only ever used these lowercase values — this enum
+  // previously declared Title Case values that nothing wrote, and went
+  // unenforced since the curate route updates via findByIdAndUpdate
+  // without runValidators).
   status: {
     type: String,
-    enum: ["Submitted", "In Review", "Building", "Rejected"],
-    default: "Submitted",
+    enum: ["submitted", "in review", "building", "shipped", "parked", "rejected"],
+    default: "submitted",
   },
   curatorFeedback: {
     type: String,

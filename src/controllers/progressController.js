@@ -64,6 +64,17 @@ const calculateXp = (cardType, isCorrect) => {
   return 0;
 };
 
+// 🎯 Daily streak point payout — only ever applied once per day, at the exact
+// moment engagementHistory's today-entry first crosses qualifiesForStreak
+// (see verifyDailyStreak below). Whichever of the 3 actions the user
+// completes FIRST that day pays out its own value; later actions the same
+// day just extend todayActions with no further XP.
+const POINTS_BY_ACTION = {
+  daily_read:      10,
+  module_progress: 15,
+  idea_submission: 10,
+};
+
 // 🌐 HTML SANDBOX MODULE XP: score-proportional (vs the flat calculateXp() baseline used
 // by html_sandbox cards embedded inside topic/express-flat modules). Only used when the
 // card's parent Module has moduleType==='html_sandbox'.
@@ -1506,8 +1517,13 @@ exports.verifyDailyStreak = async (req, res) => {
     const qualifiesNow        = todayEntry.actions.length >= 1; // any 1 of 3 daily actions = streak day
     todayEntry.qualifiesForStreak = qualifiesNow;
 
-    // Only mutate streak counters at the exact moment the threshold is first crossed
-    if (qualifiesNow && !wasAlreadyQualified) {
+    const previousStreak = user.currentStreak || 0;
+    let pointsAwarded = 0;
+
+    // Only mutate streak counters (and pay out points) at the exact moment
+    // the threshold is first crossed for today.
+    const streakIncremented = qualifiesNow && !wasAlreadyQualified;
+    if (streakIncremented) {
       const yesterdayStr = shiftDateKey(today, -1);
 
       const streakContinues = user.lastActiveDate === yesterdayStr || user.lastActiveDate === today;
@@ -1517,6 +1533,9 @@ exports.verifyDailyStreak = async (req, res) => {
         user.longestStreak = user.currentStreak;
       }
       user.lastActiveDate = today;
+
+      pointsAwarded = POINTS_BY_ACTION[actionType] || 0;
+      user.xp = (user.xp || 0) + pointsAwarded;
     }
 
     await user.save();
@@ -1526,9 +1545,13 @@ exports.verifyDailyStreak = async (req, res) => {
       actionType,
       todayActions:       todayEntry.actions,
       qualifiesForStreak: qualifiesNow,
+      streakIncremented,
+      previousStreak,
       currentStreak:      user.currentStreak,
       longestStreak:      user.longestStreak,
       lastActiveDate:     user.lastActiveDate,
+      pointsAwarded,
+      xp:                 user.xp,
     });
   } catch (err) {
     console.error('verifyDailyStreak error:', err.message);

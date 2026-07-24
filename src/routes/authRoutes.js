@@ -16,6 +16,22 @@ const router = express.Router();
 // paths (password + SSO) always agree on which corporate domains are valid.
 const ALLOWED_EMAIL_DOMAINS = ["irisregtech.com", "irisbusiness.com"];
 
+// 🎯 Daily login bonus (+1 XP for showing up today) — separate from the 3-
+// action streak system entirely (no engagementHistory/currentStreak touch),
+// gated by its own lastLoginBonusDate so it pays out exactly once per
+// calendar day regardless of how many times /login or /validate fire that
+// day. Compare-and-swap update (same race-safe pattern as ideaRoutes.js's
+// one-time "+25 XP on building" award) so two near-simultaneous requests
+// can't double-pay.
+async function claimDailyLoginBonus(userId, today) {
+  const updated = await User.findOneAndUpdate(
+    { _id: userId, lastLoginBonusDate: { $ne: today } },
+    { $set: { lastLoginBonusDate: today }, $inc: { xp: 1 } },
+    { new: true }
+  );
+  return updated ? { awarded: true, xp: updated.xp } : { awarded: false };
+}
+
 // =========================================================================
 // @route    POST /api/auth/register
 // @desc     Register user with hierarchical department and team lookup
@@ -441,6 +457,13 @@ router.post("/login", async (req, res) => {
     const stringUserId = user._id.toString();
     const dynamicSessionId = crypto.randomUUID();
 
+    // 🎯 First app-open-of-the-day bonus — covers the "fresh credentials
+    // login" path (session-resume via a still-valid token is covered by
+    // /validate below instead).
+    const today = resolveClientToday(req.body.localDate);
+    const loginBonus = await claimDailyLoginBonus(user._id, today);
+    const effectiveXp = loginBonus.awarded ? loginBonus.xp : (user.xp || 0);
+
     // Redis Concurrent Token Handshake Validation check blocks
     if (global.redisClient && global.redisClient.isOpen && global.redisClient.isReady) {
       try {
@@ -473,7 +496,7 @@ router.post("/login", async (req, res) => {
         team: user.team ? user.team.toString() : null, // Passed down cluster layer context
         username: user.username,
         avatarUrl: user.avatarUrl,
-        xp: user.xp || 0,
+        xp: effectiveXp,
         email: user.email,
         avatarId: user.avatarId || "dev",
         sessionId: dynamicSessionId,
@@ -486,7 +509,12 @@ router.post("/login", async (req, res) => {
       { expiresIn: "1d" },
       (err, token) => {
         if (err) throw err;
-        res.json({ success: true, token, user: { ...payload.user, streak: user.currentStreak || 0 } });
+        res.json({
+          success: true,
+          token,
+          user: { ...payload.user, streak: user.currentStreak || 0 },
+          loginBonusAwarded: loginBonus.awarded,
+        });
       },
     );
   } catch (err) {
@@ -535,6 +563,13 @@ router.post("/validate", auth, async (req, res) => {
       await freshUserDoc.save();
     }
 
+    // 🎯 First app-open-of-the-day bonus — /validate fires once on every app
+    // boot (AuthContext.initAuth), so a resumed session (the common case,
+    // since most users stay logged in via token rather than re-entering
+    // credentials daily) claims it here.
+    const loginBonus = await claimDailyLoginBonus(freshUserDoc._id, today);
+    const effectiveXp = loginBonus.awarded ? loginBonus.xp : (freshUserDoc.xp || 0);
+
     // Always deliver the most accurate, live database fields back to the client context
     return res.status(200).json({
       valid: true,
@@ -545,11 +580,12 @@ router.post("/validate", auth, async (req, res) => {
         team: freshUserDoc.team ? freshUserDoc.team.toString() : null,
         username: freshUserDoc.username || "Corporate Specialist",
         email: freshUserDoc.email || "",
-        xp: freshUserDoc.xp || 0,
+        xp: effectiveXp,
         streak: freshUserDoc.currentStreak || 0,
         avatarUrl: freshUserDoc.avatarUrl || "",
         avatarId: freshUserDoc.avatarId || "dev",
       },
+      loginBonusAwarded: loginBonus.awarded,
     });
 
   } catch (error) {

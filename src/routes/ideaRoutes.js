@@ -70,7 +70,7 @@ router.get("/my-history", auth, async (req, res) => {
 // =========================================================================
 router.get("/council-board", auth, async (req, res) => {
   if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-    return res.status(430).json({ success: false, message: "Access Denied: Product Council clearance required." });
+    return res.status(403).json({ success: false, message: "Access Denied: Product Council clearance required." });
   }
 
   try {
@@ -113,7 +113,7 @@ router.put("/:ideaId/curate", auth, async (req, res) => {
     const updatedIdea = await Idea.findByIdAndUpdate(
       ideaId,
       { $set: { status, curatorFeedback: curatorFeedback.trim() } },
-      { new: true }
+      { new: true, runValidators: true }
     );
 
     // 3. 🎯 THE XP GAMIFICATION ENGINE TRIGGER — made atomic and permanent:
