@@ -24,7 +24,21 @@ const CARD_TYPE_POINTS = {
 };
 
 const QUIZ_QUESTION_POINTS = 5;        // mcq / true_false, inside an html_sandbox card
+const FILL_BLANK_QUESTION_POINTS = 7;   // fill-blank, inside an html_sandbox card
 const DESCRIPTIVE_QUESTION_POINTS = 10; // text / code / any other type — admin-graded, capped at 10
+
+// Recognized `data-type` values on a #quizBank .qblock, and their point value.
+// This is the authoritative table for the static-metadata-bank format below —
+// QUIZ_QUESTION_TYPES/QUIZ_QUESTION_POINTS/DESCRIPTIVE_QUESTION_POINTS above
+// remain the fallback table for the older JS-array-regex-scan format only.
+const QBLOCK_TYPE_POINTS = {
+  mcq: QUIZ_QUESTION_POINTS,
+  mc: QUIZ_QUESTION_POINTS,
+  true_false: QUIZ_QUESTION_POINTS,
+  'fill-blank': FILL_BLANK_QUESTION_POINTS,
+  fill_blank: FILL_BLANK_QUESTION_POINTS,
+  descriptive: DESCRIPTIVE_QUESTION_POINTS,
+};
 
 // 🎯 Recognized MCQ-type `type:` values. `mcq`/`true_false` come from the
 // platform's documented postMessage contract (progressController.js);
@@ -97,9 +111,88 @@ function findQuestionBankSpan(htmlSource) {
   return null;
 }
 
+// A sandbox can instead declare its questions via a static, hidden metadata
+// bank — a `<div id="quizBank">` containing one `<div class="qblock" ...>`
+// per question, each carrying `data-points` (and usually `data-type`) as
+// plain HTML attributes. This is authored specifically so a parser can read
+// exact point weights WITHOUT executing the sandbox's JS or guessing weights
+// from a `type:` field buried in a JS array — when present, it is the more
+// reliable source and takes priority over the JS-array-regex scan below.
+const QUIZ_BANK_ID_PATTERN = /<div[^>]*\bid=["']quizBank["'][^>]*>/i;
+const DIV_TAG_PATTERN = /<div\b[^>]*>|<\/div>/gi;
+const QBLOCK_CLASS_PATTERN = /\bclass=["'][^"']*\bqblock\b[^"']*["']/;
+const DATA_POINTS_ATTR_PATTERN = /\bdata-points=["'](-?\d+)["']/;
+const DATA_TYPE_ATTR_PATTERN = /\bdata-type=["']([\w-]+)["']/;
+
+// Bracket-match div open/close tags starting right after a div's own opening
+// tag (fromIndex) to find where that div actually ends, since #quizBank
+// contains nested divs (each .qblock, and a .qtext inside each of those).
+function findMatchingDivEnd(htmlSource, fromIndex) {
+  DIV_TAG_PATTERN.lastIndex = fromIndex;
+  let depth = 1;
+  let match;
+  while ((match = DIV_TAG_PATTERN.exec(htmlSource)) !== null) {
+    if (match[0].toLowerCase() === '</div>') {
+      depth--;
+      if (depth === 0) return match.index + match[0].length;
+    } else {
+      depth++;
+    }
+  }
+  return -1; // unbalanced — stop rather than mis-scan
+}
+
+function findQuizBankSpan(htmlSource) {
+  const idMatch = QUIZ_BANK_ID_PATTERN.exec(htmlSource);
+  if (!idMatch) return null;
+  const contentStart = idMatch.index + idMatch[0].length;
+  const contentEnd = findMatchingDivEnd(htmlSource, contentStart);
+  if (contentEnd === -1) return null;
+  return htmlSource.slice(contentStart, contentEnd);
+}
+
+function parseQuizBankMetadataPoints(htmlSource) {
+  const empty = { total: 0, count: 0 };
+  if (!htmlSource || typeof htmlSource !== 'string') return empty;
+
+  const span = findQuizBankSpan(htmlSource);
+  if (!span) return empty;
+
+  let total = 0;
+  let count = 0;
+  const qblockOpenTagPattern = /<div\b[^>]*>/gi;
+  let match;
+  while ((match = qblockOpenTagPattern.exec(span)) !== null) {
+    const tag = match[0];
+    if (!QBLOCK_CLASS_PATTERN.test(tag)) continue;
+    count++;
+
+    const pointsMatch = DATA_POINTS_ATTR_PATTERN.exec(tag);
+    if (pointsMatch) {
+      // Explicit data-points is authoritative — mirrors the sandbox's own
+      // runtime JS (`points: parseInt(b.dataset.points,10) || 0`), so the
+      // awarded total always matches what's displayed inside the module,
+      // including an explicit 0 for a deliberately unscored question.
+      total += parseInt(pointsMatch[1], 10) || 0;
+      continue;
+    }
+    // No data-points authored on this qblock — fall back to the standard
+    // weight for its declared data-type, if recognized.
+    const typeMatch = DATA_TYPE_ATTR_PATTERN.exec(tag);
+    const typeValue = typeMatch ? typeMatch[1].toLowerCase() : '';
+    total += QBLOCK_TYPE_POINTS[typeValue] ?? 0;
+  }
+  return { total, count };
+}
+
 function parseHtmlSandboxPoints(htmlSource) {
   const empty = { total: 0, quizCount: 0, descriptiveCount: 0 };
   if (!htmlSource || typeof htmlSource !== 'string') return empty;
+
+  const bankPoints = parseQuizBankMetadataPoints(htmlSource);
+  if (bankPoints.count > 0) {
+    return { total: bankPoints.total, quizCount: bankPoints.count, descriptiveCount: 0 };
+  }
 
   const questionBank = findQuestionBankSpan(htmlSource);
   if (!questionBank) return empty;
@@ -168,7 +261,10 @@ module.exports = {
   computeCardBasePoints,
   computeAggregatedCardPoints,
   parseHtmlSandboxPoints,
+  parseQuizBankMetadataPoints,
   CARD_TYPE_POINTS,
   QUIZ_QUESTION_POINTS,
+  FILL_BLANK_QUESTION_POINTS,
   DESCRIPTIVE_QUESTION_POINTS,
+  QBLOCK_TYPE_POINTS,
 };
