@@ -77,6 +77,26 @@ router.get('/admin/module-engagement', auth, admin, progressController.getAdminM
 // @access   Admin / Superadmin
 router.get('/admin/department-stats', auth, admin, progressController.getAdminDepartmentStats);
 
+// @route    GET /api/progress/admin/team-stats
+// @desc     Per-team breakdown (same shape as department-stats, one level deeper)
+// @access   Admin / Superadmin
+router.get('/admin/team-stats', auth, admin, progressController.getAdminTeamStats);
+
+// @route    GET /api/progress/admin/module-completion
+// @desc     Real per-module completion % (replaces AdminUserAnalytics.jsx's old fabricated formula)
+// @access   Admin / Superadmin
+router.get('/admin/module-completion', auth, admin, progressController.getModuleCompletionReal);
+
+// @route    GET /api/progress/admin/daily-read-participation
+// @desc     Real 7-day daily-read participation counts
+// @access   Admin / Superadmin
+router.get('/admin/daily-read-participation', auth, admin, progressController.getDailyReadParticipation);
+
+// @route    GET /api/progress/admin/quiz-score-distribution
+// @desc     Real quiz score band distribution
+// @access   Admin / Superadmin
+router.get('/admin/quiz-score-distribution', auth, admin, progressController.getQuizScoreDistribution);
+
 // @route    POST /api/progress/admin/module/:moduleId/import-grades-csv
 // @desc     Admin: import a single module's graded submissions from a re-uploaded CSV
 // @access   Admin / Superadmin

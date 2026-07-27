@@ -4,7 +4,8 @@ const router = express.Router();
 const mongoose = require("mongoose");
 
 // 🧠 Points cleanly to your actual Department model file
-const Department = require("../models/Department"); 
+const Department = require("../models/Department");
+const Team = require("../models/Team");
 
 // 🔒 Security Guards Import
 const auth = require("../middleware/auth");
@@ -71,9 +72,20 @@ router.post("/", [auth, admin], async (req, res) => {
     });
 
     await newDepartment.save();
-    return res.status(201).json({ 
-      success: true, 
-      data: newDepartment 
+
+    // 🏛️ Every department gets exactly one Council team the moment it's
+    // created — this is what lets an admin be "department-wide" (full RW
+    // everywhere in the department) without needing a nullable team field.
+    await Team.create({
+      name: "Council",
+      code: "COUNCIL",
+      department_id: newDepartment._id,
+      isCouncil: true,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: newDepartment
     });
   } catch (err) {
     console.error("❌ Admin Department Creation Exception:", err.message);

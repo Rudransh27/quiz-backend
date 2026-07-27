@@ -48,13 +48,35 @@ async function getDashboardNews(user) {
     .lean();
 }
 
+// Only the 5 most recent Departmental posts for a given department are ever
+// visible in that department's learner-facing feed — the 6th pushes the
+// oldest out of THIS feed. Nothing is deleted or archived: getManageableNews
+// (the admin view, below) still returns full history unchanged.
+const DEPARTMENTAL_FEED_CAP = 5;
+
 async function getNewsFeed(user, limit = 12) {
-  const query = buildVisibilityQuery(user);
-  return News.find(query)
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .populate("department", "name")
-    .lean();
+  // Superadmins (and any edge case with no department) aren't the target of
+  // the per-department cap — that's specifically about what one department's
+  // own users see. Keep the old flat-limit behavior for that case.
+  if (user.role === "superadmin" || !user.department) {
+    const query = buildVisibilityQuery(user);
+    return News.find(query).sort({ createdAt: -1 }).limit(limit).populate("department", "name").lean();
+  }
+
+  const departmentId = new mongoose.Types.ObjectId(user.department.toString());
+
+  const [globalItems, departmentalItems] = await Promise.all([
+    News.find({ scope: "Global" }).sort({ createdAt: -1 }).limit(limit).populate("department", "name").lean(),
+    News.find({ scope: "Departmental", department: departmentId })
+      .sort({ createdAt: -1 })
+      .limit(DEPARTMENTAL_FEED_CAP)
+      .populate("department", "name")
+      .lean(),
+  ]);
+
+  return [...globalItems, ...departmentalItems].sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
 }
 
 async function getManageableNews(user) {

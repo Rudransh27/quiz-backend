@@ -8,9 +8,11 @@ const Card = require('../models/Card');
 const Module = require('../models/Module');
 const Topic = require('../models/Topic');
 const Department = require('../models/Department');
+const Team = require('../models/Team');
 const UserNotification = require('../models/UserNotification');
 const { parseHtmlSandboxPoints } = require('../utils/pointsCalculator');
 const { resolveClientToday, shiftDateKey } = require('../utils/localDate');
+const { resolveIsCouncilAdmin, canWriteUserProgress } = require('../utils/teamAccess');
 
 /*
  * STANDARD HTML SANDBOX postMessage FORMAT
@@ -1066,11 +1068,22 @@ exports.importGrades = async (req, res) => {
       if (!adminDept) {
         return res.status(400).json({ success: false, message: 'Admin profile missing department mapping.' });
       }
+      // 🔒 TEAM SCOPING (write path): on top of the department check below,
+      // an admin can only grade users on their OWN team — Council-team
+      // admins are department-wide and bypass this. Read access to other
+      // teams' data is unaffected; this only gates the write.
+      const isCouncilAdmin = await resolveIsCouncilAdmin(req.user);
+      const adminTeam = req.user.team ? req.user.team.toString() : null;
       const targetUserIds = [...new Set(grades.map(g => g.userId).filter(Boolean).map(String))];
-      const targetUsers = await User.find({ _id: { $in: targetUserIds } }, 'department').lean();
+      const targetUsers = await User.find({ _id: { $in: targetUserIds } }, 'department team').lean();
       allowedUserIds = new Set(
         targetUsers
           .filter(u => u.department && u.department.toString() === adminDept)
+          .filter(u => canWriteUserProgress({
+            isSuperAdminOrCouncil: isCouncilAdmin,
+            actingTeamId: adminTeam,
+            targetTeamId: u.team ? u.team.toString() : null,
+          }))
           .map(u => u._id.toString())
       );
     }
@@ -1108,10 +1121,23 @@ exports.gradeSingleSubmission = async (req, res) => {
     // simply editing the :userId in the request. Super Admins bypass.
     if (req.user.role !== 'superadmin') {
       const adminDept = req.user.department ? req.user.department.toString() : null;
-      const targetUser = await User.findById(userId, 'department').lean();
+      const targetUser = await User.findById(userId, 'department team').lean();
       if (!adminDept || !targetUser?.department || targetUser.department.toString() !== adminDept) {
         console.warn(`SECURITY: Admin ${req.user.id} attempted to grade user ${userId} outside their department.`);
         return res.status(403).json({ success: false, message: 'Forbidden: this user is outside your department.' });
+      }
+
+      // 🔒 TEAM SCOPING (write path): full RW only for the admin's own team;
+      // Council-team admins are department-wide and bypass this.
+      const isCouncilAdmin = await resolveIsCouncilAdmin(req.user);
+      const adminTeam = req.user.team ? req.user.team.toString() : null;
+      if (!canWriteUserProgress({
+        isSuperAdminOrCouncil: isCouncilAdmin,
+        actingTeamId: adminTeam,
+        targetTeamId: targetUser.team ? targetUser.team.toString() : null,
+      })) {
+        console.warn(`SECURITY: Admin ${req.user.id} attempted to grade user ${userId} on a different team.`);
+        return res.status(403).json({ success: false, message: 'Forbidden: this user is on a different team — you have read-only access outside your own team.' });
       }
     }
 
@@ -1234,10 +1260,21 @@ exports.importModuleGradesCsv = async (req, res) => {
       if (!adminDept) {
         return res.status(400).json({ success: false, message: 'Admin profile missing department mapping.' });
       }
+      // 🔒 TEAM SCOPING (write path) — same rule as importGrades/
+      // gradeSingleSubmission: full write only for the admin's own team.
+      const isCouncilAdmin = await resolveIsCouncilAdmin(req.user);
+      const adminTeam = req.user.team ? req.user.team.toString() : null;
       const targetUserIds = [...new Set(rows.map(r => r['User ID']).filter(Boolean).map(String))];
-      const targetUsers = await User.find({ _id: { $in: targetUserIds } }, 'department').lean();
+      const targetUsers = await User.find({ _id: { $in: targetUserIds } }, 'department team').lean();
       allowedUserIds = new Set(
-        targetUsers.filter(u => u.department && u.department.toString() === adminDept).map(u => u._id.toString())
+        targetUsers
+          .filter(u => u.department && u.department.toString() === adminDept)
+          .filter(u => canWriteUserProgress({
+            isSuperAdminOrCouncil: isCouncilAdmin,
+            actingTeamId: adminTeam,
+            targetTeamId: u.team ? u.team.toString() : null,
+          }))
+          .map(u => u._id.toString())
       );
     }
 
@@ -1330,6 +1367,220 @@ exports.getAdminDepartmentStats = async (req, res) => {
     return res.status(200).json({ success: true, departments: stats });
   } catch (err) {
     console.error('getAdminDepartmentStats error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// =========================================================================
+// Shared scoping helper for the "real analytics" endpoints below — resolves
+// which verified user _ids a request is allowed to see, honoring the
+// optional ?teamId= query param (mirrors the existing pattern already used
+// by GET /api/users/count-verified).
+// =========================================================================
+async function resolveAnalyticsUserScope(req) {
+  const isSuperAdmin = req.user.role === 'superadmin';
+  const query = { isVerified: true };
+
+  if (!isSuperAdmin) {
+    if (!req.user.department) return { userIds: [], deptId: null };
+    query.department = req.user.department;
+  } else if (req.query.departmentId) {
+    query.department = req.query.departmentId;
+  }
+
+  if (req.query.teamId) {
+    query.team = req.query.teamId;
+  }
+
+  const users = await User.find(query, '_id').lean();
+  return { userIds: users.map((u) => u._id), deptId: query.department || null };
+}
+
+// =========================================================================
+// CONTROLLER 9A: Admin — per-team analytics (mirrors getAdminDepartmentStats
+// one level deeper: XP totals, avg XP, completions, top performer per team)
+// GET /api/progress/admin/team-stats
+// =========================================================================
+exports.getAdminTeamStats = async (req, res) => {
+  try {
+    const isSuperAdmin = req.user.role === 'superadmin';
+    let deptId = req.query.departmentId;
+    if (!isSuperAdmin) {
+      if (!req.user.department) {
+        return res.status(400).json({ success: false, message: 'Admin profile missing department mapping.' });
+      }
+      deptId = req.user.department;
+    }
+    if (!deptId) {
+      return res.status(400).json({ success: false, message: 'departmentId is required.' });
+    }
+
+    const teamQuery = { department_id: deptId };
+    if (req.query.teamId) teamQuery._id = req.query.teamId;
+    const teams = await Team.find(teamQuery).lean();
+
+    const stats = await Promise.all(teams.map(async (team) => {
+      const users = await User.find({ team: team._id, isVerified: true, role: 'user' }, '_id xp username').lean();
+      const userIds = users.map((u) => u._id);
+      const totalXp = users.reduce((s, u) => s + (u.xp || 0), 0);
+      const avgXp = users.length > 0 ? Math.round(totalXp / users.length) : 0;
+      const topEarner = [...users].sort((a, b) => (b.xp || 0) - (a.xp || 0))[0];
+
+      const [cardsCompleted, topicsCompleted] = userIds.length > 0 ? await Promise.all([
+        UserCardProgress.countDocuments({ user_id: { $in: userIds } }),
+        UserTopicProgress.countDocuments({ user_id: { $in: userIds }, isCompleted: true }),
+      ]) : [0, 0];
+
+      return {
+        teamId: team._id,
+        name: team.name,
+        code: team.code,
+        isCouncil: team.isCouncil,
+        userCount: users.length,
+        totalXp,
+        avgXp,
+        cardsCompleted,
+        topicsCompleted,
+        topEarner: topEarner ? { username: topEarner.username, xp: topEarner.xp || 0 } : null,
+      };
+    }));
+
+    stats.sort((a, b) => b.totalXp - a.totalXp);
+    return res.status(200).json({ success: true, teams: stats });
+  } catch (err) {
+    console.error('getAdminTeamStats error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// =========================================================================
+// CONTROLLER 9B: Admin — REAL per-module completion % (replaces the
+// fabricated `((cardCount*7 + i*13) % 100)` formula AdminUserAnalytics.jsx
+// used to render). completed / attempted, both computed from actual
+// progress records, scoped by department (and optionally ?teamId=).
+// GET /api/progress/admin/module-completion
+// =========================================================================
+exports.getModuleCompletionReal = async (req, res) => {
+  try {
+    const { userIds, deptId } = await resolveAnalyticsUserScope(req);
+    if (userIds.length === 0) {
+      return res.status(200).json({ success: true, modules: [] });
+    }
+
+    // Same visibility firewall moduleRoutes.js applies: Global modules, or
+    // Departmental/Team-Specific modules under this scope's department.
+    const moduleQuery = deptId ? { $or: [{ visibility: 'Global' }, { department: deptId }] } : {};
+    const modules = await Module.find(moduleQuery, 'title').lean();
+
+    const results = await Promise.all(modules.map(async (mod) => {
+      const [attemptedIds, moduleCompletedIds, topicCompletedIds] = await Promise.all([
+        UserCardProgress.distinct('user_id', { module_id: mod._id, user_id: { $in: userIds }, isArchived: { $ne: true } }),
+        UserModuleProgress.distinct('user_id', { module_id: mod._id, user_id: { $in: userIds }, isCompleted: true }),
+        UserTopicProgress.distinct('user_id', { module_id: mod._id, user_id: { $in: userIds }, isCompleted: true }),
+      ]);
+
+      const attempted = attemptedIds.length;
+      const completedSet = new Set([...moduleCompletedIds, ...topicCompletedIds].map(String));
+      const pct = attempted > 0 ? Math.round((completedSet.size / attempted) * 100) : 0;
+
+      return { moduleId: mod._id, title: mod.title, attempted, completed: completedSet.size, pct };
+    }));
+
+    results.sort((a, b) => b.attempted - a.attempted);
+    return res.status(200).json({ success: true, modules: results });
+  } catch (err) {
+    console.error('getModuleCompletionReal error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// =========================================================================
+// CONTROLLER 9C: Admin — REAL 7-day daily-read participation (replaces the
+// hardcoded `DAILY_WEIGHTS` array AdminUserAnalytics.jsx used to render).
+// Counts real `daily_read` entries in User.engagementHistory, scoped by
+// department (and optionally ?teamId=).
+// GET /api/progress/admin/daily-read-participation
+// =========================================================================
+exports.getDailyReadParticipation = async (req, res) => {
+  try {
+    const { userIds } = await resolveAnalyticsUserScope(req);
+    const today = resolveClientToday(req.query.localDate);
+    const days = Array.from({ length: 7 }, (_, i) => shiftDateKey(today, -(6 - i))); // oldest -> newest
+
+    if (userIds.length === 0) {
+      return res.status(200).json({ success: true, days: days.map((d) => ({ date: d, count: 0 })) });
+    }
+
+    const rows = await User.aggregate([
+      { $match: { _id: { $in: userIds } } },
+      { $unwind: '$engagementHistory' },
+      { $match: { 'engagementHistory.date': { $in: days }, 'engagementHistory.actions': 'daily_read' } },
+      { $group: { _id: '$engagementHistory.date', count: { $sum: 1 } } },
+    ]);
+
+    const countByDate = new Map(rows.map((r) => [r._id, r.count]));
+    const result = days.map((d) => ({ date: d, count: countByDate.get(d) || 0 }));
+
+    return res.status(200).json({ success: true, days: result });
+  } catch (err) {
+    console.error('getDailyReadParticipation error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// =========================================================================
+// CONTROLLER 9D: Admin — REAL quiz score distribution (replaces the
+// hardcoded `BAND_PCTS`/"Avg: 68%" AdminUserAnalytics.jsx used to render).
+// For each user, computes % correct across their attempted quiz cards, then
+// buckets users into 5 bands. Scoped by department (and optionally ?teamId=).
+// GET /api/progress/admin/quiz-score-distribution
+// =========================================================================
+exports.getQuizScoreDistribution = async (req, res) => {
+  try {
+    const { userIds } = await resolveAnalyticsUserScope(req);
+    if (userIds.length === 0) {
+      return res.status(200).json({ success: true, bands: [], avgPct: 0, usersWithQuizzes: 0 });
+    }
+
+    const quizCardIds = await Card.distinct('_id', { card_type: 'quiz' });
+    const rows = await UserCardProgress.aggregate([
+      { $match: { user_id: { $in: userIds }, card_id: { $in: quizCardIds }, isArchived: { $ne: true } } },
+      { $group: {
+        _id: '$user_id',
+        attempted: { $sum: 1 },
+        correct: { $sum: { $cond: ['$isCorrect', 1, 0] } },
+      } },
+    ]);
+
+    const BANDS = [
+      { label: '0–20', min: 0, max: 20 },
+      { label: '21–40', min: 21, max: 40 },
+      { label: '41–60', min: 41, max: 60 },
+      { label: '61–80', min: 61, max: 80 },
+      { label: '81–100', min: 81, max: 100 },
+    ];
+    const counts = BANDS.map(() => 0);
+    let totalPct = 0;
+
+    rows.forEach((r) => {
+      if (r.attempted === 0) return;
+      const pct = (r.correct / r.attempted) * 100;
+      totalPct += pct;
+      const bandIdx = BANDS.findIndex((b) => pct >= b.min && pct <= b.max);
+      if (bandIdx !== -1) counts[bandIdx] += 1;
+    });
+
+    const usersWithQuizzes = rows.length;
+    const bands = BANDS.map((b, i) => ({
+      label: b.label,
+      count: counts[i],
+      pct: usersWithQuizzes > 0 ? Math.round((counts[i] / usersWithQuizzes) * 100) : 0,
+    }));
+    const avgPct = usersWithQuizzes > 0 ? Math.round(totalPct / usersWithQuizzes) : 0;
+
+    return res.status(200).json({ success: true, bands, avgPct, usersWithQuizzes });
+  } catch (err) {
+    console.error('getQuizScoreDistribution error:', err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
