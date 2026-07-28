@@ -33,7 +33,7 @@ const seedCurriculumData = async () => {
       description: "Master US SEC reporting compliance parameters, forms timelines, EDGAR platform navigation matrices, and foundational inline XBRL data-tagging rules.",
       imageUrl: "https://res.cloudinary.com/daug1ayvk/image/upload/v1781346788/xbrl-app/default-module.png",
       visibility: "Global",
-      department: null, // Global access tier
+      departments: [], // Global access tier
       targetTeams: []
     });
     const savedModule = await nextModule.save();

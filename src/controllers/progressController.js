@@ -809,7 +809,15 @@ exports.getAdminUserAnalytics = async (req, res) => {
 };
 
 // =========================================================================
-// CONTROLLER 7: Platform-wide stats — XP totals, activity over time, card type breakdown
+// CONTROLLER 7: Platform-wide stats — XP totals, activity over time, card
+// type breakdown. Shared by AdminPlatformAnalytics.jsx (superadmin-only
+// screen) AND AdminUserAnalytics.jsx (a screen regular Department Admins
+// use for their own two XP stat cards) — so this stays reachable by both
+// roles, but is scoped via the same `resolveAnalyticsUserScope` helper the
+// other real-analytics endpoints use: a Superadmin with no ?departmentId=
+// sees every verified user (unchanged platform-wide behavior); a Department
+// Admin only ever sees their own department's users, closing what used to
+// be a whole-platform data leak on this exact response.
 // GET /api/progress/admin/platform-stats
 // =========================================================================
 exports.getAdminPlatformStats = async (req, res) => {
@@ -817,22 +825,35 @@ exports.getAdminPlatformStats = async (req, res) => {
     const twoWeeksAgo = new Date();
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
+    const { userIds } = await resolveAnalyticsUserScope(req);
+    if (userIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        xpStats: { total: 0, avg: 0, max: 0 },
+        userGrowth: [],
+        cardActivity: [],
+        cardTypeBreakdown: [],
+        xpDistribution: [],
+      });
+    }
+
     const [totalXpResult, userGrowth, cardActivity, cardTypeBreakdown, xpBuckets] = await Promise.all([
-      User.aggregate([{ $match: { isVerified: true } }, { $group: { _id: null, total: { $sum: '$xp' }, avg: { $avg: '$xp' }, max: { $max: '$xp' } } }]),
+      User.aggregate([{ $match: { _id: { $in: userIds } } }, { $group: { _id: null, total: { $sum: '$xp' }, avg: { $avg: '$xp' }, max: { $max: '$xp' } } }]),
 
       User.aggregate([
-        { $match: { isVerified: true, createdAt: { $gte: twoWeeksAgo } } },
+        { $match: { _id: { $in: userIds }, createdAt: { $gte: twoWeeksAgo } } },
         { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
         { $sort: { _id: 1 } }
       ]),
 
       UserCardProgress.aggregate([
-        { $match: { createdAt: { $gte: twoWeeksAgo } } },
+        { $match: { user_id: { $in: userIds }, createdAt: { $gte: twoWeeksAgo } } },
         { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
         { $sort: { _id: 1 } }
       ]),
 
       UserCardProgress.aggregate([
+        { $match: { user_id: { $in: userIds } } },
         { $lookup: { from: 'cards', localField: 'card_id', foreignField: '_id', as: 'c' } },
         { $unwind: { path: '$c', preserveNullAndEmptyArrays: true } },
         { $group: { _id: { $ifNull: ['$c.card_type', 'unknown'] }, count: { $sum: 1 } } },
@@ -840,7 +861,7 @@ exports.getAdminPlatformStats = async (req, res) => {
       ]),
 
       User.aggregate([
-        { $match: { isVerified: true } },
+        { $match: { _id: { $in: userIds } } },
         { $addFields: { xpSafe: { $ifNull: ['$xp', 0] } } },
         { $bucket: { groupBy: '$xpSafe', boundaries: [0, 25, 75, 150, 300, 600], default: '600+', output: { count: { $sum: 1 } } } }
       ])
@@ -1372,6 +1393,21 @@ exports.getAdminDepartmentStats = async (req, res) => {
 };
 
 // =========================================================================
+// config/db.js connects with serverApi { version: '1', strict: true } —
+// Stable API V1 does not include the legacy `distinct` command at all, so
+// any `.distinct()` call throws ("command distinct is not in API Version
+// 1"). This is the supported workaround: a $group aggregation returns the
+// same distinct-values result, and `aggregate` IS part of the Stable API.
+// =========================================================================
+async function distinctValues(Model, field, match) {
+  const rows = await Model.aggregate([
+    { $match: match },
+    { $group: { _id: `$${field}` } },
+  ]);
+  return rows.map((r) => r._id);
+}
+
+// =========================================================================
 // Shared scoping helper for the "real analytics" endpoints below — resolves
 // which verified user _ids a request is allowed to see, honoring the
 // optional ?teamId= query param (mirrors the existing pattern already used
@@ -1469,14 +1505,14 @@ exports.getModuleCompletionReal = async (req, res) => {
 
     // Same visibility firewall moduleRoutes.js applies: Global modules, or
     // Departmental/Team-Specific modules under this scope's department.
-    const moduleQuery = deptId ? { $or: [{ visibility: 'Global' }, { department: deptId }] } : {};
+    const moduleQuery = deptId ? { $or: [{ visibility: 'Global' }, { departments: deptId }] } : {};
     const modules = await Module.find(moduleQuery, 'title').lean();
 
     const results = await Promise.all(modules.map(async (mod) => {
       const [attemptedIds, moduleCompletedIds, topicCompletedIds] = await Promise.all([
-        UserCardProgress.distinct('user_id', { module_id: mod._id, user_id: { $in: userIds }, isArchived: { $ne: true } }),
-        UserModuleProgress.distinct('user_id', { module_id: mod._id, user_id: { $in: userIds }, isCompleted: true }),
-        UserTopicProgress.distinct('user_id', { module_id: mod._id, user_id: { $in: userIds }, isCompleted: true }),
+        distinctValues(UserCardProgress, 'user_id', { module_id: mod._id, user_id: { $in: userIds }, isArchived: { $ne: true } }),
+        distinctValues(UserModuleProgress, 'user_id', { module_id: mod._id, user_id: { $in: userIds }, isCompleted: true }),
+        distinctValues(UserTopicProgress, 'user_id', { module_id: mod._id, user_id: { $in: userIds }, isCompleted: true }),
       ]);
 
       const attempted = attemptedIds.length;
@@ -1542,7 +1578,7 @@ exports.getQuizScoreDistribution = async (req, res) => {
       return res.status(200).json({ success: true, bands: [], avgPct: 0, usersWithQuizzes: 0 });
     }
 
-    const quizCardIds = await Card.distinct('_id', { card_type: 'quiz' });
+    const quizCardIds = await distinctValues(Card, '_id', { card_type: 'quiz' });
     const rows = await UserCardProgress.aggregate([
       { $match: { user_id: { $in: userIds }, card_id: { $in: quizCardIds }, isArchived: { $ne: true } } },
       { $group: {

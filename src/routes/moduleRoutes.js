@@ -9,6 +9,7 @@ const Team = require("../models/Team");
 const ModuleRating = require("../models/ModuleRating");
 const progressController = require("../controllers/progressController");
 const { computePointsReward } = require("../utils/pointsCalculator");
+const { moduleHasDept, moduleDeptIds } = require("../utils/moduleDepartments");
 
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
@@ -18,24 +19,67 @@ const getDepartmentIdString = (doc) => {
   return doc._id ? doc._id.toString() : doc.toString();
 };
 
+// Normalizes a single ID / array of IDs / falsy value down to a flat array
+// of ObjectId-valid strings — shared by the department and team normalizers
+// below so create/update always deal with a consistent shape.
+const toIdArray = (value) => {
+  if (!value) return [];
+  const list = Array.isArray(value) ? value : [value];
+  return list
+    .map((v) => (v && v._id ? v._id : v))
+    .filter((v) => v && mongoose.Types.ObjectId.isValid(v.toString()))
+    .map((v) => v.toString());
+};
+
 // 🔒 Resolves a requested targetTeams value (single ID, array, or falsy) down
-// to only the team IDs that actually belong to departmentId — never trusts
-// client-submitted team IDs outright. Used for BOTH module creation and
-// updates so a Department Admin can't target another department's team just
-// by knowing/guessing its ID.
-const resolveOwnedTeamIds = async (requestedTeams, departmentId) => {
-  if (!requestedTeams) return [];
-  const requestedList = Array.isArray(requestedTeams) ? requestedTeams : [requestedTeams];
-  const validObjectIds = requestedList
-    .filter((t) => t && mongoose.Types.ObjectId.isValid(t.toString()))
-    .map((t) => new mongoose.Types.ObjectId(t.toString()));
+// to only the team IDs that actually belong to ONE OF the given department(s)
+// — never trusts client-submitted team IDs outright. Used for BOTH module
+// creation and updates, for BOTH Department Admins (whose departmentIds is
+// always just their own single department) and Superadmins (whose
+// departmentIds may span several selected departments) — so nobody can
+// target a team outside the module's own target-department set just by
+// knowing/guessing its ID.
+const resolveOwnedTeamIds = async (requestedTeams, departmentIds) => {
+  const validObjectIds = toIdArray(requestedTeams).map((id) => new mongoose.Types.ObjectId(id));
   if (validObjectIds.length === 0) return [];
+
+  const deptIdList = toIdArray(departmentIds).map((id) => new mongoose.Types.ObjectId(id));
+  if (deptIdList.length === 0) return [];
 
   const ownedTeams = await Team.find({
     _id: { $in: validObjectIds },
-    department_id: departmentId,
+    department_id: { $in: deptIdList },
   }).select("_id").lean();
   return ownedTeams.map((t) => t._id);
+};
+
+// 🛡️ GRANULAR SECURITY HANDSHAKE FIREWALL — shared by GET /:id and the
+// review endpoints below (GET /:id/reviews, GET /:id/my-review) so viewing
+// a module's reviews is gated by the exact same visibility rules as viewing
+// the module itself. Returns { ok: true } or { ok: false, status, message }
+// rather than throwing, matching this file's existing control-flow style.
+const assertModuleViewAccess = (moduleData, req) => {
+  if (req.user.role === "superadmin") return { ok: true };
+
+  const contextUser = req.user.user ? req.user.user : req.user;
+  const userDeptStr = contextUser.department?.toString();
+  const userTeamStr = contextUser.team?.toString();
+
+  if (moduleData.visibility === "Departmental" && !moduleHasDept(moduleData, userDeptStr)) {
+    return { ok: false, status: 403, message: "Access Denied: Foreign Department content locked." };
+  }
+
+  if (moduleData.visibility === "Team-Specific") {
+    if (!moduleHasDept(moduleData, userDeptStr)) {
+      return { ok: false, status: 403, message: "Access Denied: Foreign Department content locked." };
+    }
+    const hasTeamAccess = moduleData.targetTeams.some(tId => tId.toString() === userTeamStr);
+    if (!hasTeamAccess) {
+      return { ok: false, status: 403, message: "Access Denied: Locked for your specific team scope." };
+    }
+  }
+
+  return { ok: true };
 };
 
 
@@ -65,10 +109,10 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
       matchCriteria = {
         $or: [
           { visibility: "Global" },
-          { department: new mongoose.Types.ObjectId(userDepartmentId.toString()) }
+          { departments: new mongoose.Types.ObjectId(userDepartmentId.toString()) }
         ]
       };
-    } 
+    }
     else {
       if (!userDepartmentId) {
         return res.status(400).json({ success: false, message: "User department context is missing." });
@@ -77,13 +121,13 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
       const targetDeptObjectId = new mongoose.Types.ObjectId(userDepartmentId.toString());
       const conditions = [
         { visibility: "Global" },
-        { visibility: "Departmental", department: targetDeptObjectId }
+        { visibility: "Departmental", departments: targetDeptObjectId }
       ];
 
       if (userTeamId && userTeamId.toString().trim() !== "") {
         conditions.push({
           visibility: "Team-Specific",
-          department: targetDeptObjectId,
+          departments: targetDeptObjectId,
           targetTeams: new mongoose.Types.ObjectId(userTeamId.toString())
         });
       }
@@ -215,26 +259,26 @@ router.get("/", auth, async (req, res) => {
       matchCriteria = {
         $or: [
           { visibility: "Global" },
-          { department: new mongoose.Types.ObjectId(userDepartmentId.toString()) }
+          { departments: new mongoose.Types.ObjectId(userDepartmentId.toString()) }
         ]
       };
-    } 
+    }
     else {
       if (!userDepartmentId) {
         return res.status(400).json({ success: false, message: "User department context is missing." });
       }
 
       const targetDeptObjectId = new mongoose.Types.ObjectId(userDepartmentId.toString());
-      
+
       const conditions = [
         { visibility: "Global" },
-        { visibility: "Departmental", department: targetDeptObjectId }
+        { visibility: "Departmental", departments: targetDeptObjectId }
       ];
 
       if (userTeamId && userTeamId.toString().trim() !== "") {
         conditions.push({
           visibility: "Team-Specific",
-          department: targetDeptObjectId,
+          departments: targetDeptObjectId,
           targetTeams: new mongoose.Types.ObjectId(userTeamId.toString())
         });
       }
@@ -253,17 +297,14 @@ router.get("/", auth, async (req, res) => {
         },
       },
       {
+        // 📚 departments is now an array — this $lookup naturally returns
+        // the matching Department doc for every element, no per-doc $unwind
+        // needed (that only made sense back when department was singular).
         $lookup: {
           from: "departments",
-          localField: "department",
+          localField: "departments",
           foreignField: "_id",
           as: "departmentDetails",
-        },
-      },
-      {
-        $unwind: {
-          path: "$departmentDetails",
-          preserveNullAndEmptyArrays: true,
         },
       },
       {
@@ -284,7 +325,10 @@ router.get("/", auth, async (req, res) => {
           // always be undefined and every Department Admin would look like
           // a non-owner regardless of who actually created the module.
           createdBy: 1,
-          department: "$departmentDetails",
+          // 🏢 Full array of {_id, name, ...} department docs — the admin
+          // form and any learner-facing badge now render one-or-more
+          // department names instead of assuming exactly one.
+          departments: "$departmentDetails",
           avgRating: { $ifNull: [{ $avg: "$allRatings.rating" }, 0] },
           totalReviews: { $size: "$allRatings" },
         },
@@ -312,30 +356,24 @@ router.get("/:id", auth, async (req, res) => {
     }
 
     // 🛡️ GRANULAR SECURITY HANDSHAKE FIREWALL
-    if (req.user.role !== "superadmin") {
-      const contextUser = req.user.user ? req.user.user : req.user;
-      const userDeptStr = contextUser.department?.toString();
-      const userTeamStr = contextUser.team?.toString();
-      const modDeptStr = moduleData.department?.toString();
-
-      if (moduleData.visibility === "Departmental" && modDeptStr !== userDeptStr) {
-        return res.status(403).json({ success: false, message: "Access Denied: Foreign Department content locked." });
-      }
-
-      if (moduleData.visibility === "Team-Specific") {
-        if (modDeptStr !== userDeptStr) {
-          return res.status(403).json({ success: false, message: "Access Denied: Foreign Department content locked." });
-        }
-        const hasTeamAccess = moduleData.targetTeams.some(tId => tId.toString() === userTeamStr);
-        if (!hasTeamAccess) {
-          return res.status(403).json({ success: false, message: "Access Denied: Locked for your specific team scope." });
-        }
-      }
+    const accessCheck = assertModuleViewAccess(moduleData, req);
+    if (!accessCheck.ok) {
+      return res.status(accessCheck.status).json({ success: false, message: accessCheck.message });
     }
+
+    // 🌟 Rating aggregate — mirrors the same $avg/$size computation the
+    // module LIST endpoint already does, just never returned here before
+    // (every screen that fetches a single module had no way to show this).
+    const ratingAgg = await ModuleRating.aggregate([
+      { $match: { module_id: moduleData._id } },
+      { $group: { _id: null, avgRating: { $avg: "$rating" }, totalReviews: { $sum: 1 } } },
+    ]);
 
     let structuralPayload = {
       ...moduleData.toObject(),
-      id: moduleData._id.toString()
+      id: moduleData._id.toString(),
+      avgRating: ratingAgg[0]?.avgRating || 0,
+      totalReviews: ratingAgg[0]?.totalReviews || 0,
     };
 
     // 🔬 HYBRID DATA NORMALIZATION STRATEGY
@@ -474,23 +512,98 @@ router.post("/:id/rate", auth, async (req, res) => {
     }
 
     if (req.user.role !== "superadmin" && targetModule.visibility !== "Global") {
-      if (targetModule.department.toString() !== contextUser.department.toString()) {
+      if (!moduleHasDept(targetModule, contextUser.department)) {
         return res.status(403).json({ message: "Forbidden: Rating cross-department modules is restricted." });
       }
     }
 
-    await ModuleRating.findOneAndUpdate(
+    const ratingDeptIds = moduleDeptIds(targetModule);
+    const raterDeptId = contextUser.department?.toString();
+    const ratingDepartmentId = ratingDeptIds.includes(raterDeptId) ? raterDeptId : (ratingDeptIds[0] || contextUser.department);
+
+    // 🎯 The saved doc is now returned (not just a bare success message) so
+    // the frontend can update its own UI immediately without a refetch.
+    // runValidators:true is added here — without it, findOneAndUpdate
+    // silently skips the schema's rating min:1/max:5/required checks on
+    // upsert, letting an out-of-range or missing rating slip straight in.
+    const savedReview = await ModuleRating.findOneAndUpdate(
       { user_id: userId, module_id: moduleId },
-      { 
-        rating, 
+      {
+        rating,
         reviewText,
-        department_id: targetModule.department || contextUser.department 
+        department_id: ratingDepartmentId
       },
-      { upsert: true, new: true },
+      { upsert: true, new: true, runValidators: true },
     );
-    return res.json({ success: true, message: "Thank you for rating this module!" });
+    return res.json({ success: true, message: "Thank you for rating this module!", review: savedReview });
   } catch (err) {
+    if (err.name === "ValidationError") {
+      return res.status(400).json({ message: err.message });
+    }
     return res.status(500).json({ message: "Rating submission failed." });
+  }
+});
+
+// =========================================================================
+// 🔒 3b. GET /api/modules/:id/reviews — list every review for a module.
+// Same visibility gate as GET /:id (a learner must be able to see the
+// module to see its reviews; a Department Admin is scoped to modules
+// already visible to them; Superadmin unrestricted).
+// =========================================================================
+router.get("/:id/reviews", auth, async (req, res) => {
+  try {
+    const targetModule = await Module.findById(req.params.id);
+    if (!targetModule) {
+      return res.status(404).json({ success: false, message: "Module not found" });
+    }
+
+    const accessCheck = assertModuleViewAccess(targetModule, req);
+    if (!accessCheck.ok) {
+      return res.status(accessCheck.status).json({ success: false, message: accessCheck.message });
+    }
+
+    const reviews = await ModuleRating.find({ module_id: targetModule._id })
+      .sort({ createdAt: -1 })
+      .populate("user_id", "username avatarUrl")
+      .lean();
+
+    const totalReviews = reviews.length;
+    const avgRating = totalReviews > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
+      : 0;
+
+    return res.json({
+      success: true,
+      avgRating,
+      totalReviews,
+      reviews: reviews.map(r => ({
+        _id: r._id,
+        rating: r.rating,
+        reviewText: r.reviewText,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        user: r.user_id ? { _id: r.user_id._id, username: r.user_id.username, avatarUrl: r.user_id.avatarUrl } : null,
+      })),
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// =========================================================================
+// 🔒 3c. GET /api/modules/:id/my-review — the requesting user's own
+// existing rating/review for this module (or null), so the frontend can
+// pre-fill an edit form instead of always showing a blank "submit" state.
+// =========================================================================
+router.get("/:id/my-review", auth, async (req, res) => {
+  try {
+    const contextUser = req.user.user ? req.user.user : req.user;
+    const userId = contextUser.id || contextUser._id;
+
+    const review = await ModuleRating.findOne({ user_id: userId, module_id: req.params.id }).lean();
+    return res.json({ success: true, review: review || null });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -500,30 +613,26 @@ router.post("/:id/rate", auth, async (req, res) => {
 router.post("/", [auth, admin], async (req, res) => {
   try {
     const isSuperAdmin = req.user.role === "superadmin";
-    const { visibility, department, targetTeams, engineStrategy } = req.body;
+    const { visibility, departments, targetTeams, engineStrategy } = req.body;
 
     // 🔐 SCOPE RBAC (create path): a Department Admin's module is always
-    // anchored to their OWN department regardless of what (if anything) they
-    // submit in `department` — only a Super Admin's submitted department is
-    // trusted. Matches the identical rule enforced on the update route below.
-    const finalDepartment = isSuperAdmin ? department : req.user.department;
+    // anchored to their OWN single department regardless of what (if
+    // anything) they submit in `departments` — only a Super Admin's
+    // submitted department LIST is trusted, and may span several
+    // departments. Matches the identical rule enforced on the update route
+    // below.
+    const finalDepartments = isSuperAdmin ? toIdArray(departments) : [req.user.department.toString()];
 
-    if (visibility !== "Global" && !finalDepartment) {
-      return res.status(400).json({ success: false, message: "Department reference ID field is missing." });
+    if (visibility !== "Global" && finalDepartments.length === 0) {
+      return res.status(400).json({ success: false, message: "At least one target department is required." });
     }
 
-    let processedTeams = [];
-    if (visibility === "Team-Specific" && targetTeams) {
-      if (isSuperAdmin) {
-        processedTeams = Array.isArray(targetTeams)
-          ? targetTeams.map(t => new mongoose.Types.ObjectId(t.toString()))
-          : [new mongoose.Types.ObjectId(targetTeams.toString())];
-      } else {
-        // 🔒 Same team-ownership guard as the update route — a Department
-        // Admin can only target teams that belong to their own department.
-        processedTeams = await resolveOwnedTeamIds(targetTeams, req.user.department);
-      }
-    }
+    // 🔒 Teams must belong to one of the module's own target departments —
+    // enforced the same way for both Department Admins and Superadmins now
+    // that a module can span multiple departments.
+    const processedTeams = visibility === "Team-Specific"
+      ? await resolveOwnedTeamIds(targetTeams, finalDepartments)
+      : [];
 
     const isHtmlSandboxModule = req.body.moduleType === 'html_sandbox';
     const cleanStrategy = isHtmlSandboxModule ? 'EXPRESS_FLAT' : (engineStrategy || 'STANDARD');
@@ -531,7 +640,7 @@ router.post("/", [auth, admin], async (req, res) => {
 
     const newModule = new Module({
       ...req.body,
-      department: visibility === "Global" ? null : finalDepartment,
+      departments: visibility === "Global" ? [] : finalDepartments,
       visibility,
       targetTeams: processedTeams,
       engineStrategy: cleanStrategy,
@@ -593,22 +702,28 @@ router.put("/:id", [auth, admin], async (req, res) => {
 
     // =========================================================================
     // 🔐 SCOPE-CHANGE RBAC
-    // Super Admin:    unrestricted — any visibility, any department, any teams.
-    // Department Admin: may only ever leave a module scoped to Global, their
-    //   OWN department, or a team under their OWN department — never another
-    //   department. This block is the single source of truth for department/
-    //   targetTeams on this route; nothing below re-touches those two fields.
+    // Super Admin:    unrestricted — any visibility, any department(s), any teams.
+    // Department Admin: may only ever leave a module scoped to Global, or to
+    //   JUST their own single department (never another department, and
+    //   never a module that already spans more than one). This block is the
+    //   single source of truth for departments/targetTeams on this route;
+    //   nothing below re-touches those two fields.
     // =========================================================================
     const isSuperAdmin = req.user.role === "superadmin";
     const incomingVisibility = req.body.visibility || targetModule.visibility;
 
     if (!isSuperAdmin) {
       // A Department Admin may only ever touch a module that already belongs
-      // to their own department (a Global module has department:null, so it
-      // passes this check too — promoting it INTO their department below is
-      // allowed; reassigning an ALREADY-departmental module that belongs to
-      // someone else is not).
-      if (targetModule.department && targetModule.department.toString() !== req.user.department.toString()) {
+      // SOLELY to their own department (a Global module has departments:[],
+      // so it passes this check too — promoting it INTO their department
+      // below is allowed; reassigning an already-departmental module that
+      // belongs to someone else's department, OR that spans more than one
+      // department (which only a Superadmin could have set up), is not).
+      const existingDeptIds = moduleDeptIds(targetModule);
+      const ownDeptId = req.user.department.toString();
+      const isSolelyOwnDept = existingDeptIds.length === 0
+        || (existingDeptIds.length === 1 && existingDeptIds[0] === ownDeptId);
+      if (!isSolelyOwnDept) {
         return res.status(403).json({ message: "Access Denied: Cannot modify foreign assets." });
       }
 
@@ -634,19 +749,14 @@ router.put("/:id", [auth, admin], async (req, res) => {
       }
 
       if (incomingVisibility === "Global") {
-        req.body.department = null;
+        req.body.departments = [];
         req.body.targetTeams = [];
       } else {
-        // Departmental or Team-Specific — ALWAYS the admin's own department.
-        // 🎯 THE ACTUAL BUG FIX: the previous version copied the module's
-        // EXISTING department onto req.body here — for a module that was
-        // Global, that existing value is null, so "promote a Global module
-        // back to Departmental" left department null and failed schema
-        // validation with exactly the reported error. A Department Admin
-        // can never assign a module to any OTHER department anyway, so their
-        // own department is always the only correct value, regardless of
-        // what the module's prior department was or what the client sent.
-        req.body.department = req.user.department;
+        // Departmental or Team-Specific — ALWAYS just the admin's own
+        // department. Multi-department assignment is a Superadmin-only
+        // capability; a Department Admin can never expand a module beyond
+        // their own single department, regardless of what the client sent.
+        req.body.departments = [req.user.department];
 
         if (incomingVisibility === "Team-Specific") {
           // 🔒 Never trust client-submitted team IDs outright — silently
@@ -661,14 +771,17 @@ router.put("/:id", [auth, admin], async (req, res) => {
     } else {
       // Super Admin — fully trusted; still normalize shape/consistency.
       if (incomingVisibility === "Global") {
-        req.body.department = null;
+        req.body.departments = [];
         req.body.targetTeams = [];
-      } else if (incomingVisibility === "Team-Specific" && req.body.targetTeams) {
-        req.body.targetTeams = Array.isArray(req.body.targetTeams)
-          ? req.body.targetTeams.map(t => new mongoose.Types.ObjectId(t.toString()))
-          : [new mongoose.Types.ObjectId(req.body.targetTeams.toString())];
-      } else if (incomingVisibility === "Departmental") {
-        req.body.targetTeams = [];
+      } else {
+        req.body.departments = toIdArray(req.body.departments);
+        if (incomingVisibility === "Team-Specific" && req.body.targetTeams) {
+          // 🔒 Same team-ownership integrity check as the create route —
+          // teams must actually belong to one of the selected departments.
+          req.body.targetTeams = await resolveOwnedTeamIds(req.body.targetTeams, req.body.departments);
+        } else if (incomingVisibility === "Departmental") {
+          req.body.targetTeams = [];
+        }
       }
     }
 
@@ -689,9 +802,10 @@ router.put("/:id", [auth, admin], async (req, res) => {
     }
 
     // 🎯 STRUCTURAL FIX: switched from findByIdAndUpdate to assign+save.
-    // Module.js's conditional `required: function(){ return this.visibility
-    // !== 'Global' }` on `department` needs `this` to be the full, merged
-    // document to evaluate correctly — that's exactly how `.save()` works.
+    // Module.js's conditional `validate` on `departments` (requires at
+    // least one entry unless `this.visibility === 'Global'`) needs `this` to
+    // be the full, merged document to evaluate correctly — that's exactly
+    // how `.save()` works.
     // findByIdAndUpdate's update-validators run with `this` bound to the
     // query object instead, so a conditional validator reading a SIBLING
     // field's new value is unreliable there even with `runValidators: true`
@@ -732,7 +846,10 @@ router.delete("/:id", [auth, admin], async (req, res) => {
     if (!module) return res.status(404).json({ message: "Module not found" });
 
     if (req.user.role !== "superadmin") {
-      if (module.department && module.department.toString() !== req.user.department.toString()) {
+      const existingDeptIds = moduleDeptIds(module);
+      const isSolelyOwnDept = existingDeptIds.length === 0
+        || (existingDeptIds.length === 1 && existingDeptIds[0] === req.user.department.toString());
+      if (!isSolelyOwnDept) {
         return res.status(403).json({ message: "Forbidden: Deleting foreign department models is banned." });
       }
     }

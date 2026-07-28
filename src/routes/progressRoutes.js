@@ -2,6 +2,7 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
+const superadmin = require('../middleware/superadmin');
 const upload = require('../middleware/multer');
 const progressController = require('../controllers/progressController');
 
@@ -69,13 +70,15 @@ router.get('/admin/platform-stats', auth, admin, progressController.getAdminPlat
 
 // @route    GET /api/progress/admin/module-engagement
 // @desc     Per-module users started, completion counts, sandbox avg score
-// @access   Admin / Superadmin
-router.get('/admin/module-engagement', auth, admin, progressController.getAdminModuleEngagement);
+//           (platform-wide, cross-department comparison)
+// @access   Superadmin only
+router.get('/admin/module-engagement', auth, superadmin, progressController.getAdminModuleEngagement);
 
 // @route    GET /api/progress/admin/department-stats
-// @desc     Department-level XP totals, avg XP, cards/topics completed, top earner
-// @access   Admin / Superadmin
-router.get('/admin/department-stats', auth, admin, progressController.getAdminDepartmentStats);
+// @desc     Department-level XP totals, avg XP, cards/topics completed, top
+//           earner — cross-department comparison table
+// @access   Superadmin only
+router.get('/admin/department-stats', auth, superadmin, progressController.getAdminDepartmentStats);
 
 // @route    GET /api/progress/admin/team-stats
 // @desc     Per-team breakdown (same shape as department-stats, one level deeper)

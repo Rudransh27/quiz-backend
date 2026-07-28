@@ -11,7 +11,7 @@ const DB_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 // ── Minimal inline schemas (avoids model-registration conflicts) ──────────
 const CardSchema = new mongoose.Schema({ card_type: String, module_id: mongoose.Schema.Types.ObjectId, topic_id: mongoose.Schema.Types.ObjectId, order: Number, content: mongoose.Schema.Types.Mixed }, { timestamps: true });
 const TopicSchema = new mongoose.Schema({ title: String, description: String, module_id: mongoose.Schema.Types.ObjectId, order: Number, xpReward: Number }, { timestamps: true });
-const ModuleSchema = new mongoose.Schema({ title: String, description: String, visibility: String, engineStrategy: String, hasTopics: Boolean, department: mongoose.Schema.Types.ObjectId, xpReward: Number, imageUrl: String }, { timestamps: true });
+const ModuleSchema = new mongoose.Schema({ title: String, description: String, visibility: String, engineStrategy: String, hasTopics: Boolean, departments: [mongoose.Schema.Types.ObjectId], xpReward: Number, imageUrl: String }, { timestamps: true });
 const DeptSchema = new mongoose.Schema({ name: String, code: String });
 
 const Card   = mongoose.model("Card",       CardSchema);
@@ -175,7 +175,7 @@ async function seed() {
     }
 
     const { topics: topicDefs, cards: flatCards, ...modData } = modDef;
-    if (anyDept && !modData.department) modData.department = anyDept._id;
+    if (anyDept && !modData.departments) modData.departments = [anyDept._id];
 
     const mod = await Module.create(modData);
     console.log(`📦 Created module: ${mod.title}`);

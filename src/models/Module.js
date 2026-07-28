@@ -74,20 +74,24 @@ const moduleSchema = new mongoose.Schema(
       required: true
     },
     
-    // Required false ONLY if visibility is 'Global'.
-    // Must be mapped if visibility is 'Departmental' or 'Team-Specific'.
-    department: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Department", 
-      required: function () {
-        return this.visibility !== "Global";
+    // 🏢 TARGET DEPARTMENTS ARRAY — a module can be published to one or more
+    // departments at once. Empty ONLY when visibility is 'Global'; must hold
+    // at least one entry for 'Departmental' or 'Team-Specific'.
+    departments: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Department" }],
+      validate: {
+        validator: function (arr) {
+          return this.visibility === "Global" || (Array.isArray(arr) && arr.length > 0);
+        },
+        message: "At least one target department is required unless visibility is Global.",
       },
     },
-    
+
     // 👥 TARGET TEAMS ARRAY
-    // Array of team references (e.g., Sales, DevOps, Developer).
-    // Used when visibility is 'Team-Specific'.
-    // If visibility is 'Departmental', this remains empty so the entire department has access.
+    // Array of team references (e.g., Sales, DevOps, Developer) — may span
+    // any of the departments listed above. Used when visibility is
+    // 'Team-Specific'. If visibility is 'Departmental', this remains empty
+    // so every team in every target department has access.
     targetTeams: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -114,6 +118,6 @@ const moduleSchema = new mongoose.Schema(
 // 🔍 PERFORMANCE ACCELERATION INDEXES
 // =========================================================================
 // Optimizes multi-tenant $or queries used to compile available modules on the user learn page
-moduleSchema.index({ visibility: 1, department: 1 });
+moduleSchema.index({ visibility: 1, departments: 1 });
 
 module.exports = mongoose.model("Module", moduleSchema);

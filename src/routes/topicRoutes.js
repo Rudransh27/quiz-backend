@@ -10,11 +10,7 @@ const upload = require("../middleware/multer");
 
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
-
-const getDepartmentIdString = (doc) => {
-  if (!doc) return null;
-  return doc._id ? doc._id.toString() : doc.toString();
-};
+const { moduleHasDept } = require("../utils/moduleDepartments");
 
 // @route   GET /api/modules/:id
 // @desc    Get single module details with filtered structural verification gates
@@ -32,11 +28,10 @@ router.get("/:id", auth, async (req, res) => {
       const contextUser = req.user.user ? req.user.user : req.user;
       const userDeptStr = contextUser.department?.toString();
       const userTeamStr = contextUser.team?.toString();
-      const modDeptStr = moduleData.department?.toString();
 
       if (
         moduleData.visibility === "Departmental" &&
-        modDeptStr !== userDeptStr
+        !moduleHasDept(moduleData, userDeptStr)
       ) {
         return res
           .status(403)
@@ -47,7 +42,7 @@ router.get("/:id", auth, async (req, res) => {
       }
 
       if (moduleData.visibility === "Team-Specific") {
-        if (modDeptStr !== userDeptStr) {
+        if (!moduleHasDept(moduleData, userDeptStr)) {
           return res
             .status(403)
             .json({
@@ -206,9 +201,8 @@ router.get("/cards/:id", auth, async (req, res) => {
     if (req.user.role !== "superadmin") {
       const userDeptStr = req.user.department?.toString();
       const userTeamStr = req.user.team?.toString();
-      const modDeptStr = getDepartmentIdString(linkedModule.department);
 
-      if (linkedModule.visibility !== "Global" && modDeptStr !== userDeptStr) {
+      if (linkedModule.visibility !== "Global" && !moduleHasDept(linkedModule, userDeptStr)) {
         return res.status(403).json({
           success: false,
           message: "Access Denied: Cross tenant data mapping is forbidden.",
@@ -271,10 +265,9 @@ router.post("/", [auth, admin], async (req, res) => {
       });
     }
 
-    const targetDeptId = getDepartmentIdString(targetModule.department);
     if (
       req.user.role !== "superadmin" &&
-      targetDeptId !== req.user.department.toString()
+      !moduleHasDept(targetModule, req.user.department)
     ) {
       return res.status(403).json({
         success: false,
@@ -308,10 +301,9 @@ router.put("/:id", [auth, admin], async (req, res) => {
     if (!topic) return res.status(404).json({ message: "Topic not found" });
 
     const linkedModule = await Module.findById(topic.module_id);
-    const targetDeptId = getDepartmentIdString(linkedModule.department);
     if (
       req.user.role !== "superadmin" &&
-      targetDeptId !== req.user.department.toString()
+      !moduleHasDept(linkedModule, req.user.department)
     ) {
       return res.status(403).json({
         success: false,
@@ -351,10 +343,9 @@ router.delete("/:id", [auth, admin], async (req, res) => {
         .status(404)
         .json({ message: "Associated parent module not found" });
 
-    const targetDeptId = getDepartmentIdString(linkedModule.department);
     if (
       req.user.role !== "superadmin" &&
-      targetDeptId !== req.user.department.toString()
+      !moduleHasDept(linkedModule, req.user.department)
     ) {
       return res.status(403).json({
         success: false,
@@ -441,10 +432,9 @@ router.post("/:targetId/cards", [auth, admin], async (req, res) => {
       }
     }
 
-    const targetDeptId = getDepartmentIdString(linkedModule.department);
     if (
       req.user.role !== "superadmin" &&
-      targetDeptId !== req.user.department.toString()
+      !moduleHasDept(linkedModule, req.user.department)
     ) {
       return res.status(403).json({
         success: false,
@@ -495,10 +485,9 @@ router.put("/cards/:cardId", [auth, admin], async (req, res) => {
       linkedModule = await Module.findById(card.module_id);
     }
 
-    const targetDeptId = getDepartmentIdString(linkedModule.department);
     if (
       req.user.role !== "superadmin" &&
-      targetDeptId !== req.user.department.toString()
+      !moduleHasDept(linkedModule, req.user.department)
     ) {
       return res.status(403).json({
         success: false,
@@ -540,10 +529,9 @@ router.delete("/cards/:cardId", [auth, admin], async (req, res) => {
       linkedModule = await Module.findById(card.module_id);
     }
 
-    const targetDeptId = getDepartmentIdString(linkedModule.department);
     if (
       req.user.role !== "superadmin" &&
-      targetDeptId !== req.user.department.toString()
+      !moduleHasDept(linkedModule, req.user.department)
     ) {
       return res.status(403).json({
         success: false,
@@ -624,10 +612,9 @@ router.post(
         }
       }
 
-      const targetDeptId = getDepartmentIdString(linkedModule.department);
       if (
         req.user.role !== "superadmin" &&
-        targetDeptId !== req.user.department.toString()
+        !moduleHasDept(linkedModule, req.user.department)
       ) {
         return res.status(403).json({
           success: false,
@@ -747,10 +734,9 @@ router.post(
         }
       }
 
-      const targetDeptId = getDepartmentIdString(linkedModule.department);
       if (
         req.user.role !== "superadmin" &&
-        targetDeptId !== req.user.department?.toString()
+        !moduleHasDept(linkedModule, req.user.department)
       ) {
         return res.status(403).json({
           success: false,
@@ -872,10 +858,9 @@ router.put(
         linkedModule = await Module.findById(existingCard.module_id);
       }
 
-      const targetDeptId = getDepartmentIdString(linkedModule.department);
       if (
         req.user.role !== "superadmin" &&
-        targetDeptId !== req.user.department.toString()
+        !moduleHasDept(linkedModule, req.user.department)
       ) {
         return res.status(403).json({
           success: false,
@@ -969,10 +954,9 @@ router.put(
         linkedModule = await Module.findById(existingCard.module_id);
       }
 
-      const targetDeptId = getDepartmentIdString(linkedModule.department);
       if (
         req.user.role !== "superadmin" &&
-        targetDeptId !== req.user.department.toString()
+        !moduleHasDept(linkedModule, req.user.department)
       ) {
         return res.status(403).json({
           success: false,
