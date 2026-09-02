@@ -316,6 +316,13 @@ router.get("/:departmentId", auth, async (req, res) => {
     return res.status(400).json({ success: false, message: "Invalid Department ID format." });
   }
 
+  // A plain user/admin may only browse their own department's teams;
+  // superadmins (no home department of their own) can browse any.
+  const isPrivileged = req.user.role === "superadmin";
+  if (!isPrivileged && (!req.user.department || req.user.department.toString() !== departmentId)) {
+    return res.status(403).json({ success: false, message: "Forbidden: You may only view teams within your own department." });
+  }
+
   try {
     const teams = await Team.find({ department_id: departmentId }).select("_id name code");
     return res.status(200).json(teams);

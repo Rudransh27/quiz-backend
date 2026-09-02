@@ -12,6 +12,8 @@
 const express = require('express');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const cookieParser = require('cookie-parser');
 const { connect, closeDatabase, clearCollections } = require('./setup/inMemoryMongo');
 const { makeUser } = require('./setup/fixtures');
 const User = require('../src/models/User');
@@ -22,10 +24,23 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-secret-do-not-use-
 
 let app;
 
-function signTokenFor(user) {
-  return jwt.sign({ user: { id: user._id.toString(), role: user.role } }, process.env.JWT_SECRET, {
+// auth.js requires every token to arrive with the session-binding cookie
+// issued at login (see authRoutes.js's issueBindingCookie) — a raw jwt.sign()
+// with no `bh` claim/cookie pair is exactly the "token without its browser
+// session" case that middleware now rejects. Mirror the real login flow here
+// instead of weakening the check for the test.
+function authFor(user) {
+  const bindingSecret = crypto.randomBytes(32).toString('hex');
+  const bh = crypto.createHash('sha256').update(bindingSecret).digest('hex');
+  const token = jwt.sign({ user: { id: user._id.toString(), role: user.role, bh } }, process.env.JWT_SECRET, {
     expiresIn: '1h',
   });
+  return { token, cookie: `orbit_bind=${bindingSecret}` };
+}
+
+function authed(req, user) {
+  const { token, cookie } = authFor(user);
+  return req.set('Authorization', `Bearer ${token}`).set('Cookie', cookie);
 }
 
 beforeAll(async () => {
@@ -33,6 +48,7 @@ beforeAll(async () => {
   const progressRoutes = require('../src/routes/progressRoutes');
   app = express();
   app.use(express.json());
+  app.use(cookieParser());
   app.use('/api/progress', progressRoutes);
 });
 
@@ -48,12 +64,10 @@ describe('HTTP integration: streak endpoints stay isolated per authenticated use
   test('POST /api/progress/streak/verify only increments the calling (JWT-identified) user', async () => {
     const userA = await makeUser({ username: 'httpUserA' });
     const userB = await makeUser({ username: 'httpUserB' });
-    const tokenA = signTokenFor(userA);
 
-    const res = await request(app)
-      .post('/api/progress/streak/verify')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .send({ actionType: 'daily_read' });
+    const res = await authed(request(app).post('/api/progress/streak/verify'), userA).send({
+      actionType: 'daily_read',
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.currentStreak).toBe(1);
@@ -65,8 +79,7 @@ describe('HTTP integration: streak endpoints stay isolated per authenticated use
 
     // GET /api/progress/streak for User B, over HTTP with B's own token,
     // must report B's own (untouched) baseline — not A's.
-    const tokenB = signTokenFor(userB);
-    const resB = await request(app).get('/api/progress/streak').set('Authorization', `Bearer ${tokenB}`);
+    const resB = await authed(request(app).get('/api/progress/streak'), userB);
     expect(resB.status).toBe(200);
     expect(resB.body.currentStreak).toBe(0);
   });
@@ -82,14 +95,8 @@ describe('HTTP integration: streak endpoints stay isolated per authenticated use
     const userB = await makeUser({ username: 'concurrentB' });
 
     const [resA, resB] = await Promise.all([
-      request(app)
-        .post('/api/progress/streak/verify')
-        .set('Authorization', `Bearer ${signTokenFor(userA)}`)
-        .send({ actionType: 'daily_read' }),
-      request(app)
-        .post('/api/progress/streak/verify')
-        .set('Authorization', `Bearer ${signTokenFor(userB)}`)
-        .send({ actionType: 'module_progress' }),
+      authed(request(app).post('/api/progress/streak/verify'), userA).send({ actionType: 'daily_read' }),
+      authed(request(app).post('/api/progress/streak/verify'), userB).send({ actionType: 'module_progress' }),
     ]);
 
     expect(resA.body.currentStreak).toBe(1);

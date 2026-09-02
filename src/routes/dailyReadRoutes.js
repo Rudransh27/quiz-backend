@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 const auth = require("../middleware/auth");
+const admin = require("../middleware/admin");
 const DailyRead = require("../models/DailyRead"); // ✅ Synced matching collection model filename lookup
 
 // 🗓️ UTC day-key helper — same "YYYY-MM-DD" convention User.engagementHistory
@@ -29,14 +30,7 @@ function resolveDeptScope(req, { targetDepartmentId } = {}) {
 
 // 📝 1. POST A DAILY READ (Admin & Superadmin Only API)
 // =========================================================================
-router.post("/admin/daily-reads", auth, async (req, res) => {
-  // Allow both 'admin' and 'superadmin' roles to access posting privileges cleanly
-  if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-    return res
-      .status(403)
-      .json({ success: false, message: "Access Denied: Administrative Clearance Required." });
-  }
-
+router.post("/admin/daily-reads", [auth, admin], async (req, res) => {
   // 🚀 INJECTED: superadmin must supply a target departmentId in the body since global is dead
   const { title, content, imageUrl, referenceLink, tags, targetDepartmentId } = req.body;
 
@@ -102,11 +96,7 @@ router.post("/admin/daily-reads", auth, async (req, res) => {
 
 // ✏️ 2. UPDATE TODAY'S DAILY READ (Owning Admin & Superadmin Only)
 // =========================================================================
-router.put("/admin/daily-reads/:id", auth, async (req, res) => {
-  if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-    return res.status(403).json({ success: false, message: "Access Denied: Administrative Clearance Required." });
-  }
-
+router.put("/admin/daily-reads/:id", [auth, admin], async (req, res) => {
   try {
     const existing = await DailyRead.findById(req.params.id);
     if (!existing) {
@@ -143,11 +133,7 @@ router.put("/admin/daily-reads/:id", auth, async (req, res) => {
 
 // 🗑️ 3. DELETE TODAY'S DAILY READ (Owning Admin & Superadmin Only)
 // =========================================================================
-router.delete("/admin/daily-reads/:id", auth, async (req, res) => {
-  if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-    return res.status(403).json({ success: false, message: "Access Denied: Administrative Clearance Required." });
-  }
-
+router.delete("/admin/daily-reads/:id", [auth, admin], async (req, res) => {
   try {
     const existing = await DailyRead.findById(req.params.id);
     if (!existing) {

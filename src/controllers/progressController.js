@@ -9,10 +9,12 @@ const Module = require('../models/Module');
 const Topic = require('../models/Topic');
 const Department = require('../models/Department');
 const Team = require('../models/Team');
+const Region = require('../models/Region');
 const UserNotification = require('../models/UserNotification');
 const { parseHtmlSandboxPoints } = require('../utils/pointsCalculator');
 const { resolveClientToday, shiftDateKey } = require('../utils/localDate');
 const { resolveIsCouncilAdmin, canWriteUserProgress } = require('../utils/teamAccess');
+const { isModuleUnlockedForUser } = require('../utils/moduleLock');
 
 /*
  * STANDARD HTML SANDBOX postMessage FORMAT
@@ -116,6 +118,30 @@ exports.recordCardCompletion = async (req, res) => {
 
   if (!cardId || !moduleId) {
     return res.status(400).json({ success: false, message: 'Missing critical identifiers: cardId or moduleId.' });
+  }
+
+  // 🔒 SEQUENTIAL MODULE LOCK — must run before ANY write below (the
+  // UserCardProgress upsert, the User.xp $inc, and the topic/module
+  // progress upserts) — a locked module's cards must never be completable
+  // via a direct API call even if the UI never renders them. admin/
+  // superadmin bypass entirely, matching GET /:id and workspace-curriculum.
+  if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+    const moduleForLock = await Module.findById(moduleId, 'categoryId').lean();
+    if (!moduleForLock) {
+      return res.status(404).json({ success: false, message: 'Module not found.' });
+    }
+    const unlocked = await isModuleUnlockedForUser({
+      moduleId,
+      categoryId: moduleForLock.categoryId,
+      userId,
+    });
+    if (!unlocked) {
+      return res.status(403).json({
+        success: false,
+        message: 'This module is locked. Complete the previous module in this category first.',
+        locked: true,
+      });
+    }
   }
 
   const isExpressFlatTrack = !topicId || topicId === "undefined" || topicId.toString().trim() === "";
@@ -491,15 +517,22 @@ exports.getAdminUsersList = async (req, res) => {
     if (!isSuperAdmin) userQuery.department = adminDept;
 
     // Fetch users without populate — department may contain legacy strings, not ObjectIds
-    const users = await User.find(userQuery, 'username email xp role createdAt department').lean();
+    const users = await User.find(userQuery, 'username email xp role createdAt department regions').lean();
 
     // Validate ObjectId format before querying Department (avoids CastError on legacy string values)
     const isValidObjectId = (v) => v && /^[a-fA-F0-9]{24}$/.test(String(v));
     const validDeptIds = [...new Set(
       users.map(u => u.department).filter(isValidObjectId).map(String)
     )];
+    // 🌍 Every region referenced by any of these users — resolved into a
+    // small lookup map so each user's `regions` (raw ObjectId array) can be
+    // turned into {_id, name, code, color} objects the admin UI can render
+    // as badges/toggle chips without a second round-trip.
+    const allRegionIds = [...new Set(
+      users.flatMap(u => (u.regions || []).filter(isValidObjectId).map(String))
+    )];
 
-    const [depts, cardCounts, topicCounts] = await Promise.all([
+    const [depts, cardCounts, topicCounts, regionDocs] = await Promise.all([
       validDeptIds.length > 0
         ? Department.find({ _id: { $in: validDeptIds } }, 'name').lean()
         : Promise.resolve([]),
@@ -509,7 +542,10 @@ exports.getAdminUsersList = async (req, res) => {
       UserTopicProgress.aggregate([
         { $match: { isCompleted: true } },
         { $group: { _id: '$user_id', count: { $sum: 1 } } }
-      ])
+      ]),
+      allRegionIds.length > 0
+        ? Region.find({ _id: { $in: allRegionIds } }, 'name code color').lean()
+        : Promise.resolve([]),
     ]);
 
     const deptMap = {};
@@ -518,6 +554,8 @@ exports.getAdminUsersList = async (req, res) => {
     cardCounts.forEach(c => { countMap[c._id.toString()] = c.count; });
     const topicMap = {};
     topicCounts.forEach(c => { topicMap[c._id.toString()] = c.count; });
+    const regionMap = {};
+    regionDocs.forEach(r => { regionMap[r._id.toString()] = r; });
 
     const result = users.map(u => {
       const deptKey = isValidObjectId(u.department) ? String(u.department) : null;
@@ -528,9 +566,14 @@ exports.getAdminUsersList = async (req, res) => {
         xp: u.xp || 0,
         role: u.role,
         department: deptKey ? (deptMap[deptKey] || 'N/A') : 'N/A',
+        departmentId: deptKey,
         joinedAt: u.createdAt,
         cardsCompleted: countMap[u._id.toString()] || 0,
         topicsCompleted: topicMap[u._id.toString()] || 0,
+        regions: (u.regions || [])
+          .filter(isValidObjectId)
+          .map(id => regionMap[String(id)])
+          .filter(Boolean),
       };
     });
 

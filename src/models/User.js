@@ -82,6 +82,20 @@ const userSchema = new mongoose.Schema({
   emailVerificationExpire: Date,
   resetPasswordToken: String,
   resetPasswordExpire: Date,
+
+  // 🔒 Brute-force lockout — separate from the loginLimiter IP rate limit
+  // (middleware/rateLimiters.js): that one caps attempts per IP regardless
+  // of target account, this caps attempts per ACCOUNT regardless of source
+  // IP, so a distributed/credential-stuffing attack spread across many IPs
+  // against one account still gets locked out.
+  failedLoginAttempts: {
+    type: Number,
+    default: 0,
+  },
+  lockUntil: {
+    type: Date,
+    default: null,
+  },
   
   // 🏢 LAYER 2: Department Placement (Carbon, iFile, iDeal, DataTech)
   department: {
@@ -100,6 +114,19 @@ const userSchema = new mongoose.Schema({
     ref: "Team",
     required: false,
   },
+
+  // 🌍 LAYER 4: Region Scoping (US, Europe, India, APAC, LATAM, ...) — a
+  // separate dimension from department/team above, self-selected at
+  // signup/profile (can hold several). Empty means unrestricted: sees
+  // content in every region. A Superadmin always bypasses this filter
+  // entirely regardless of what's set here. See models/Region.js and
+  // utils/scopeHelpers.js's passesRegionScope/buildRegionMatch.
+  regions: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Region",
+    },
+  ],
 
   // ── Streak & engagement tracking ────────────────────────────────────────────
   currentStreak: {

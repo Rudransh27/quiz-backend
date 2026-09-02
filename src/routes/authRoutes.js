@@ -9,6 +9,43 @@ const auth = require("../middleware/auth");
 const authController = require("../controllers/authController");
 const { msalClient, MICROSOFT_SCOPES, getMicrosoftRedirectUri } = require("../utils/msalClient");
 const { resolveClientToday, shiftDateKey } = require("../utils/localDate");
+const { loginLimiter, otpLimiter, forgotPasswordLimiter } = require("../middleware/rateLimiters");
+const verifyCaptcha = require("../middleware/verifyCaptcha");
+
+// 🌍 Resolves whatever `regions` the client submitted (array of ids, or a
+// single id) down to only the ids that actually correspond to a real Region
+// doc — silently drops anything invalid/stale rather than erroring, since
+// region selection is optional (an empty/absent result just means
+// "unrestricted", never a validation failure). Shared by /register,
+// /complete-profile and /update-profile so all three agree on the same
+// tolerant behavior.
+async function resolveRegionIds(requestedRegions) {
+  if (!requestedRegions) return [];
+  const list = Array.isArray(requestedRegions) ? requestedRegions : [requestedRegions];
+  const validIds = list
+    .map((v) => (v && v._id ? v._id : v))
+    .filter((v) => v && mongoose.Types.ObjectId.isValid(v.toString()));
+  if (validIds.length === 0) return [];
+  const found = await mongoose.model("Region").find({ _id: { $in: validIds } }).select("_id").lean();
+  return found.map((r) => r._id);
+}
+
+// 🔒 Account lockout thresholds — shared between the failure branch (which
+// counts up to this) and the lockout check (which uses the same duration).
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Progressive delay — each additional failed attempt on an account makes
+// the NEXT failure response slower (capped at 4s), so an Intruder-style
+// automated sweep slows to a crawl well before the account actually locks,
+// without adding any noticeable delay for someone who mistypes once.
+function progressiveDelayFor(failedAttempts) {
+  return Math.min(failedAttempts * 600, 4000);
+}
 
 const router = express.Router();
 
@@ -32,13 +69,37 @@ async function claimDailyLoginBonus(userId, today) {
   return updated ? { awarded: true, xp: updated.xp } : { awarded: false };
 }
 
+// 🔐 SESSION-BINDING COOKIE — closes the "capture a valid Superadmin JWT in
+// Burp and paste it into a different session's Authorization header" attack.
+// A Bearer token by itself is just a string: whoever holds it authenticates
+// as its owner, and jwt.verify has no way to tell "the real owner's browser
+// sent this" from "someone copied this out of an intercepted request." So a
+// second factor rides alongside the JWT that a header-swap can't carry over:
+// a random secret in an HttpOnly cookie (never readable by JS, never part of
+// the Authorization header). Only its SHA-256 hash goes into the JWT payload
+// (`bh`); auth.js recomputes the hash from whatever cookie arrived with the
+// request and rejects the token if it doesn't match — which it won't, for a
+// token pasted into a browser/session that never received this cookie.
+function issueBindingCookie(req, res) {
+  const bindingSecret = crypto.randomBytes(32).toString("hex");
+  const bindingHash = crypto.createHash("sha256").update(bindingSecret).digest("hex");
+  res.cookie("orbit_bind", bindingSecret, {
+    httpOnly: true,
+    secure: req.secure,
+    sameSite: req.secure ? "none" : "lax",
+    maxAge: 24 * 60 * 60 * 1000, // mirrors the JWT's own 1d expiresIn
+    path: "/",
+  });
+  return bindingHash;
+}
+
 // =========================================================================
 // @route    POST /api/auth/register
 // @desc     Register user with hierarchical department and team lookup
 // @access   Public
 // =========================================================================
-router.post("/register", async (req, res) => {
-  const { username, email, password, department, teamId } = req.body;
+router.post("/register", verifyCaptcha, async (req, res) => {
+  const { username, email, password, department, teamId, regions } = req.body;
   try {
     console.log("📥 Registration request received for:", email);
 
@@ -98,13 +159,18 @@ router.post("/register", async (req, res) => {
     // Check optional dynamic team allocation parameters safely
     const finalTeamId = mongoose.Types.ObjectId.isValid(teamId) ? teamId : null;
 
+    // 🌍 Region selection is optional — an empty result just leaves the new
+    // account unrestricted (sees every region) until they pick one later.
+    const finalRegionIds = await resolveRegionIds(regions);
+
     // Construct profile database allocation wrapper blocks
     user = new User({
       username: username.trim(),
       email: normalizedEmail,
-      password: password, 
-      department: finalDepartmentId, 
+      password: password,
+      department: finalDepartmentId,
       team: finalTeamId,
+      regions: finalRegionIds,
       role: "user",
       isVerified: false, 
       emailVerificationToken: hashedOTP,
@@ -149,7 +215,7 @@ router.post("/register", async (req, res) => {
 // @desc     Verify registration OTP and mint security token parameters
 // @access   Public
 // =========================================================================
-router.post("/verify-email", async (req, res) => {
+router.post("/verify-email", otpLimiter, async (req, res) => {
   const { email, otp } = req.body;
   try {
     const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
@@ -188,11 +254,13 @@ router.post("/verify-email", async (req, res) => {
         role: user.role,
         department: user.department ? user.department.toString() : null,
         team: user.team ? user.team.toString() : null, // Embedded team matrix support cleanly
+        regions: (user.regions || []).map((r) => r.toString()),
         username: user.username,
         avatarUrl: user.avatarUrl,
         avatarId: user.avatarId || "dev",
         xp: user.xp || 0,
         sessionId: dynamicSessionId,
+        bh: issueBindingCookie(req, res),
       },
     };
 
@@ -346,12 +414,14 @@ router.get("/microsoft/callback", async (req, res) => {
         role: user.role,
         department: user.department ? user.department.toString() : null,
         team: user.team ? user.team.toString() : null,
+        regions: (user.regions || []).map((r) => r.toString()),
         username: user.username,
         avatarUrl: user.avatarUrl,
         xp: user.xp || 0,
         email: user.email,
         avatarId: user.avatarId || "dev",
         sessionId: dynamicSessionId,
+        bh: issueBindingCookie(req, res),
       },
     };
 
@@ -376,7 +446,7 @@ router.get("/microsoft/callback", async (req, res) => {
 // @access   Private
 // =========================================================================
 router.put("/complete-profile", auth, async (req, res) => {
-  const { department, teamId } = req.body;
+  const { department, teamId, regions } = req.body;
   try {
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -403,6 +473,10 @@ router.put("/complete-profile", auth, async (req, res) => {
       user.team = teamId;
     }
 
+    if (regions !== undefined) {
+      user.regions = await resolveRegionIds(regions);
+    }
+
     await user.save();
 
     res.json({
@@ -413,6 +487,7 @@ router.put("/complete-profile", auth, async (req, res) => {
         username: user.username,
         department: user.department ? user.department.toString() : null,
         team: user.team ? user.team.toString() : null,
+        regions: (user.regions || []).map((r) => r.toString()),
         role: user.role,
         xp: user.xp || 0,
         avatarUrl: user.avatarUrl,
@@ -430,14 +505,25 @@ router.put("/complete-profile", auth, async (req, res) => {
 // @desc     Authenticates user, creates concurrent log maps & returns token
 // @access   Public
 // =========================================================================
-router.post("/login", async (req, res) => {
+router.post("/login", loginLimiter, verifyCaptcha, async (req, res) => {
   const { email, password } = req.body;
   try {
-    const user = await User.findOne({ email }).select("+password");
+    const user = await User.findOne({ email }).select("+password +failedLoginAttempts +lockUntil");
     if (!user) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid credentials" });
+    }
+
+    // 🔒 Per-account lockout — checked before spending a bcrypt.compare CPU
+    // cycle, and before the password is even looked at, so a locked account
+    // can't be used to keep probing passwords during its own lockout window.
+    if (user.lockUntil && user.lockUntil > Date.now()) {
+      const minutesLeft = Math.ceil((user.lockUntil - Date.now()) / 60000);
+      return res.status(423).json({
+        success: false,
+        message: `Account temporarily locked due to repeated failed login attempts. Try again in ${minutesLeft} minute(s).`,
+      });
     }
 
     if (!user.isVerified) {
@@ -449,9 +535,31 @@ router.post("/login", async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      const updated = await User.findByIdAndUpdate(
+        user._id,
+        { $inc: { failedLoginAttempts: 1 } },
+        { new: true, select: "failedLoginAttempts" },
+      );
+
+      if (updated.failedLoginAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
+        await User.updateOne(
+          { _id: user._id },
+          { $set: { lockUntil: new Date(Date.now() + LOCKOUT_DURATION_MS), failedLoginAttempts: 0 } },
+        );
+        console.warn(`🚨 ACCOUNT LOCKED: ${email} after ${MAX_FAILED_LOGIN_ATTEMPTS} consecutive failed login attempts.`);
+      } else {
+        await sleep(progressiveDelayFor(updated.failedLoginAttempts));
+      }
+
       return res
         .status(400)
         .json({ success: false, message: "Invalid credentials" });
+    }
+
+    // Clean slate on a successful login — a stray earlier mistype shouldn't
+    // count against a future lockout window once the real password lands.
+    if (user.failedLoginAttempts > 0 || user.lockUntil) {
+      await User.updateOne({ _id: user._id }, { $set: { failedLoginAttempts: 0, lockUntil: null } });
     }
 
     const stringUserId = user._id.toString();
@@ -494,12 +602,14 @@ router.post("/login", async (req, res) => {
         role: user.role,
         department: user.department ? user.department.toString() : null,
         team: user.team ? user.team.toString() : null, // Passed down cluster layer context
+        regions: (user.regions || []).map((r) => r.toString()),
         username: user.username,
         avatarUrl: user.avatarUrl,
         xp: effectiveXp,
         email: user.email,
         avatarId: user.avatarId || "dev",
         sessionId: dynamicSessionId,
+        bh: issueBindingCookie(req, res),
       },
     };
 
@@ -578,6 +688,7 @@ router.post("/validate", auth, async (req, res) => {
         role: freshUserDoc.role || "user",
         department: freshUserDoc.department ? freshUserDoc.department.toString() : null,
         team: freshUserDoc.team ? freshUserDoc.team.toString() : null,
+        regions: (freshUserDoc.regions || []).map((r) => r.toString()),
         username: freshUserDoc.username || "Corporate Specialist",
         email: freshUserDoc.email || "",
         xp: effectiveXp,
@@ -595,12 +706,34 @@ router.post("/validate", auth, async (req, res) => {
 });
 
 // =========================================================================
+// @route    POST /api/auth/logout
+// @desc     Ends the session server-side instead of just discarding the
+//           token client-side — clears the session-binding cookie (so a
+//           copy of the now-abandoned JWT can never satisfy the binding
+//           check in auth.js again) and the Redis session record (so the
+//           single-login-enforcement check also treats this session as over).
+// @access   Private
+// =========================================================================
+router.post("/logout", auth, async (req, res) => {
+  try {
+    if (global.redisClient && global.redisClient.isOpen && global.redisClient.isReady) {
+      await global.redisClient.del(`session:${req.user.id.toString()}`);
+    }
+  } catch (redisError) {
+    console.error("⚠️ Redis Operational Fault during logout, continuing anyway:", redisError.message);
+  }
+
+  res.clearCookie("orbit_bind", { httpOnly: true, secure: req.secure, sameSite: req.secure ? "none" : "lax", path: "/" });
+  res.json({ success: true, message: "Logged out." });
+});
+
+// =========================================================================
 // @route    PUT /api/auth/update-profile
 // @desc     Updates metadata payload fields and structures
 // @access   Private
 // =========================================================================
 router.put("/update-profile", auth, async (req, res) => {
-  const { username, avatarId, avatarUrl, teamId } = req.body;
+  const { username, avatarId, avatarUrl, teamId, regions } = req.body;
   try {
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -610,6 +743,7 @@ router.put("/update-profile", auth, async (req, res) => {
     if (username) user.username = username;
     if (avatarId) user.avatarId = avatarId;
     if (teamId && mongoose.Types.ObjectId.isValid(teamId)) user.team = teamId;
+    if (regions !== undefined) user.regions = await resolveRegionIds(regions);
 
     if (avatarUrl) {
       user.avatarUrl = avatarUrl;
@@ -626,6 +760,7 @@ router.put("/update-profile", auth, async (req, res) => {
         username: user.username,
         department: user.department ? user.department.toString() : null,
         team: user.team ? user.team.toString() : null,
+        regions: (user.regions || []).map((r) => r.toString()),
         role: user.role,
         xp: user.xp || 0,
         avatarUrl: user.avatarUrl,
@@ -705,7 +840,7 @@ router.delete("/profile", auth, async (req, res) => {
 });
 
 // Controller pipeline assignments for structural security concerns
-router.post("/forgot-password", authController.forgotPassword);
+router.post("/forgot-password", forgotPasswordLimiter, verifyCaptcha, authController.forgotPassword);
 router.put("/reset-password/:token", authController.resetPassword);
 
 module.exports = router;

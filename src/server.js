@@ -3,7 +3,9 @@ const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const cors = require('cors');
-const http = require('http'); 
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const http = require('http');
 const { Server } = require('socket.io');
 
 // 🚀 INITIALIZE REDIS ENGINE CONFIGURATION
@@ -25,8 +27,30 @@ const departmentRoutes = require('./routes/departmentRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const ideaRoutes = require("./routes/ideaRoutes");
 const notificationRoutes = require('./routes/notificationRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
+const regionRoutes = require('./routes/regionRoutes');
 
 const app = express();
+
+// Node sits behind nginx (TLS-terminating reverse proxy) in production —
+// without this, req.secure/req.protocol always read "http" regardless of
+// what the real client connection used, which would make the session-
+// binding cookie below (auth.js) never set the Secure/SameSite=None
+// attributes it needs on an actual HTTPS deployment.
+app.set('trust proxy', 1);
+
+// VAPT findings #8 (Missing HTTP Security Headers) / #9 (Server Version
+// Disclosure) — applies to this API's own responses. helmet also removes
+// X-Powered-By on its own; app.disable is kept too as an explicit, obvious
+// statement of intent that doesn't depend on helmet's internals.
+// Permissions-Policy isn't part of helmet's default set, so it's added
+// separately below.
+app.disable('x-powered-by');
+app.use(helmet());
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 
 // =========================================================================
 // 🔒 CRITICAL FIX 1: GLOBAL CORS SECURITY LAYER (MUST RUN AT ABSOLUTE ENTRY)
@@ -52,6 +76,7 @@ app.use(cors({
 // Overriding the base 1MB cap to 50MB prevents transactions from breaking on massive file streams
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(cookieParser());
 
 // =========================================================================
 // 📡 ALLOCATION ROUTES PIPELINES
@@ -69,6 +94,8 @@ app.use('/api/departments', departmentRoutes);
 app.use('/api/teams', teamRoutes);
 app.use("/api/ideas", ideaRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/regions', regionRoutes);
 
 // 🛡️ CREATING HYBRID SERVER TO BRIDGE EXPRESS AND SOCKET.IO TOGETHER CLEANLY
 const server = http.createServer(app);

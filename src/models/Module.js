@@ -109,7 +109,46 @@ const moduleSchema = new mongoose.Schema(
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-    }
+    },
+
+    // 🏷️ CATEGORY (a.k.a. "Tag") — the Learn page groups modules under a
+    // single Category each; picked directly in the module create/edit form,
+    // just like any other field here (no separate ownership/protection
+    // scheme — see moduleRoutes.js). Every module always has one: if the
+    // admin doesn't pick one, the create/update routes fall back to the
+    // permanent "Uncategorized" bucket rather than leaving this null.
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      default: null,
+    },
+
+    // 🔒 SEQUENTIAL MODULE LOCK — this module's position within its own
+    // category's unlock chain (see src/utils/moduleLock.js). Lower unlocks
+    // first. Never left meaningless: moduleRoutes.js's resolveModuleOrder()
+    // always assigns a real value on create (append-at-end of the resolved
+    // category) and on any category reassignment; admins can also set it
+    // explicitly via the drag-and-drop reorder endpoint. Ties (including
+    // every pre-existing module, which defaults to 0) are broken
+    // deterministically by _id in moduleLock.js's walk.
+    order: {
+      type: Number,
+      default: 0,
+    },
+
+    // 🌍 REGIONS — independent of both the visibility/department/team RBAC
+    // above and the single categoryId tag. A module can sit in several
+    // regions at once (e.g. the same "Onboarding" module offered in both US
+    // and Europe). Empty means unrestricted (visible in every region); a
+    // non-empty array scopes it to only the listed regions. Managed
+    // exclusively via regionRoutes.js's module-mapping endpoints. See
+    // models/Region.js.
+    regions: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Region",
+      },
+    ],
   },
   { timestamps: true }
 );
@@ -119,5 +158,8 @@ const moduleSchema = new mongoose.Schema(
 // =========================================================================
 // Optimizes multi-tenant $or queries used to compile available modules on the user learn page
 moduleSchema.index({ visibility: 1, departments: 1 });
+// Powers "modules in category X" lookups AND the sorted-by-order lock walk.
+moduleSchema.index({ categoryId: 1, order: 1 });
+moduleSchema.index({ regions: 1 });
 
 module.exports = mongoose.model("Module", moduleSchema);

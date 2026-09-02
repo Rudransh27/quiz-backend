@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const Module = require('../models/Module');
+const auth = require('../middleware/auth');
 
 // Import all your validator functions
 const validators = require('../validators/codeValidator');
@@ -9,11 +10,14 @@ const validators = require('../validators/codeValidator');
 // ... (Your existing GET, POST, PUT, DELETE routes for modules) ...
 
 // New endpoint for code validation
-router.post('/validate-code', (req, res) => {
+router.post('/validate-code', auth, (req, res) => {
   const { validatorName, userCode } = req.body;
 
-  // Basic security check to ensure the validator exists and is a function
-  if (!validatorName || typeof validators[validatorName] !== 'function') {
+  // Basic security check to ensure the validator exists and is a function.
+  // hasOwnProperty (not just `typeof validators[name] === 'function'`) so a
+  // name like "constructor" or "toString" can't resolve to an inherited
+  // Object.prototype member instead of a real, defined validator.
+  if (!validatorName || !Object.prototype.hasOwnProperty.call(validators, validatorName) || typeof validators[validatorName] !== 'function') {
     return res.status(400).json({ isCorrect: false, error: "Invalid validator specified." });
   }
 

@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Region = require('../models/Region');
 const auth = require('../middleware/auth');
+const admin = require('../middleware/admin');
 const { checkAndAwardBadges, getOrbitTier, getLast7Days, getMyDepartmentRank } = require('../utils/achievements');
 
 // =========================================================================
@@ -10,12 +12,7 @@ const { checkAndAwardBadges, getOrbitTier, getLast7Days, getMyDepartmentRank } =
 // @desc    Get verified users count (Superadmin = System Total, Admin = Their Department Only)
 // @access  Private (Authenticated Admins/Superadmins Only)
 // =========================================================================
-router.get('/count-verified', auth, async (req, res) => {
-  // 🛡️ ROLE CHECK: Enforce strict administrative clearance loops
-  if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-    return res.status(403).json({ success: false, message: "Access Denied: Administrative privilege required." });
-  }
-
+router.get('/count-verified', [auth, admin], async (req, res) => {
   try {
     const isSuperAdmin = req.user.role === 'superadmin';
     const adminDepartmentId = req.user.department;
@@ -141,6 +138,53 @@ router.get("/me/gamification", auth, async (req, res) => {
   } catch (err) {
     console.error("Gamification Summary Failure:", err.message);
     return res.status(500).json({ success: false, message: "Internal server error computing gamification summary." });
+  }
+});
+
+// =========================================================================
+// 🌍 PUT /api/users/:id/regions
+// @desc    Set which regions a user is scoped to — the same field a learner
+//          can self-manage from their own profile (UserProfile.jsx), but
+//          settable here by an admin/superadmin on someone ELSE's account.
+//          Department Admins may only touch users in their own department
+//          (same convention as GET /api/progress/admin/users' roster);
+//          Superadmin may target anyone. Silently drops any submitted id
+//          that isn't a real Region — region assignment is meant to be
+//          forgiving, never a hard validation failure (mirrors
+//          authRoutes.js's resolveRegionIds).
+// @access  Private (Admin / Superadmin)
+// =========================================================================
+router.put('/:id/regions', [auth, admin], async (req, res) => {
+  try {
+    const target = await User.findById(req.params.id);
+    if (!target) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    if (req.user.role !== 'superadmin') {
+      const sameDept = req.user.department && target.department
+        && req.user.department.toString() === target.department.toString();
+      if (!sameDept) {
+        return res.status(403).json({ success: false, message: 'Access Denied: You can only manage users in your own department.' });
+      }
+    }
+
+    const { regions } = req.body;
+    const list = Array.isArray(regions) ? regions : (regions ? [regions] : []);
+    const validIds = list
+      .map((v) => (v && v._id ? v._id : v))
+      .filter((v) => v && mongoose.Types.ObjectId.isValid(v.toString()));
+    const found = validIds.length > 0
+      ? await Region.find({ _id: { $in: validIds } }, 'name code color').lean()
+      : [];
+
+    target.regions = found.map((r) => r._id);
+    await target.save();
+
+    return res.json({ success: true, data: { _id: target._id, regions: found } });
+  } catch (err) {
+    console.error('Assign user regions error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 

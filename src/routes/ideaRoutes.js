@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
+const admin = require("../middleware/admin");
 const Idea = require("../models/Idea");
 const mongoose = require("mongoose");
 
@@ -68,11 +69,7 @@ router.get("/my-history", auth, async (req, res) => {
 // 🏛️ 3. GET ALL PENDING IDEAS FOR PRODUCT COUNCIL REVIEW (Admin/Superadmin Only)
 // @route   GET /api/ideas/council-board
 // =========================================================================
-router.get("/council-board", auth, async (req, res) => {
-  if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-    return res.status(403).json({ success: false, message: "Access Denied: Product Council clearance required." });
-  }
-
+router.get("/council-board", [auth, admin], async (req, res) => {
   try {
     let searchFilter = {};
     
@@ -94,11 +91,7 @@ router.get("/council-board", auth, async (req, res) => {
 // src/routes/ideaRoutes.js
 // Update your curation route handler block to include the XP gamification trigger:
 
-router.put("/:ideaId/curate", auth, async (req, res) => {
-  if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-    return res.status(403).json({ success: false, message: "Access Denied." });
-  }
-
+router.put("/:ideaId/curate", [auth, admin], async (req, res) => {
   const { status, curatorFeedback } = req.body;
   const { ideaId } = req.params;
 
@@ -107,6 +100,17 @@ router.put("/:ideaId/curate", auth, async (req, res) => {
     const originalIdea = await Idea.findById(ideaId);
     if (!originalIdea) {
       return res.status(404).json({ success: false, message: "Target idea log entity not found." });
+    }
+
+    // 1b. Department Admins may only curate ideas submitted within their own
+    // department — mirrors the scoping /council-board already applies to the
+    // idea listing itself. Without this, a Department Admin from Dept A could
+    // approve/reject (and trigger XP payout for) an idea from Dept B just by
+    // knowing/guessing its ideaId.
+    if (req.user.role === "admin") {
+      if (!req.user.department || originalIdea.departmentId.toString() !== req.user.department.toString()) {
+        return res.status(403).json({ success: false, message: "Forbidden: This idea belongs to a different department." });
+      }
     }
 
     // 2. Perform the update on the Idea document

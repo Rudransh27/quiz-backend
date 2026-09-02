@@ -13,13 +13,29 @@ exports.forgotPassword = async (req, res) => {
         const user = await User.findOne({ email });
 
         if (!user) {
-            return res.status(200).json({ 
-                success: true, 
-                message: 'If an account with that email exists, a reset link will be sent to your inbox.' 
+            return res.status(200).json({
+                success: true,
+                message: 'If an account with that email exists, a reset link will be sent to your inbox.'
             });
         }
 
-        const resetToken = user.getResetPasswordToken(); 
+        // 🔒 Per-account cooldown — the forgotPasswordLimiter (rateLimiters.js)
+        // caps this per IP, but an attacker spread across IPs (or just not
+        // trying to evade detection) could still mail-bomb one victim's inbox
+        // from many sources. getResetPasswordToken() sets a fresh 10-minute
+        // expiry every call, so "more than 9 minutes still remaining" means a
+        // reset email was already sent within roughly the last minute —
+        // reusing that field instead of adding new schema/state to track it.
+        const RESET_TOKEN_LIFETIME_MS = 10 * 60 * 1000;
+        const COOLDOWN_MS = 60 * 1000;
+        if (user.resetPasswordExpire && user.resetPasswordExpire.getTime() - Date.now() > RESET_TOKEN_LIFETIME_MS - COOLDOWN_MS) {
+            return res.status(200).json({
+                success: true,
+                message: 'If an account with that email exists, a reset link will be sent to your inbox.',
+            });
+        }
+
+        const resetToken = user.getResetPasswordToken();
         await user.save({ validateBeforeSave: false }); 
 
         const resetUrl = `${req.protocol}://${req.get('host')}/reset-password/${resetToken}`;

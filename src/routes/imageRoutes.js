@@ -10,7 +10,7 @@ const admin = require('../middleware/admin');
 // ... (Your existing API routes and imports) ...
 
 // New route for image upload
-router.post('/upload-image', upload.single('image'), async (req, res) => {
+router.post('/upload-image', [auth, admin], upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded.' });

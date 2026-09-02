@@ -9,7 +9,7 @@ const Team = require("../models/Team");
 
 // 🔒 Security Guards Import
 const auth = require("../middleware/auth");
-const admin = require("../middleware/admin");
+const superadmin = require("../middleware/superadmin");
 
 // =========================================================================
 // @route    GET /api/departments/public
@@ -41,9 +41,12 @@ router.get("/public", async (req, res) => {
 // =========================================================================
 // @route    POST /api/departments
 // @desc     Create a fresh corporate department entity asset
-// @access   Private (Superadmin/Admin Only)
+// @access   Private (Superadmin Only) — creating a department is a
+// platform-wide structural change, not something a single department's own
+// admin should be able to do, so this uses `superadmin` rather than the
+// department-scoped `admin` middleware most other admin routes here use.
 // =========================================================================
-router.post("/", [auth, admin], async (req, res) => {
+router.post("/", [auth, superadmin], async (req, res) => {
   const { name, code, description } = req.body;
 
   if (!name || !code) {

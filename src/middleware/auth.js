@@ -1,6 +1,7 @@
 // src/middleware/auth.js
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
+const crypto = require('crypto');
+const User = require('../models/User');
 
 module.exports = async function (req, res, next) {
   const token = req.header('Authorization');
@@ -11,23 +12,51 @@ module.exports = async function (req, res, next) {
 
   try {
     const cleanToken = token.replace('Bearer ', '');
-    const decoded = jwt.verify(cleanToken, process.env.JWT_SECRET);
-    
+    // Pin the accepted algorithm so a tampered/forged token using a
+    // different alg (e.g. "none") is rejected outright by the library,
+    // rather than relying on the caller to have configured this correctly.
+    const decoded = jwt.verify(cleanToken, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+
     const contextUser = decoded.user ? decoded.user : decoded;
 
-    // Normalize user token context layer with safe Mongoose ObjectId cast wrappers
+    // 🔐 SESSION-BINDING CHECK — a syntactically valid JWT for a real,
+    // currently-privileged account is NOT enough on its own: it must also
+    // arrive with the HttpOnly cookie issued to the same browser at login
+    // (see authRoutes.js's issueBindingCookie). This is what stops a token
+    // captured in a proxy (Burp) from one session and pasted into another
+    // session's Authorization header — the pasted-into session never
+    // received that session's binding cookie, so the hashes won't match
+    // even though the token itself verifies perfectly fine.
+    const bindingSecret = req.cookies ? req.cookies.orbit_bind : undefined;
+    if (!contextUser.bh || !bindingSecret) {
+      return res.status(401).json({ message: 'Session is not valid from this browser context. Please log in again.' });
+    }
+    const bindingHash = crypto.createHash('sha256').update(bindingSecret).digest('hex');
+    if (bindingHash !== contextUser.bh) {
+      console.warn(`🚨 SESSION BINDING MISMATCH: a token for user ${contextUser.id} was presented without its matching browser session — likely token theft/replay.`);
+      return res.status(401).json({ message: 'Session is not valid from this browser context. Please log in again.' });
+    }
+
+    // Privilege/scope must be re-derived from the current database record on
+    // every request, never trusted from the token payload — the JWT's claims
+    // are frozen at login time (tokens live up to 24h), so an admin/superadmin
+    // demotion, account deactivation, or a leaked/replayed token would
+    // otherwise keep granting the ROLE BAKED IN AT ISSUANCE regardless of
+    // what the account is actually authorized for right now.
+    const dbUser = await User.findById(contextUser.id).select('role department team regions username');
+
+    if (!dbUser) {
+      return res.status(401).json({ message: 'Token is not valid' });
+    }
+
     req.user = {
-      id: mongoose.Types.ObjectId.createFromHexString(contextUser.id),
-      role: contextUser.role || 'user',
-      username: contextUser.username,
+      id: dbUser._id,
+      role: dbUser.role,
+      username: dbUser.username,
       sessionId: contextUser.sessionId,
-      department: contextUser.department 
-        ? mongoose.Types.ObjectId.createFromHexString(contextUser.department) 
-        : null,
-      // 👥 NEW SCOPE: Cast team identifiers cleanly if assigned
-      team: contextUser.team 
-        ? mongoose.Types.ObjectId.createFromHexString(contextUser.team) 
-        : null
+      department: dbUser.department || null,
+      team: dbUser.team || null,
+      regions: dbUser.regions || [],
     };
 
     // REDIS SINGLE LOGIN ENFORCEMENT CHECKER

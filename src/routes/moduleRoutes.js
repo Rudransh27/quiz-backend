@@ -7,9 +7,13 @@ const Topic = require("../models/Topic");
 const Card = require("../models/Card");
 const Team = require("../models/Team");
 const ModuleRating = require("../models/ModuleRating");
+const Category = require("../models/Category");
 const progressController = require("../controllers/progressController");
 const { computePointsReward } = require("../utils/pointsCalculator");
 const { moduleHasDept, moduleDeptIds } = require("../utils/moduleDepartments");
+const { buildRegionMatch, passesRegionScope } = require("../utils/scopeHelpers");
+const { getOrCreateUncategorizedCategory } = require("../utils/defaultCategory");
+const { computeModuleCompletionMap, walkSequentialUnlock, isModuleUnlockedForUser } = require("../utils/moduleLock");
 
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
@@ -53,6 +57,34 @@ const resolveOwnedTeamIds = async (requestedTeams, departmentIds) => {
   return ownedTeams.map((t) => t._id);
 };
 
+// 🏷️ Resolves whatever `categoryId` the client submitted down to a real,
+// existing Category id — falling back to the permanent "Uncategorized"
+// bucket if none was submitted, or if the submitted id doesn't resolve to a
+// real category (e.g. stale/tampered value). Used by BOTH the create and
+// update routes so a module always ends up with a real categoryId, never
+// null.
+const resolveCategoryId = async (requestedCategoryId) => {
+  if (requestedCategoryId && mongoose.Types.ObjectId.isValid(requestedCategoryId)) {
+    const exists = await Category.exists({ _id: requestedCategoryId });
+    if (exists) return requestedCategoryId;
+  }
+  const fallback = await getOrCreateUncategorizedCategory();
+  return fallback._id;
+};
+
+// 📶 SEQUENTIAL LOCK ORDERING — resolves whatever `order` the client
+// submitted for a module within its (already-resolved) category, falling
+// back to "append at the end of this category's existing chain" (max
+// existing order + 1, or 0 if the category is empty) when the client didn't
+// submit a finite number. Used by both create and update so a module is
+// never left with a meaningless order value.
+const resolveModuleOrder = async (categoryId, requestedOrder) => {
+  const parsed = Number(requestedOrder);
+  if (Number.isFinite(parsed)) return parsed;
+  const lastInCategory = await Module.findOne({ categoryId }).sort({ order: -1 }).select("order").lean();
+  return lastInCategory ? (Number(lastInCategory.order) || 0) + 1 : 0;
+};
+
 // 🛡️ GRANULAR SECURITY HANDSHAKE FIREWALL — shared by GET /:id and the
 // review endpoints below (GET /:id/reviews, GET /:id/my-review) so viewing
 // a module's reviews is gated by the exact same visibility rules as viewing
@@ -77,6 +109,10 @@ const assertModuleViewAccess = (moduleData, req) => {
     if (!hasTeamAccess) {
       return { ok: false, status: 403, message: "Access Denied: Locked for your specific team scope." };
     }
+  }
+
+  if (!passesRegionScope(moduleData, req)) {
+    return { ok: false, status: 403, message: "Access Denied: Not available in your region." };
   }
 
   return { ok: true };
@@ -135,8 +171,58 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
       matchCriteria = { $or: conditions };
     }
 
+    // 🌍 Narrow further by the requesting user's own region(s), if any.
+    const regionMatchWC = buildRegionMatch(contextUser.regions);
+    if (regionMatchWC) {
+      matchCriteria = Object.keys(matchCriteria).length > 0
+        ? { $and: [matchCriteria, regionMatchWC] }
+        : regionMatchWC;
+    }
+
+    // 🏷️ Optional ?categoryId= filter — powers the Learn page's "modules in
+    // this category/tag" view. Combined with the RBAC $or above via $and
+    // rather than merged into the same object, so it narrows results
+    // without disturbing the existing visibility logic.
+    const { categoryId, regionId } = req.query;
+    if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) {
+      const categoryFilter = { categoryId: new mongoose.Types.ObjectId(categoryId) };
+      matchCriteria = Object.keys(matchCriteria).length > 0
+        ? { $and: [matchCriteria, categoryFilter] }
+        : categoryFilter;
+    }
+
+    // 🌍 Optional explicit ?regionId= filter — powers the Learn page's
+    // Tag → Region → Journey drill-down (the learner EXPLICITLY picks a
+    // region to browse, distinct from the implicit per-user regionMatchWC
+    // filter above which is always applied regardless). A module with no
+    // `regions` set ("All") always matches every region; one with `regions`
+    // set only matches when it lists this exact region — same semantics as
+    // buildRegionMatch, just pinned to one specific id instead of the
+    // caller's own region list.
+    if (regionId && mongoose.Types.ObjectId.isValid(regionId)) {
+      const regionObjectId = new mongoose.Types.ObjectId(regionId);
+      const regionFilter = {
+        $or: [
+          { regions: { $exists: false } },
+          { regions: { $size: 0 } },
+          { regions: regionObjectId },
+        ],
+      };
+      matchCriteria = Object.keys(matchCriteria).length > 0
+        ? { $and: [matchCriteria, regionFilter] }
+        : regionFilter;
+    }
+
     const workspaceModules = await Module.aggregate([
       { $match: matchCriteria },
+      // 🔢 Sequence modules by their admin-set order (same field the
+      // sequential-lock system and the Tag -> Region -> Journey path both
+      // rely on) — ties broken deterministically by _id, matching
+      // moduleLock.js's own tie-break rule. Without this the aggregation's
+      // natural Mongo order (not guaranteed to mean anything) decided what
+      // "the path" looked like, making Module.order effectively unused by
+      // this endpoint regardless of how an admin set it elsewhere.
+      { $sort: { order: 1, _id: 1 } },
       // 📚 Look up topics count for STANDARD strategy modules
       {
         $lookup: {
@@ -188,6 +274,13 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
           isHotModule: 1,
           isPopular: 1,
           estimatedTime: 1,
+          categoryId: 1,
+          order: 1,
+          // 🌍 So the frontend's Tag→Region→Journey drill-down can compute
+          // "which regions does this tag actually offer" from the already-
+          // fetched (unfiltered-by-region) module list, and render module
+          // region badges — see ?regionId= below for the actual filter.
+          regions: 1,
           topicCount: {
             $cond: {
               if: { $or: [ { $eq: ["$engineStrategy", "EXPRESS_FLAT"] }, { $eq: ["$hasTopics", false] } ] },
@@ -225,6 +318,52 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
       ...mod,
       pointsReward: computePointsReward(mod.cardsForPoints),
     }));
+
+    // 🔒 SEQUENTIAL MODULE LOCK — attach `locked` per module. Admin/
+    // superadmin bypass entirely (every module always unlocked for them,
+    // regardless of a category's sequentialUnlock flag or completion
+    // state). For a regular user, batch every module in this response
+    // through ONE completion computation (regardless of how many
+    // categories it spans), then walk each category's chain in pure JS
+    // against that shared map — no per-module/per-category DB round-trips.
+    const isPrivilegedForLock = req.user.role === "admin" || req.user.role === "superadmin";
+    if (isPrivilegedForLock) {
+      dataWithPoints.forEach((m) => { m.locked = false; });
+    } else {
+      const contextUserForLock = req.user.user ? req.user.user : req.user;
+      const lockUserId = contextUserForLock.id || contextUserForLock._id;
+
+      const categoryIdsForLock = [...new Set(
+        dataWithPoints.map((m) => (m.categoryId ? m.categoryId.toString() : null)).filter(Boolean)
+      )];
+      const categoriesForLock = categoryIdsForLock.length
+        ? await Category.find({ _id: { $in: categoryIdsForLock } }, "sequentialUnlock").lean()
+        : [];
+      const sequentialFlagMap = new Map(
+        categoriesForLock.map((c) => [c._id.toString(), c.sequentialUnlock !== false])
+      );
+
+      const completionMap = await computeModuleCompletionMap({ modules: dataWithPoints, userId: lockUserId });
+
+      const byCategory = new Map();
+      dataWithPoints.forEach((m) => {
+        const key = m.categoryId ? m.categoryId.toString() : "__none__";
+        if (!byCategory.has(key)) byCategory.set(key, []);
+        byCategory.get(key).push(m);
+      });
+
+      const unlockedIds = new Set();
+      for (const [key, mods] of byCategory.entries()) {
+        const sequentialUnlock = key === "__none__" ? true : (sequentialFlagMap.get(key) ?? true);
+        if (!sequentialUnlock) {
+          mods.forEach((m) => unlockedIds.add(m._id.toString()));
+        } else {
+          walkSequentialUnlock(mods, completionMap).forEach((id) => unlockedIds.add(id));
+        }
+      }
+
+      dataWithPoints.forEach((m) => { m.locked = !unlockedIds.has(m._id.toString()); });
+    }
 
     return res.json({ success: true, data: dataWithPoints });
   } catch (err) {
@@ -286,6 +425,14 @@ router.get("/", auth, async (req, res) => {
       matchCriteria = { $or: conditions };
     }
 
+    // 🌍 Narrow further by the requesting user's own region(s), if any.
+    const regionMatchList = buildRegionMatch(contextUser.regions);
+    if (regionMatchList) {
+      matchCriteria = Object.keys(matchCriteria).length > 0
+        ? { $and: [matchCriteria, regionMatchList] }
+        : regionMatchList;
+    }
+
     const modulesWithRatings = await Module.aggregate([
       { $match: matchCriteria },
       {
@@ -331,6 +478,12 @@ router.get("/", auth, async (req, res) => {
           departments: "$departmentDetails",
           avgRating: { $ifNull: [{ $avg: "$allRatings.rating" }, 0] },
           totalReviews: { $size: "$allRatings" },
+          // 🏷️ Needed by AdminModuleForm to pre-select the module's current
+          // category/tag when editing.
+          categoryId: 1,
+          // 🔒 Needed by the admin reorder-modules panel to sort a category's
+          // modules into their current sequence before any drag happens.
+          order: 1,
         },
       },
     ]);
@@ -359,6 +512,29 @@ router.get("/:id", auth, async (req, res) => {
     const accessCheck = assertModuleViewAccess(moduleData, req);
     if (!accessCheck.ok) {
       return res.status(accessCheck.status).json({ success: false, message: accessCheck.message });
+    }
+
+    // 🔒 SEQUENTIAL MODULE LOCK — role 'user' only; admin/superadmin bypass
+    // entirely regardless of the category's sequentialUnlock flag or this
+    // module's completion state. Runs BEFORE any content (cards/topics) is
+    // assembled below — this is the actual content-serving route used by
+    // both TopicTrail.jsx and the Quiz player, so a locked module's real
+    // content must never be built into the response at all.
+    if (req.user.role !== "admin" && req.user.role !== "superadmin") {
+      const contextUserForLock = req.user.user ? req.user.user : req.user;
+      const lockUserId = contextUserForLock.id || contextUserForLock._id;
+      const unlocked = await isModuleUnlockedForUser({
+        moduleId: moduleData._id,
+        categoryId: moduleData.categoryId,
+        userId: lockUserId,
+      });
+      if (!unlocked) {
+        return res.status(403).json({
+          success: false,
+          message: "This module is locked. Complete the previous module in this category first.",
+          locked: true,
+        });
+      }
     }
 
     // 🌟 Rating aggregate — mirrors the same $avg/$size computation the
@@ -638,6 +814,15 @@ router.post("/", [auth, admin], async (req, res) => {
     const cleanStrategy = isHtmlSandboxModule ? 'EXPRESS_FLAT' : (engineStrategy || 'STANDARD');
     const cleanHasTopics = isHtmlSandboxModule ? false : cleanStrategy === 'STANDARD';
 
+    // 🏷️ Always resolves to a real Category — falls back to "Uncategorized"
+    // if the admin didn't pick one (or picked something that doesn't exist).
+    const resolvedCategoryId = await resolveCategoryId(req.body.categoryId);
+    // 🔒 Appends this module at the end of its category's current unlock
+    // chain unless an explicit order was submitted (the drag-and-drop
+    // reorder endpoint sends explicit values; ordinary module creation does
+    // not, so it always lands last).
+    const resolvedModuleOrder = await resolveModuleOrder(resolvedCategoryId, req.body.order);
+
     const newModule = new Module({
       ...req.body,
       departments: visibility === "Global" ? [] : finalDepartments,
@@ -645,6 +830,8 @@ router.post("/", [auth, admin], async (req, res) => {
       targetTeams: processedTeams,
       engineStrategy: cleanStrategy,
       hasTopics: cleanHasTopics,
+      categoryId: resolvedCategoryId,
+      order: resolvedModuleOrder,
       // 🔧 An html_sandbox module's real admin-entered duration only ever
       // arrived as `estimatedDurationMin` (saved below onto the sandbox
       // Card's own content) — the Module's own `estimatedTime` field was
@@ -787,6 +974,27 @@ router.put("/:id", [auth, admin], async (req, res) => {
 
     if (req.body.engineStrategy) {
       req.body.hasTopics = req.body.engineStrategy === 'STANDARD';
+    }
+
+    // 🏷️ Same fallback rule as create — a module is never left with no
+    // category. Only touched when the client actually submitted the field
+    // (the admin form always does, but a partial PATCH-style caller that
+    // omits it entirely leaves the existing categoryId untouched).
+    if (req.body.categoryId !== undefined) {
+      req.body.categoryId = await resolveCategoryId(req.body.categoryId);
+    }
+
+    // 📶 Resolve order only when the client explicitly sent one, OR when the
+    // module's category is changing (its old order value is meaningless in
+    // a new category's chain) — otherwise leave req.body.order absent so
+    // Object.assign below never touches the existing stored order.
+    const categoryIsChanging = req.body.categoryId !== undefined
+      && req.body.categoryId.toString() !== (targetModule.categoryId ? targetModule.categoryId.toString() : null);
+    if (req.body.order !== undefined || categoryIsChanging) {
+      req.body.order = await resolveModuleOrder(
+        req.body.categoryId !== undefined ? req.body.categoryId : targetModule.categoryId,
+        req.body.order
+      );
     }
 
     const isHtmlSandboxModule = targetModule.moduleType === 'html_sandbox';
