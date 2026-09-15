@@ -14,7 +14,11 @@ const mongoose = require('mongoose');
 let mongod = null;
 
 async function connect() {
-  mongod = await MongoMemoryServer.create();
+  // Default launchTimeout (10s) is too tight on some Windows dev machines,
+  // where the first-ever run also has to download+cache the mongod binary
+  // and AV scanning slows down spawning it — bump it rather than fighting
+  // flaky failures unrelated to the tests themselves.
+  mongod = await MongoMemoryServer.create({ instance: { launchTimeout: 120000 } });
   const uri = mongod.getUri();
   await mongoose.connect(uri);
 }

@@ -1,5 +1,6 @@
 // src/middleware/rateLimiters.js
 const rateLimit = require("express-rate-limit");
+const { MemoryStore } = require("express-rate-limit");
 
 // IP-based throttle for the login endpoint — the VAPT PoC drives Burp
 // Intruder through this route with a password wordlist. This caps how many
@@ -7,11 +8,21 @@ const rateLimit = require("express-rate-limit");
 // guessing against, which complements (not replaces) the per-account
 // lockout in authRoutes.js — that one alone wouldn't stop a
 // credential-stuffing sweep across many different accounts from one IP.
+//
+// The store is instantiated explicitly (instead of letting `rateLimit()`
+// create its own default MemoryStore internally) purely so tests can reach
+// it — express-rate-limit doesn't expose the internal store on the returned
+// middleware, and login.bruteforce.test.js needs `loginLimiterStore.resetAll()`
+// between cases so one test's request count doesn't bleed into the next
+// (all requests in a test run originate from the same loopback IP). Behavior
+// is identical to the implicit default; this changes nothing at runtime.
+const loginLimiterStore = new MemoryStore();
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  store: loginLimiterStore,
   message: { success: false, message: "Too many login attempts from this network. Please try again in 15 minutes." },
 });
 
@@ -42,4 +53,4 @@ const forgotPasswordLimiter = rateLimit({
   message: { success: false, message: "Too many password reset requests from this network. Please try again in 15 minutes." },
 });
 
-module.exports = { loginLimiter, otpLimiter, forgotPasswordLimiter };
+module.exports = { loginLimiter, otpLimiter, forgotPasswordLimiter, loginLimiterStore };
