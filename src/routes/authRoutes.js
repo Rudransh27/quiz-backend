@@ -49,6 +49,17 @@ function progressiveDelayFor(failedAttempts) {
 
 const router = express.Router();
 
+// VAPT finding 7.6 (CWE-319, Sensitive Information Exposure in Clear Text) —
+// every response on this router either carries a JWT + user profile (login,
+// verify-email, validate, SSO callback) or otherwise reflects account state,
+// so none of it should ever be cached by a browser, a shared/corporate proxy,
+// or a CDN. Applied router-wide instead of per-route so a future endpoint
+// added here doesn't silently miss it.
+router.use((req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
+
 // Shared with /register's own domain check — kept in one place so both
 // paths (password + SSO) always agree on which corporate domains are valid.
 const ALLOWED_EMAIL_DOMAINS = ["irisregtech.com", "irisbusiness.com"];
