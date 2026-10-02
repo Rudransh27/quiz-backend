@@ -12,6 +12,18 @@ const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
 const { moduleHasDept } = require("../utils/moduleDepartments");
 const { handleError } = require("../utils/safeError");
+const { normalizeCardForClient, isAuthorRole } = require("../utils/learnerCard");
+const { assertModuleLearnerAccess } = require("../utils/moduleAccess");
+const { extractSandboxKey } = require("../services/grading/sandboxKey");
+
+// What grading detected in a saved html_sandbox card, so the admin form can
+// show e.g. "12 questions · 12 MCQ · 60 pts".
+const gradingSummaryFor = (card) => {
+  if (!card || card.card_type !== "html_sandbox") return {};
+  const c = card.content || {};
+  const result = extractSandboxKey(c.htmlSource || c.html || c.text || "");
+  return result.ok ? { gradingSummary: result.summary } : {};
+};
 
 // @route   GET /api/modules/:id
 // @desc    Get single module details with filtered structural verification gates
@@ -24,45 +36,13 @@ router.get("/:id", auth, async (req, res) => {
       return res.status(404).json({ message: "Module not found" });
     }
 
-    // 🛡️ GRANULAR SECURITY HANDSHAKE FIREWALL
-    if (req.user.role !== "superadmin") {
-      const contextUser = req.user.user ? req.user.user : req.user;
-      const userDeptStr = contextUser.department?.toString();
-      const userTeamStr = contextUser.team?.toString();
-
-      if (
-        moduleData.visibility === "Departmental" &&
-        !moduleHasDept(moduleData, userDeptStr)
-      ) {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            message: "Access Denied: Foreign Department content locked.",
-          });
-      }
-
-      if (moduleData.visibility === "Team-Specific") {
-        if (!moduleHasDept(moduleData, userDeptStr)) {
-          return res
-            .status(403)
-            .json({
-              success: false,
-              message: "Access Denied: Foreign Department content locked.",
-            });
-        }
-        const hasTeamAccess = moduleData.targetTeams.some(
-          (tId) => tId.toString() === userTeamStr,
-        );
-        if (!hasTeamAccess) {
-          return res
-            .status(403)
-            .json({
-              success: false,
-              message: "Access Denied: Locked for your specific team scope.",
-            });
-        }
-      }
+    // 🛡️ GRANULAR SECURITY HANDSHAKE FIREWALL — the shared visibility
+    // (department / team / region) + sequential-lock gate, identical to
+    // GET /api/modules/:id. This route used to skip the region and lock
+    // checks, so a locked module's content was readable here.
+    const access = await assertModuleLearnerAccess(moduleData, req);
+    if (!access.ok) {
+      return res.status(access.status).json({ success: false, message: access.message, ...(access.locked ? { locked: true } : {}) });
     }
 
     let structuralPayload = {
@@ -90,36 +70,7 @@ router.get("/:id", auth, async (req, res) => {
         id: topic._id.toString(),
         cards: allCards
           .filter((card) => card.topic_id && card.topic_id.toString() === topic._id.toString())
-          .map((card) => {
-            const contentObj = card.content || {};
-            let safeOptions = contentObj.options;
-            let safeCorrectIndex = contentObj.correctIndex;
-            let safeExplanation = contentObj.explanation;
-
-            if (card.card_type === "quiz" && contentObj.text) {
-              try {
-                const parsedQuiz = JSON.parse(contentObj.text);
-                safeOptions = parsedQuiz.options || safeOptions;
-                safeCorrectIndex = parsedQuiz.correctAnswerIndex !== undefined ? parsedQuiz.correctAnswerIndex : safeCorrectIndex;
-                safeExplanation = parsedQuiz.explanationHint || safeExplanation;
-              } catch (e) {}
-            }
-
-            return {
-              ...card,
-              id: card._id.toString(),
-              content: {
-                ...contentObj,
-                title: contentObj.title || "",
-                text: contentObj.text || "",
-                // Support standalone inline sandboxes safely inside a multi-topic syllabus mapping structure
-                htmlSource: card.card_type === "html_sandbox" ? (contentObj.htmlSource || contentObj.text || "") : "",
-                options: safeOptions || [],
-                correctIndex: safeCorrectIndex !== undefined ? safeCorrectIndex : 0,
-                explanation: safeExplanation || ""
-              }
-            };
-          }),
+          .map((card) => normalizeCardForClient(card, { includeAnswers: isAuthorRole(req) })),
       }));
       structuralPayload.cards = [];
     } else {
@@ -128,36 +79,7 @@ router.get("/:id", auth, async (req, res) => {
         .sort({ cardOrder: 1 })
         .lean();
 
-      structuralPayload.cards = directCards.map((card) => {
-        const contentObj = card.content || {};
-        let safeOptions = contentObj.options;
-        let safeCorrectIndex = contentObj.correctIndex;
-        let safeExplanation = contentObj.explanation;
-
-        if (card.card_type === "quiz" && contentObj.text) {
-          try {
-            const parsedQuiz = JSON.parse(contentObj.text);
-            safeOptions = parsedQuiz.options || safeOptions;
-            safeCorrectIndex = parsedQuiz.correctAnswerIndex !== undefined ? parsedQuiz.correctAnswerIndex : safeCorrectIndex;
-            safeExplanation = parsedQuiz.explanationHint || safeExplanation;
-          } catch (e) {}
-        }
-
-        return {
-          ...card,
-          id: card._id.toString(),
-          content: {
-            ...contentObj,
-            title: contentObj.title || "",
-            text: contentObj.text || "",
-            // Extract code directly out of 'htmlSource' or fallback content structures for flat tracks
-            htmlSource: card.card_type === "html_sandbox" ? (contentObj.htmlSource || contentObj.text || "") : "",
-            options: safeOptions || [],
-            correctIndex: safeCorrectIndex !== undefined ? safeCorrectIndex : 0,
-            explanation: safeExplanation || ""
-          }
-        };
-      });
+      structuralPayload.cards = directCards.map((card) => normalizeCardForClient(card, { includeAnswers: isAuthorRole(req) }));
       structuralPayload.topics = []; // Emptied cleanly so front-end avoids type exceptions
     }
 
@@ -199,41 +121,15 @@ router.get("/cards/:id", auth, async (req, res) => {
         .status(404)
         .json({ message: "Target lineage module context missing." });
 
-    if (req.user.role !== "superadmin") {
-      const userDeptStr = req.user.department?.toString();
-      const userTeamStr = req.user.team?.toString();
-
-      if (linkedModule.visibility !== "Global" && !moduleHasDept(linkedModule, userDeptStr)) {
-        return res.status(403).json({
-          success: false,
-          message: "Access Denied: Cross tenant data mapping is forbidden.",
-        });
-      }
-
-      if (linkedModule.visibility === "Team-Specific") {
-        const hasTeamAccess = linkedModule.targetTeams.some(
-          (tId) => tId.toString() === userTeamStr,
-        );
-        if (!hasTeamAccess) {
-          return res.status(403).json({
-            success: false,
-            message:
-              "Access Denied: This card resource is locked for your team scope.",
-          });
-        }
-      }
+    // 🔒 Same visibility (department / team / region) + sequential-lock gate
+    // as GET /api/modules/:id — this route used to check department/team
+    // only, so a locked or out-of-region card could be fetched directly.
+    const access = await assertModuleLearnerAccess(linkedModule, req);
+    if (!access.ok) {
+      return res.status(access.status).json({ success: false, message: access.message, ...(access.locked ? { locked: true } : {}) });
     }
 
-    // Include baseline parameters fallback structures for single individual fetches
-    const contentObj = card.content || {};
-    const augmentedCard = {
-      ...card,
-      id: card._id.toString(),
-      content: {
-        ...contentObj,
-        htmlSource: card.card_type === "html_sandbox" ? (contentObj.htmlSource || contentObj.text || "") : ""
-      }
-    };
+    const augmentedCard = normalizeCardForClient(card, { includeAnswers: isAuthorRole(req) });
 
     return res.json(augmentedCard);
   } catch (err) {
@@ -457,6 +353,7 @@ router.post("/:targetId/cards", [auth, admin], async (req, res) => {
     return res.status(201).json({
       success: true,
       card: { ...card.toObject(), id: card._id.toString() },
+      ...gradingSummaryFor(card),
     });
   } catch (err) {
     return handleError(res, err, 400);
@@ -496,12 +393,14 @@ router.put("/cards/:cardId", [auth, admin], async (req, res) => {
       });
     }
 
+    // answerKey is never accepted from the body — Card.js re-derives it
+    // from content on this update (and strips any client-sent value).
     const updatedCard = await Card.findByIdAndUpdate(
       req.params.cardId,
       req.body,
       { new: true, runValidators: true },
     ).lean();
-    return res.json({ ...updatedCard, id: updatedCard._id.toString() });
+    return res.json({ ...updatedCard, id: updatedCard._id.toString(), ...gradingSummaryFor(updatedCard) });
   } catch (err) {
     return handleError(res, err, 400);
   }

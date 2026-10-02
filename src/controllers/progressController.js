@@ -11,11 +11,14 @@ const Department = require('../models/Department');
 const Team = require('../models/Team');
 const Region = require('../models/Region');
 const UserNotification = require('../models/UserNotification');
-const { parseHtmlSandboxPoints } = require('../utils/pointsCalculator');
 const { resolveClientToday, shiftDateKey } = require('../utils/localDate');
 const { resolveIsCouncilAdmin, canWriteUserProgress } = require('../utils/teamAccess');
-const { isModuleUnlockedForUser } = require('../utils/moduleLock');
+const { assertModuleLearnerAccess } = require('../utils/moduleAccess');
 const { handleError } = require("../utils/safeError");
+const mongoose = require('mongoose');
+const UserCardGeneration = require('../models/UserCardGeneration');
+const { awardXp, ledgerNetForCard } = require('../services/xpLedger');
+const { buildAnswerKey } = require('../services/grading/answerKey');
 
 /*
  * STANDARD HTML SANDBOX postMessage FORMAT
@@ -80,286 +83,176 @@ const POINTS_BY_ACTION = {
   idea_submission: 10,
 };
 
-// 🌐 HTML SANDBOX MODULE XP: score-proportional (vs the flat calculateXp() baseline used
-// by html_sandbox cards embedded inside topic/express-flat modules). Only used when the
-// card's parent Module has moduleType==='html_sandbox'.
+// =========================================================================
+// Shared helper: recompute the completion state of the scope a card lives in
+// (its Topic for STANDARD modules, the whole Module for EXPRESS_FLAT ones)
+// after a card's progress changed, persist it, and push the live
+// `module_progress_update` socket event. Used by recordCardCompletion
+// (passive cards) and services/grading (quiz / code / html_sandbox) so
+// completion behaves identically no matter how a card was completed.
 //
-// 🎯 maxPoints is now derived by parsing the card's authored HTML for its
-// embedded quiz (5pt) / descriptive (10pt) questions, instead of trusting a
-// single flat admin-set number regardless of how many questions the sandbox
-// actually contains — falls back to the admin field only if parsing finds
-// nothing (e.g. an empty/not-yet-authored sandbox).
-const computeSandboxModuleXp = (card, answeredScore, totalPossibleWeight) => {
-  const parsed = parseHtmlSandboxPoints(card?.content?.htmlSource);
-  const maxPoints = parsed.total > 0 ? parsed.total : (Number(card?.content?.maxPoints) || 10);
-  const maxScore = Number(totalPossibleWeight) || 0;
-  if (maxScore <= 0) return 0;
-  const ratio = Math.min(1, Math.max(0, (Number(answeredScore) || 0) / maxScore));
-  return Math.round(ratio * maxPoints);
-};
+// bestXP is the sum of xpAwarded across the scope's active card docs —
+// xpAwarded is kept in lockstep with every XP change applied to a card, so
+// this is exactly what the learner has earned in this scope.
+// =========================================================================
+async function updateScopeProgress({ userId, moduleId, topicId, timeSpentDelta = 0 }) {
+  const clampedTimeDelta = Math.min(1800, Math.max(0, Number(timeSpentDelta) || 0));
+  const isExpressFlatTrack = !topicId;
+
+  const scopeCardFilter = isExpressFlatTrack ? { module_id: moduleId } : { topic_id: topicId };
+  const scopeProgressFilter = { user_id: userId, isArchived: { $ne: true }, ...scopeCardFilter };
+
+  const [totalCardsInScope, scopeDocs] = await Promise.all([
+    Card.countDocuments(scopeCardFilter),
+    UserCardProgress.find(scopeProgressFilter, 'xpAwarded').lean(),
+  ]);
+  const userCompletedCardsInScope = scopeDocs.length;
+  const scopeXp = scopeDocs.reduce((sum, d) => sum + (d.xpAwarded || 0), 0);
+  const isScopeCompletedNow = userCompletedCardsInScope === totalCardsInScope && totalCardsInScope > 0;
+
+  if (isExpressFlatTrack) {
+    const existingModuleProgress = await UserModuleProgress.findOne({ user_id: userId, module_id: moduleId }, 'pointsAwarded').lean();
+    await UserModuleProgress.findOneAndUpdate(
+      { user_id: userId, module_id: moduleId },
+      {
+        isCompleted: isScopeCompletedNow,
+        pointsAwarded: isScopeCompletedNow ? true : (existingModuleProgress?.pointsAwarded || false),
+        bestXP: scopeXp,
+        $inc: { timeSpentSeconds: clampedTimeDelta },
+      },
+      { upsert: true, new: true }
+    );
+  } else {
+    const existingTopicProgress = await UserTopicProgress.findOne({ user_id: userId, topic_id: topicId }, 'pointsAwarded').lean();
+    await UserTopicProgress.findOneAndUpdate(
+      { user_id: userId, topic_id: topicId },
+      {
+        module_id: moduleId,
+        isCompleted: isScopeCompletedNow,
+        bestXP: scopeXp,
+        pointsAwarded: isScopeCompletedNow ? true : (existingTopicProgress?.pointsAwarded || false),
+        $inc: { timeSpentSeconds: clampedTimeDelta },
+      },
+      { upsert: true, new: true }
+    );
+  }
+
+  // 🎯 Live-update channel for the Learn/module-card grid.
+  const strUidForProgress = userId.toString();
+  if (global.activeUserSockets?.has(strUidForProgress)) {
+    global.activeUserSockets.get(strUidForProgress).forEach(socketId => {
+      global.io.to(socketId).emit('module_progress_update', {
+        moduleId,
+        cardsCovered: userCompletedCardsInScope,
+        totalCards: totalCardsInScope,
+        isCompleted: isScopeCompletedNow,
+      });
+    });
+  }
+
+  return {
+    cardsCovered: userCompletedCardsInScope,
+    totalCards: totalCardsInScope,
+    totalCardsInTopic: totalCardsInScope,
+    isTopicCompleted: isExpressFlatTrack ? false : isScopeCompletedNow,
+    isScopeCompleted: isScopeCompletedNow,
+  };
+}
+exports.updateScopeProgress = updateScopeProgress;
+
+// Card types the server grades itself (services/grading). Their progress can
+// only be written through /api/grading — never through card-completed.
+const SERVER_GRADED_CARD_TYPES = new Set(['quiz', 'code', 'html_sandbox']);
+exports.SERVER_GRADED_CARD_TYPES = SERVER_GRADED_CARD_TYPES;
 
 // =========================================================================
-// CONTROLLER 1: Record Card Completion Logs
+// CONTROLLER 1: Record completion of a PASSIVE card (knowledge / video /
+// pdf / ppt) — POST /api/progress/card-completed
+//
+// 🔒 SERVER-SIDE GRADING: quiz / code / html_sandbox cards are graded by the
+// server via /api/grading/* and are rejected here, so a client can no longer
+// report its own isCorrect / score. The module and topic are derived from
+// the CARD (client-supplied moduleId/topicId are ignored), so a card can't
+// be submitted under another module to slip past that module's lock. XP is
+// awarded through the idempotent ledger (services/xpLedger.js).
 // =========================================================================
 exports.recordCardCompletion = async (req, res) => {
-  // 🚀 INJECTED EXTBOY: Added structural score allocations and custom text responses arrays
-  const { cardId, topicId, moduleId, isCorrect, answeredScore, totalPossibleWeight, textResponses, timeSpentDelta, selectedOption, userCodeAnswer } = req.body;
+  const { cardId, timeSpentDelta } = req.body;
 
-  // Clamp against a stuck/backgrounded tab reporting an inflated elapsed time
-  // (e.g. laptop left open overnight on this card) inflating the total.
-  const clampedTimeDelta = Math.min(1800, Math.max(0, Number(timeSpentDelta) || 0));
-  
-  // ✅ Resilient User ID Extraction mapping layers safely
   const contextUser = req.user && req.user.user ? req.user.user : req.user;
   const userId = contextUser ? (contextUser.id || contextUser._id) : null;
-
   if (!userId) {
     return res.status(401).json({ success: false, message: 'Unauthorized: User parsing failed.' });
   }
-
-  if (!cardId || !moduleId) {
-    return res.status(400).json({ success: false, message: 'Missing critical identifiers: cardId or moduleId.' });
+  if (!cardId || !mongoose.Types.ObjectId.isValid(String(cardId))) {
+    return res.status(400).json({ success: false, message: 'Missing or invalid cardId.' });
   }
-
-  // 🔒 SEQUENTIAL MODULE LOCK — must run before ANY write below (the
-  // UserCardProgress upsert, the User.xp $inc, and the topic/module
-  // progress upserts) — a locked module's cards must never be completable
-  // via a direct API call even if the UI never renders them. admin/
-  // superadmin bypass entirely, matching GET /:id and workspace-curriculum.
-  if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-    const moduleForLock = await Module.findById(moduleId, 'categoryId').lean();
-    if (!moduleForLock) {
-      return res.status(404).json({ success: false, message: 'Module not found.' });
-    }
-    const unlocked = await isModuleUnlockedForUser({
-      moduleId,
-      categoryId: moduleForLock.categoryId,
-      userId,
-    });
-    if (!unlocked) {
-      return res.status(403).json({
-        success: false,
-        message: 'This module is locked. Complete the previous module in this category first.',
-        locked: true,
-      });
-    }
-  }
-
-  const isExpressFlatTrack = !topicId || topicId === "undefined" || topicId.toString().trim() === "";
 
   try {
-    const card = await Card.findById(cardId);
+    const card = await Card.findById(cardId, 'card_type module_id topic_id').lean();
     if (!card) return res.status(404).json({ success: false, message: 'Card not found.' });
 
-    // 🎯 BUG FIX (html_sandbox card always awarding a flat 15 instead of its
-    // real parsed content total): this used to also require the PARENT
-    // MODULE's own moduleType to be 'html_sandbox' before using the
-    // content-aware calculation — but parseHtmlSandboxPoints only ever reads
-    // the CARD's own content.htmlSource, so that extra condition was wrong.
-    // An html_sandbox card embedded as a plain card inside a 'standard'
-    // module (built via the Curriculum Map's generic Module → Cards flow,
-    // e.g. "Carbon NITI AI Module 1") fell through to calculateXp's flat
-    // `if (cardType === 'html_sandbox') return 15;` baseline instead — any
-    // html_sandbox card, regardless of its parent module's type, must use
-    // the same real-content calculation.
-    const isHtmlSandboxCard = card.card_type === 'html_sandbox';
+    if (SERVER_GRADED_CARD_TYPES.has(card.card_type)) {
+      return res.status(400).json({
+        success: false,
+        message: `${card.card_type} cards are graded by the server — submit answers through /api/grading instead.`,
+      });
+    }
 
-    const existingProgress = await UserCardProgress.findOne({ user_id: userId, card_id: cardId, isArchived: { $ne: true } });
-    const isFirstTime = !existingProgress;
+    let moduleId = card.module_id;
+    const topicId = card.topic_id || null;
+    if (!moduleId && topicId) {
+      const topic = await Topic.findById(topicId, 'module_id').lean();
+      moduleId = topic?.module_id;
+    }
+    const moduleDoc = moduleId ? await Module.findById(moduleId).lean() : null;
+    if (!moduleDoc) return res.status(404).json({ success: false, message: 'Module not found.' });
+
+    // 🔒 Visibility + SEQUENTIAL MODULE LOCK — before ANY write below.
+    const access = await assertModuleLearnerAccess(moduleDoc, req);
+    if (!access.ok) {
+      return res.status(access.status).json({ success: false, message: access.message, ...(access.locked ? { locked: true } : {}) });
+    }
+
+    const existingProgress = await UserCardProgress.findOne({ user_id: userId, card_id: cardId, isArchived: { $ne: true } }, '_id').lean();
+
     let xpChange = 0;
-
-    if (isFirstTime) {
-      xpChange = isHtmlSandboxCard
-        ? computeSandboxModuleXp(card, answeredScore, totalPossibleWeight)
-        : calculateXp(card.card_type, isCorrect);
-    } else {
-      if (isCorrect && !existingProgress.isCorrect) {
-        xpChange = calculateXp(card.card_type, true);
-      }
+    if (!existingProgress) {
+      const generationDoc = await UserCardGeneration.findOne({ user_id: userId, card_id: cardId }, 'generation').lean();
+      const generation = generationDoc?.generation || 0;
+      const award = await awardXp({
+        userId,
+        amount: calculateXp(card.card_type, true),
+        source: 'passive_card',
+        idempotencyKey: `passive:${userId}:${cardId}:g${generation}`,
+        sourceId: card._id,
+        cardId: card._id,
+        moduleId,
+        generation,
+      });
+      xpChange = award.amount;
     }
 
-    // =========================================================================
-    // ⚙️ TELEMETRY CONTEXT PAYLOAD COMPILATION
-    // =========================================================================
-    const cardProgressUpdate = {
-      module_id: moduleId,
-      topic_id: isExpressFlatTrack ? null : topicId,
-      isCorrect: isCorrect,
-      isArchived: false,
-      $inc: { timesAttempted: 1, xpAwarded: xpChange }
-    };
-
-    // 🎯 REVIEW MODE: persist the actual submitted answer so a later revisit
-    // can rehydrate a genuine read-only replay instead of a blank card.
-    if (selectedOption !== undefined && selectedOption !== null) {
-      cardProgressUpdate.selectedOption = Number(selectedOption);
-    }
-    if (userCodeAnswer !== undefined && userCodeAnswer !== null) {
-      cardProgressUpdate.userCodeAnswer = String(userCodeAnswer);
-    }
-
-    // If the card is an HTML simulation, append the score numbers and text responses into the DB record
-    if (card.card_type === 'html_sandbox') {
-      cardProgressUpdate.score = answeredScore !== undefined ? Number(answeredScore) : 0;
-      cardProgressUpdate.maxScore = totalPossibleWeight !== undefined ? Number(totalPossibleWeight) : 3;
-      // Normalize: HTML cards may send textResponses as a direct array OR as { questions: [...] }
-      const rawResponses = textResponses;
-      cardProgressUpdate.metaFeedbackLogs = Array.isArray(rawResponses)
-        ? { questions: rawResponses }
-        : (rawResponses || {});
-    }
-
-    // 🎯 RESET/REATTEMPT: filtering the upsert match on isArchived:false means
-    // a prior reset (which flips the old doc's isArchived to true) can never
-    // collide with this upsert — a brand-new active doc gets created instead
-    // of resurrecting the archived one, matching the partial unique index.
     await UserCardProgress.findOneAndUpdate(
       { user_id: userId, card_id: cardId, isArchived: false },
-      cardProgressUpdate,
+      {
+        module_id: moduleId,
+        topic_id: topicId,
+        isCorrect: true,
+        isArchived: false,
+        $inc: { timesAttempted: 1, xpAwarded: xpChange },
+      },
       { upsert: true, new: true }
     );
 
-    // ✅ Use the verified context identity variable cleanly
-    if (xpChange !== 0) {
-      await User.findByIdAndUpdate(userId, { $inc: { xp: xpChange } });
-    }
-
-    let totalCardsInScope = 0;
-    let userCompletedCardsInScope = 0;
-    let currentCalculatedScopeXP = 0;
-    // Hoisted out of the branch-local `isModuleCompletedNow`/`isTopicCompletedNow`
-    // consts below (each declared with `const` inside its own `if`/`else` block,
-    // so they don't exist by that name once execution reaches the shared code
-    // after the if/else) — this is what the post-branch socket emit reads.
-    let isScopeCompletedNow = false;
-
-    if (isExpressFlatTrack) {
-      totalCardsInScope = await Card.countDocuments({ module_id: moduleId });
-      userCompletedCardsInScope = await UserCardProgress.countDocuments({ user_id: userId, module_id: moduleId, isArchived: { $ne: true } });
-
-      const userModuleProgressList = await UserCardProgress.find({ user_id: userId, module_id: moduleId, isArchived: { $ne: true } }).lean();
-      const completedCardIds = userModuleProgressList.map(p => p.card_id);
-      const targetCardsDetailsList = await Card.find({ _id: { $in: completedCardIds } }).lean();
-
-      const cardMap = {};
-      targetCardsDetailsList.forEach(c => {
-        cardMap[c._id.toString()] = c;
-      });
-
-      for (const record of userModuleProgressList) {
-        const cardMeta = cardMap[record.card_id.toString()];
-        if (!cardMeta) continue;
-        if (cardMeta.card_type === 'html_sandbox') {
-          currentCalculatedScopeXP += computeSandboxModuleXp(cardMeta, record.score, record.maxScore);
-        } else {
-          currentCalculatedScopeXP += calculateXp(cardMeta.card_type, record.isCorrect);
-        }
-      }
-
-      // 🎯 BUG FIX (41 points awarded as 88): this used to ALSO award
-      // computePointsReward(targetCardsDetailsList, ...) as a "module
-      // completion bonus" here — on top of the per-card XP each of those
-      // same cards already received individually as they were completed
-      // (the $inc above, and the identical per-card sum accumulating in
-      // currentCalculatedScopeXP). Once every card in the module is done,
-      // the sum of individually-awarded XP already EQUALS the module's
-      // total worth — a separate "bonus" of that same total again is a
-      // straight double-count, not a real bonus. Removed entirely; only the
-      // completion/dedupe bookkeeping below remains (still useful for
-      // "is this module completed" tracking elsewhere), with no XP attached.
-      const isModuleCompletedNow = (userCompletedCardsInScope === totalCardsInScope && totalCardsInScope > 0);
-      isScopeCompletedNow = isModuleCompletedNow;
-      const existingModuleProgress = await UserModuleProgress.findOne({ user_id: userId, module_id: moduleId });
-
-      await UserModuleProgress.findOneAndUpdate(
-        { user_id: userId, module_id: moduleId },
-        {
-          isCompleted: isModuleCompletedNow,
-          pointsAwarded: isModuleCompletedNow ? true : (existingModuleProgress?.pointsAwarded || false),
-          bestXP: currentCalculatedScopeXP,
-          $inc: { timeSpentSeconds: clampedTimeDelta }
-        },
-        { upsert: true, new: true }
-      );
-    } else {
-      totalCardsInScope = await Card.countDocuments({ topic_id: topicId });
-      userCompletedCardsInScope = await UserCardProgress.countDocuments({ user_id: userId, topic_id: topicId, isArchived: { $ne: true } });
-
-      const isTopicCompletedNow = (userCompletedCardsInScope === totalCardsInScope && totalCardsInScope > 0);
-      isScopeCompletedNow = isTopicCompletedNow;
-
-      const userCardsProgressList = await UserCardProgress.find({ user_id: userId, topic_id: topicId, isArchived: { $ne: true } }).lean();
-      const completedCardIds = userCardsProgressList.map(p => p.card_id);
-      const targetCardsDetailsList = await Card.find({ _id: { $in: completedCardIds } }).lean();
-      
-      const cardMap = {};
-      targetCardsDetailsList.forEach(c => {
-        cardMap[c._id.toString()] = c;
-      });
-
-      // 🎯 Same fix as the EXPRESS_FLAT branch above — an html_sandbox card
-      // nested under a Topic must also use the real-content calculation,
-      // not the flat calculateXp('html_sandbox', ...) baseline. This branch
-      // previously had no such case at all.
-      for (const record of userCardsProgressList) {
-        const cardMeta = cardMap[record.card_id.toString()];
-        if (!cardMeta) continue;
-        if (cardMeta.card_type === 'html_sandbox') {
-          currentCalculatedScopeXP += computeSandboxModuleXp(cardMeta, record.score, record.maxScore);
-        } else {
-          currentCalculatedScopeXP += calculateXp(cardMeta.card_type, record.isCorrect);
-        }
-      }
-
-      // 🎯 BUG FIX (41 points awarded as 88): same double-count as the module
-      // branch above — this used to ALSO award computePointsReward(...) as a
-      // "topic completion bonus" on top of the per-card XP each card already
-      // received individually. Removed entirely; pointsAwarded/isCompleted
-      // bookkeeping stays (still useful for completion-tracking elsewhere),
-      // just no longer gates an XP award since there isn't one anymore.
-      const existingTopicProgress = await UserTopicProgress.findOne({ user_id: userId, topic_id: topicId });
-
-      await UserTopicProgress.findOneAndUpdate(
-        { user_id: userId, topic_id: topicId },
-        {
-          module_id: moduleId,
-          isCompleted: isTopicCompletedNow,
-          bestXP: currentCalculatedScopeXP,
-          pointsAwarded: isTopicCompletedNow ? true : (existingTopicProgress?.pointsAwarded || false),
-          $inc: { timeSpentSeconds: clampedTimeDelta }
-        },
-        { upsert: true, new: true }
-      );
-    }
-
-    // 🎯 Live-update channel for the Learn/module-card grid — this handler
-    // previously had zero Socket.IO emit, so a module card open in another
-    // tab (or the Learn grid sitting mounted while progress happens
-    // elsewhere) had no way to learn its progress changed except a manual
-    // refresh. Reuses the exact activeUserSockets/io.to(socketId) pattern
-    // already established for the 'xp_award' event below in this file.
-    const strUidForProgress = userId.toString();
-    if (global.activeUserSockets?.has(strUidForProgress)) {
-      global.activeUserSockets.get(strUidForProgress).forEach(socketId => {
-        global.io.to(socketId).emit('module_progress_update', {
-          moduleId,
-          cardsCovered: userCompletedCardsInScope,
-          totalCards: totalCardsInScope,
-          isCompleted: isScopeCompletedNow,
-        });
-      });
-    }
+    const scope = await updateScopeProgress({ userId, moduleId, topicId, timeSpentDelta });
 
     return res.status(200).json({
       success: true,
       message: 'Progress synchronized successfully.',
-      xpChange: xpChange,
-      cardsCovered: userCompletedCardsInScope,
-      totalCards: totalCardsInScope,
-      totalCardsInTopic: totalCardsInScope,
-      isTopicCompleted: isExpressFlatTrack ? false : (userCompletedCardsInScope === totalCardsInScope),
+      xpChange,
+      ...scope,
     });
-
   } catch (err) {
     console.error("Progress Error Sync Failure:", err.message);
     return res.status(500).json({ success: false, message: 'Server error processing analytics log' });
@@ -1046,34 +939,66 @@ async function applyAdminGrade({ userId, cardId, assignedScore, adminFeedback, m
   const score = Number(assignedScore);
   if (isNaN(score)) return { userId, cardId, status: 'invalid' };
 
-  // 🎯 CURRENT-STATE query — grade the live (non-archived) submission only;
-  // a stale, reset-archived doc must never be resurrected/mutated by grading.
-  const progress = await UserCardProgress.findOne({ user_id: userId, card_id: cardId, isArchived: { $ne: true } });
-  if (!progress) return { userId, cardId, status: 'not_found' };
+  // 🔒 XP LEDGER: each grade claims the next adminGradeVersion with a
+  // compare-and-set on the progress doc, and its delta (vs the PREVIOUS
+  // admin score, so a re-grade/re-upload of the same value is a 0 delta) is
+  // written to the ledger under that version — two concurrent grades can't
+  // both apply against the same previous score, and a regrade writes a delta
+  // entry, never a second full award.
+  let progress = null;
+  let oldAdminScore = 0;
+  let xpDelta = 0;
+  let newVersion = 0;
+  for (let tries = 0; tries < 5; tries++) {
+    // 🎯 CURRENT-STATE query — grade the live (non-archived) submission only;
+    // a stale, reset-archived doc must never be resurrected/mutated by grading.
+    progress = await UserCardProgress.findOne({ user_id: userId, card_id: cardId, isArchived: { $ne: true } }).lean();
+    if (!progress) return { userId, cardId, status: 'not_found' };
 
-  // Delta is against the PREVIOUS admin score — makes re-grading/re-upload idempotent
-  const oldAdminScore = Number(progress.metaFeedbackLogs?.adminScore ?? 0);
-  const xpDelta = Math.round(score) - Math.round(oldAdminScore);
+    const version = Number(progress.metaFeedbackLogs?.adminGradeVersion || 0);
+    oldAdminScore = Number(progress.metaFeedbackLogs?.adminScore ?? 0);
+    xpDelta = Math.round(score) - Math.round(oldAdminScore);
+    newVersion = version + 1;
 
-  // Store admin grading inside metaFeedbackLogs without touching the questions array
-  await UserCardProgress.findOneAndUpdate(
-    { user_id: userId, card_id: cardId, isArchived: { $ne: true } },
-    {
-      $set: {
-        'metaFeedbackLogs.adminScore':    Math.round(score),
-        'metaFeedbackLogs.adminFeedback': adminFeedback || '',
-        'metaFeedbackLogs.adminGradedAt': new Date(),
-        'metaFeedbackLogs.moduleTitle':   moduleTitle || '',
+    // Store admin grading inside metaFeedbackLogs without touching the questions array
+    const claimed = await UserCardProgress.findOneAndUpdate(
+      {
+        _id: progress._id,
+        isArchived: { $ne: true },
+        'metaFeedbackLogs.adminGradeVersion': version === 0 ? { $in: [0, null] } : version,
       },
-      // 🎯 Keep xpAwarded in lockstep with every XP delta ever applied to
-      // this doc, admin-graded or not — this is exactly what a future
-      // module reset sums up to compute its clawback amount.
-      $inc: { xpAwarded: xpDelta },
-    }
-  );
+      {
+        $set: {
+          'metaFeedbackLogs.adminScore':    Math.round(score),
+          'metaFeedbackLogs.adminFeedback': adminFeedback || '',
+          'metaFeedbackLogs.adminGradedAt': new Date(),
+          'metaFeedbackLogs.moduleTitle':   moduleTitle || '',
+          'metaFeedbackLogs.adminGradeVersion': newVersion,
+        },
+        // 🎯 Keep xpAwarded in lockstep with every XP delta ever applied to
+        // this doc, admin-graded or not — this is exactly what a future
+        // module reset sums up to compute its clawback amount.
+        $inc: { xpAwarded: xpDelta },
+      }
+    );
+    if (claimed) break;
+    progress = null; // lost the race to a concurrent grade — re-read and retry
+  }
+  if (!progress) return { userId, cardId, status: 'conflict' };
 
   if (xpDelta !== 0) {
-    await User.findByIdAndUpdate(userId, { $inc: { xp: xpDelta } });
+    const generationDoc = await UserCardGeneration.findOne({ user_id: userId, card_id: cardId }, 'generation').lean();
+    await awardXp({
+      userId,
+      amount: xpDelta,
+      source: 'manual_grade',
+      idempotencyKey: `manual:${progress._id}:v${newVersion}`,
+      sourceId: progress.card_id,
+      cardId: progress.card_id,
+      moduleId: progress.module_id,
+      generation: generationDoc?.generation || 0,
+      meta: { previousScore: Math.round(oldAdminScore), newScore: Math.round(score) },
+    });
   }
 
   // Create a persistent notification + fire real-time socket event for positive awards
@@ -1213,6 +1138,9 @@ exports.gradeSingleSubmission = async (req, res) => {
     }
     if (result.status === 'not_found') {
       return res.status(404).json({ success: false, message: 'No submission found for this user/card.' });
+    }
+    if (result.status === 'conflict') {
+      return res.status(409).json({ success: false, message: 'This submission was being graded by someone else at the same moment. Please retry.' });
     }
 
     return res.status(200).json({ success: true, result });
@@ -2115,7 +2043,7 @@ exports.getModuleScopeState = async (req, res) => {
     const isExpressFlatTrack = !topicId || topicId === "undefined" || topicId.toString().trim() === "";
 
     const cardQuery = isExpressFlatTrack ? { module_id: moduleId } : { topic_id: topicId };
-    const cards = await Card.find(cardQuery, 'card_type cardOrder').sort({ cardOrder: 1 }).lean();
+    const cards = await Card.find(cardQuery, 'card_type cardOrder content +answerKey').sort({ cardOrder: 1 }).lean();
 
     if (cards.length === 0) {
       return res.status(200).json({ success: true, cards: [] });
@@ -2133,7 +2061,7 @@ exports.getModuleScopeState = async (req, res) => {
 
     const cardsOut = cards.map(c => {
       const p = progressMap[c._id.toString()];
-      return {
+      const out = {
         cardId: c._id,
         cardType: c.card_type,
         attempted: !!p,
@@ -2145,6 +2073,18 @@ exports.getModuleScopeState = async (req, res) => {
         metaFeedbackLogs: p ? (p.metaFeedbackLogs || {}) : {},
         timesAttempted: p ? (p.timesAttempted || 0) : 0,
       };
+      // 🔒 REVIEW MODE: the answer key is revealed ONLY for cards this
+      // learner has already answered — never for unattempted ones.
+      if (p && (c.card_type === 'quiz' || c.card_type === 'code')) {
+        const key = c.answerKey || buildAnswerKey(c.card_type, c.content).answerKey;
+        if (key && c.card_type === 'quiz') {
+          out.correctIndex = key.correctIndex;
+          out.explanation = key.explanation || '';
+        } else if (key && p.isCorrect) {
+          out.explanation = key.explanation || '';
+        }
+      }
+      return out;
     });
 
     return res.status(200).json({ success: true, cards: cardsOut });
@@ -2184,21 +2124,58 @@ exports.resetModuleProgress = async (req, res) => {
       isArchived: { $ne: true },
     }).lean();
 
-    const xpClawedBack = scopeDocs.reduce((sum, d) => sum + (d.xpAwarded || 0), 0);
+    // 🔒 XP LEDGER: claw back, per card, exactly what the CURRENT attempt
+    // generation earned — the active doc's xpAwarded when one exists (kept
+    // in lockstep with every award, admin deltas and pre-ledger XP
+    // included), else the ledger's net for that generation (sandbox
+    // question awards made before the module was ever submitted). Each
+    // clawback has its own idempotency key, so a double-clicked reset can't
+    // claw back twice; bumping the generation afterwards re-opens a fresh
+    // first-attempt slot so the reattempt can earn the XP again.
+    const docByCard = new Map(scopeDocs.map(d => [d.card_id.toString(), d]));
+    const generations = await UserCardGeneration.find({ user_id: userId, card_id: { $in: cardIds } }, 'card_id generation').lean();
+    const genByCard = new Map(generations.map(g => [g.card_id.toString(), g.generation || 0]));
+
+    let xpClawedBack = 0;
+    for (const cardId of cardIds) {
+      const key = cardId.toString();
+      const generation = genByCard.get(key) || 0;
+      const doc = docByCard.get(key);
+      const owed = doc ? (doc.xpAwarded || 0) : (await ledgerNetForCard(userId, cardId, generation)).net;
+
+      let proceed = true;
+      if (owed !== 0) {
+        const clawback = await awardXp({
+          userId,
+          amount: -owed,
+          source: 'reset_clawback',
+          idempotencyKey: `reset:${userId}:${key}:g${generation}`,
+          sourceId: cardId,
+          cardId,
+          moduleId,
+          generation,
+        });
+        proceed = clawback.awarded;
+        if (clawback.awarded) xpClawedBack += owed;
+      }
+      if (!proceed) continue; // a concurrent reset already handled this generation
+
+      try {
+        await UserCardGeneration.findOneAndUpdate(
+          { user_id: userId, card_id: cardId, generation },
+          { $inc: { generation: 1 } },
+          { upsert: true }
+        );
+      } catch (err) {
+        if (err.code !== 11000) throw err; // concurrent reset already bumped it
+      }
+    }
 
     if (scopeDocs.length > 0) {
       await UserCardProgress.updateMany(
         { _id: { $in: scopeDocs.map(d => d._id) } },
         { $set: { isArchived: true } }
       );
-    }
-
-    if (xpClawedBack !== 0) {
-      // Clamp the floor at 0 defensively — a single module's clawback should
-      // never be able to push a user's total XP negative.
-      const user = await User.findById(userId, 'xp');
-      const nextXp = Math.max(0, (user?.xp || 0) - xpClawedBack);
-      await User.findByIdAndUpdate(userId, { $set: { xp: nextXp } });
     }
 
     if (isExpressFlatTrack) {

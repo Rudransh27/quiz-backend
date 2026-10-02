@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Module = require('../models/Module');
 const auth = require('../middleware/auth');
+const admin = require('../middleware/admin');
 
 // Import all your validator functions
 const validators = require('../validators/codeValidator');
@@ -10,7 +11,10 @@ const validators = require('../validators/codeValidator');
 // ... (Your existing GET, POST, PUT, DELETE routes for modules) ...
 
 // New endpoint for code validation
-router.post('/validate-code', auth, (req, res) => {
+// 🔒 Admin-only (content authors testing a card): grading is server-side
+// via /api/grading, and an open "is this answer right?" endpoint would let a
+// learner check answers before their counted first attempt.
+router.post('/validate-code', auth, admin, (req, res) => {
   const { validatorName, userCode } = req.body;
 
   // Basic security check to ensure the validator exists and is a function.

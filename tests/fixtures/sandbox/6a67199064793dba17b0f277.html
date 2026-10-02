@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meet the Pillars — Finance Automation Explained</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FAFBFD; --card:#FFFFFF; --ink:#1E2430; --muted:#68707E;
+    --blue:#005AAA; --blue-l:#EAF3FC; --blue-b:#BFDCF5;
+    --green:#2E9B44; --green-l:#EAF7EC; --green-b:#BEE7C4;
+    --gold:#B5790A; --gold-l:#FFF6E0; --gold-b:#F5DFA0;
+    --coral:#C6473F; --coral-l:#FDECEB; --coral-b:#F3C4C0;
+    --purple:#6E5A9B; --purple-l:#F1EEF7; --purple-b:#D9CFEA;
+    --teal:#12776B; --teal-l:#E5F4F1; --teal-b:#B9E0D8;
+    --shadow:0 2px 10px rgba(30,36,48,.06); --shadow-lg:0 12px 30px rgba(30,36,48,.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;line-height:1.55;}
+  h1,h2,h3,h4{font-family:'Poppins',system-ui,sans-serif;margin:0;}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px;}
+
+  .progress{ display:flex; justify-content:center; gap:10px; padding:20px 0 0; }
+  .dot{ width:10px;height:10px;border-radius:50%;background:#D9DEE5; cursor:pointer; transition:.2s; }
+  .dot.active{ background:var(--blue); width:26px; border-radius:6px; }
+
+  .step{ display:none; min-height:74vh; padding:36px 0 20px; animation:fadeIn .3s ease; }
+  .step.active{ display:block; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+
+  .eyebrow{ display:inline-block; background:var(--gold-l); color:var(--gold); font-weight:700; font-size:12.5px; letter-spacing:1.2px; text-transform:uppercase; padding:6px 16px; border-radius:999px; margin-bottom:18px; }
+  .step-hero{ text-align:center; padding-bottom:8px; }
+  .step-hero h1{ font-size:36px; font-weight:800; margin-bottom:14px; }
+  .step-hero p{ font-size:16.5px; color:var(--muted); max-width:600px; margin:0 auto; }
+  .sibling-teaser{ margin-top:22px; background:var(--blue-l); border-radius:14px; padding:16px 22px; display:inline-block; font-size:14.5px; color:var(--blue); font-weight:600; max-width:560px; }
+
+  .section-title{ text-align:center; margin-bottom:8px; font-size:26px; font-weight:700; }
+  .section-sub{ text-align:center; color:var(--muted); font-size:15px; margin-bottom:32px; max-width:600px; margin-left:auto; margin-right:auto; }
+
+  .pillar-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+  @media(max-width:820px){ .pillar-grid{ grid-template-columns:repeat(2,1fr);} }
+  .pillar-card{ background:var(--card); border-radius:16px; padding:20px 18px; cursor:pointer; box-shadow:var(--shadow); border:1px solid #EEF1F5; transition:transform .18s ease, box-shadow .18s ease; min-height:150px; position:relative; }
+  .pillar-card:hover{ transform:translateY(-3px); box-shadow:var(--shadow-lg); }
+  .pillar-card .tag{ font-size:11px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; opacity:.85; }
+  .pillar-card .name{ font-family:'Poppins'; font-weight:700; font-size:19px; margin:6px 0 8px; }
+  .pillar-card .front-line{ font-size:13px; color:var(--muted); }
+  .pillar-card .back{ display:none; font-size:12.5px; color:var(--ink); margin-top:10px; padding-top:10px; border-top:1px dashed rgba(0,0,0,.12); }
+  .pillar-card.flipped .back{ display:block; }
+  .pillar-card .hint{ position:absolute; top:16px; right:16px; font-size:11px; color:var(--muted); }
+  .pillar-card.c-p2p{background:var(--gold-l);} .pillar-card.c-p2p .tag,.pillar-card.c-p2p .name{color:var(--gold);}
+  .pillar-card.c-o2c{background:var(--green-l);} .pillar-card.c-o2c .tag,.pillar-card.c-o2c .name{color:var(--green);}
+  .pillar-card.c-r2r{background:var(--blue-l);} .pillar-card.c-r2r .tag,.pillar-card.c-r2r .name{color:var(--blue);}
+  .pillar-card.c-fpa{background:#EEF0F2;} .pillar-card.c-fpa .tag,.pillar-card.c-fpa .name{color:#4B5259;}
+  .pillar-card.c-erp{background:var(--purple-l);} .pillar-card.c-erp .tag,.pillar-card.c-erp .name{color:var(--purple);}
+  .pillar-card.c-rpa{background:var(--teal-l);} .pillar-card.c-rpa .tag,.pillar-card.c-rpa .name{color:var(--teal);}
+  .pillar-card.c-tax{background:var(--coral-l);} .pillar-card.c-tax .tag,.pillar-card.c-tax .name{color:var(--coral);}
+  .pillar-card.c-treasury{background:#EAF2F4;} .pillar-card.c-treasury .tag,.pillar-card.c-treasury .name{color:#2A6E7A;}
+
+  .kitchen-story{ background:var(--card); border-radius:20px; padding:28px; box-shadow:var(--shadow); font-size:15.5px; max-width:820px; margin:0 auto 32px; border:1px solid #EEF1F5; }
+  .kitchen-story b{ color:var(--blue); }
+  .siblings-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media(max-width:820px){ .siblings-grid{ grid-template-columns:1fr; } }
+  .sibling-card{ border-radius:18px; padding:22px; box-shadow:var(--shadow); border:2px solid transparent; }
+  .sibling-card.erp{background:var(--purple-l);border-color:var(--purple-b);}
+  .sibling-card.consol{background:var(--gold-l);border-color:var(--gold-b);}
+  .sibling-card.dm{background:var(--blue-l);border-color:var(--blue-b);}
+  .sibling-card .emoji{ font-size:30px; }
+  .sibling-card h3{ font-size:19px; margin:6px 0 10px; }
+  .sibling-card.erp h3{color:var(--purple);} .sibling-card.consol h3{color:var(--gold);} .sibling-card.dm h3{color:var(--blue);}
+  .sibling-card p{ font-size:13px; margin:0 0 8px; }
+  .sibling-card .lbl{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-top:10px; }
+  .sibling-card .val{ font-size:13px; font-weight:600; }
+  .sibling-card .isnt{ color:#8a2f2f; }
+
+  .draw-line{ background:var(--card); border-radius:16px; padding:24px; margin-top:24px; box-shadow:var(--shadow); border-left:5px solid var(--coral); max-width:820px; margin-left:auto; margin-right:auto; }
+  .draw-line h4{ color:var(--coral); font-size:15px; margin-bottom:8px; }
+  .draw-line .q{ font-weight:600; margin-top:12px; font-size:14.5px; }
+  .draw-line .a{ color:var(--muted); font-size:13.5px; }
+
+  .example-card{ background:var(--card); border-radius:16px; padding:24px; box-shadow:var(--shadow); border:1px solid #EEF1F5; }
+  .co{ font-family:'Poppins'; font-weight:700; font-size:19px; margin-bottom:4px; }
+  .stack-chip{ padding:5px 13px; border-radius:999px; font-weight:600; font-size:12.5px; white-space:nowrap; }
+  .stack-chip.erp{background:var(--purple-l);color:var(--purple);}
+  .stack-chip.consol{background:var(--gold-l);color:var(--gold);}
+  .stack-chip.dm{background:var(--blue);color:#fff;}
+  .arrow-mini{ color:#B7BEC7; font-size:16px; }
+  .pattern-banner{ background:linear-gradient(135deg,var(--blue) 0%,#0B7BC7 100%); color:#fff; border-radius:18px; padding:26px 30px; text-align:center; font-size:15.5px; box-shadow:var(--shadow-lg); max-width:820px; margin:24px auto 0; }
+  .pattern-banner b{ display:block; font-size:18.5px; margin-bottom:6px; font-family:'Poppins'; }
+
+  .score-bar{ display:flex; justify-content:space-between; align-items:center; background:var(--card); border-radius:14px; padding:14px 20px; margin-bottom:20px; box-shadow:var(--shadow); font-weight:600; max-width:760px; margin-left:auto; margin-right:auto; }
+  #scoreVal{ color:var(--green); font-size:18px; }
+  #finalScoreVal{ color:var(--green); font-size:18px; }
+  .quiz-shell{ max-width:760px; margin:0 auto; }
+  .quiz-card{ background:var(--card); border-radius:16px; padding:20px 22px; margin-bottom:14px; box-shadow:var(--shadow); border:1px solid #EEF1F5; }
+  .quiz-card .qnum{ font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; }
+  .quiz-card .qtext{ font-family:'Poppins'; font-weight:600; font-size:15.5px; margin:5px 0 14px; }
+  .opt{ display:block; width:100%; text-align:left; background:#F7F9FB; border:1.5px solid #E5E9EE; border-radius:10px; padding:11px 14px; margin-bottom:8px; font-size:14px; cursor:pointer; font-family:'Inter'; color:var(--ink); transition:all .15s ease; }
+  .opt:hover{ border-color:var(--blue-b); background:var(--blue-l); }
+  .opt.correct{ background:var(--green-l); border-color:var(--green); font-weight:600; }
+  .opt.wrong{ background:var(--coral-l); border-color:var(--coral); }
+  .opt.disabled{ pointer-events:none; opacity:.85; }
+  .explain{ display:none; margin-top:10px; font-size:13px; color:var(--muted); background:#F3F6FA; padding:11px 14px; border-radius:10px; border-left:3px solid var(--blue); }
+  .explain.show{ display:block; }
+
+  .logo-section-title{ text-align:center; font-size:13px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); margin:26px 0 14px; }
+  .logo-row{ display:flex; flex-wrap:wrap; justify-content:center; gap:12px; }
+  .logo-badge{ background:var(--card); border:1.5px solid #E5E9EE; border-radius:12px; padding:12px 22px; font-family:'Poppins'; font-weight:700; font-size:15px; color:var(--ink); box-shadow:var(--shadow); }
+  .logo-badge.erp{ border-color:var(--purple-b); color:var(--purple); }
+  .logo-badge.consol{ border-color:var(--gold-b); color:var(--gold); }
+  .logo-badge.dm{ border-color:var(--blue-b); color:var(--blue); }
+  .logo-badge.us{ background:var(--blue); color:#fff; border-color:var(--blue); position:relative; transform:scale(1.12); box-shadow:0 0 0 4px var(--blue-l), var(--shadow-lg); }
+  .we-are-here{ text-align:center; margin-top:34px; font-family:'Poppins'; font-weight:800; font-size:24px; color:var(--blue); }
+  .we-are-here span{ display:inline-block; animation:pulse 1.6s infinite; }
+  @keyframes pulse{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.08);} }
+
+  .nav-bar{ display:flex; justify-content:space-between; align-items:center; max-width:1000px; margin:0 auto; padding:18px 24px 40px; }
+  .nav-btn{ font-family:'Poppins'; font-weight:600; font-size:14.5px; padding:12px 26px; border-radius:999px; border:none; cursor:pointer; transition:.15s; }
+  .nav-btn.next{ background:var(--blue); color:#fff; }
+  .nav-btn.next:hover{ background:#004886; }
+  .nav-btn.back{ background:#EEF1F5; color:var(--ink); }
+  .nav-btn.back:hover{ background:#E2E6EC; }
+  .nav-btn:disabled{ opacity:0; pointer-events:none; }
+  .nav-btn.finish{ background:linear-gradient(135deg,var(--gold),#e0b23f); color:#fff; box-shadow:0 8px 20px rgba(181,121,10,.35); padding:14px 30px; font-size:15px; }
+  .nav-btn.finish:hover{ opacity:.92; transform:translateY(-1px); }
+  .step-label{ font-size:12.5px; color:var(--muted); font-weight:600; }
+</style>
+</head>
+<body>
+<div id="appShell">
+
+<div class="progress" id="progressDots"></div>
+
+<div class="wrap">
+
+  <div class="step active" data-step="0">
+    <div class="step-hero">
+      <span class="eyebrow">Finance Automation, Explained Simply</span>
+      <h1>Meet the Pillars</h1>
+      <p>Eight buckets, one confusing set of overlaps — click through at your own pace.</p>
+      <div class="sibling-teaser">There are plenty of places in finance where automation works — think of them as siblings in the same family. The trick is knowing exactly which one you are.</div>
+    </div>
+  </div>
+
+  <div class="step" data-step="1">
+    <h2 class="section-title">The Pillars, at a Glance</h2>
+    <p class="section-sub">Click any card to flip it and see a real-world, everyday example.</p>
+    <div class="pillar-grid" id="pillarGrid"></div>
+  </div>
+
+  <div class="step" data-step="2">
+    <h2 class="section-title">The Three Siblings</h2>
+    <p class="section-sub">DM, ERP, and Consolidation get confused constantly — because they're related, but they are not the same job.</p>
+    <div class="kitchen-story">
+      🍳 Think of a restaurant. <b>ERP</b> is the kitchen where every branch preps its own ingredients — invoices, payroll, ledger entries. <b>Consolidation</b> is the head chef combining ingredients from every branch kitchen into one final dish — the group's numbers, eliminations and currency translation done. <b>DM (Disclosure Management)</b> is the plating and presentation — turning that finished dish into something you'd actually serve to a regulator, a board, or the public markets. Same meal, three completely different jobs.
+    </div>
+    <div class="siblings-grid">
+      <div class="sibling-card erp">
+        <div class="emoji">🏭</div><h3>ERP</h3>
+        <p>The system of record for transactions — invoices, payroll, master data, the general ledger.</p>
+        <div class="lbl">Is</div><div class="val">Where transactions live</div>
+        <div class="lbl">Isn't</div><div class="val isnt">A filing tool, a consolidation engine</div>
+        <div class="lbl">Example tools</div><div class="val">SAP · Oracle · Dynamics 365</div>
+      </div>
+      <div class="sibling-card consol">
+        <div class="emoji">🧮</div><h3>Consolidation</h3>
+        <p>Combining every entity's books into one group number — eliminations, FX translation, minority interest.</p>
+        <div class="lbl">Is</div><div class="val">The group math</div>
+        <div class="lbl">Isn't</div><div class="val isnt">A public-facing document, a transaction system</div>
+        <div class="lbl">Example tools</div><div class="val">Oracle Hyperion · OneStream · Board · Tagetik</div>
+      </div>
+      <div class="sibling-card dm">
+        <div class="emoji">📑</div><h3>DM (Disclosure Mgmt)</h3>
+        <p>Turning the final, consolidated number into a filed, tagged, audited document — annual report, XBRL, ESG.</p>
+        <div class="lbl">Is</div><div class="val">The filed, public output</div>
+        <div class="lbl">Isn't</div><div class="val isnt">A number-cruncher, a ledger</div>
+        <div class="lbl">Example tools</div><div class="val">IRIS Carbon · Workiva · DFIN</div>
+      </div>
+    </div>
+    <div class="draw-line">
+      <h4>🎯 How to draw the line in a customer conversation</h4>
+      <div class="q">"Does IRIS Carbon replace our ERP?"</div>
+      <div class="a">No — we don't touch transactions or the ledger. That's ERP's job, always will be.</div>
+      <div class="q">"We already consolidate in Hyperion/OneStream/Board — why do we need you?"</div>
+      <div class="a">Those tools compute your consolidated numbers. We take that final number into a collaborative workspace — where your team drafts, reviews with built-in checks, and embedded AI assists throughout — then auto-tags it, so the document is ready to file directly with the regulator, or ready for public and internal consumption.</div>
+      <div class="q">"Isn't this all the same thing?"</div>
+      <div class="a">Three jobs, three owners, three moments in the calendar: ERP runs all year, Consolidation runs at close, DM runs right before filing. We only ever show up at the very last one.</div>
+    </div>
+  </div>
+
+  <div class="step" data-step="3">
+    <h2 class="section-title">Grounding It in a Real Company</h2>
+    <p class="section-sub">Different vendor, different job, same company.</p>
+    <div class="example-card" style="max-width:640px;margin:0 auto 28px;">
+      <div class="co">🔋 NHOA</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;">
+        <span class="stack-chip erp">ERP: SAP</span><span class="arrow-mini">→</span>
+        <span class="stack-chip consol">Consolidation: Board</span><span class="arrow-mini">→</span>
+        <span class="stack-chip dm">DM: IRIS Carbon</span>
+      </div>
+      <div style="color:#8a8f97;font-size:13px;margin-top:14px;">Three different vendors, three different jobs, one company. SAP runs the transactions, Board does the group math, and when it's time to actually file — that's us.</div>
+    </div>
+    <div class="pattern-banner">
+      <b>The pattern that matters</b>
+      It doesn't matter whether the ERP underneath is SAP, Oracle, or Dynamics, or whether the consolidation tool is Board, Hyperion, or OneStream — every one of these companies still needs the same last step: turning that consolidated number into a filed, tagged, audited disclosure. That's exactly where IRIS Carbon sits, regardless of what's running underneath.
+    </div>
+  </div>
+
+  <div class="step" data-step="4">
+    <h2 class="section-title">Quick Check</h2>
+    <p class="section-sub">Eight questions. No trick scoring — just click and see how it lands.</p>
+    <div class="score-bar"><span>Your score</span><span id="scoreVal">0 / 0</span></div>
+    <div class="quiz-shell" id="quizContainer"></div>
+  </div>
+
+  <div class="step" data-step="5">
+    <h2 class="section-title">The Full Landscape</h2>
+    <p class="section-sub">Different job, different vendor, different logo — but only one of these is us.</p>
+
+    <div class="logo-section-title">ERP</div>
+    <div class="logo-row">
+      <div class="logo-badge erp">SAP</div>
+      <div class="logo-badge erp">Oracle</div>
+      <div class="logo-badge erp">Microsoft Dynamics 365</div>
+      <div class="logo-badge erp">Workday</div>
+    </div>
+
+    <div class="logo-section-title">Consolidation</div>
+    <div class="logo-row">
+      <div class="logo-badge consol">OneStream</div>
+      <div class="logo-badge consol">Board</div>
+      <div class="logo-badge consol">Oracle Hyperion</div>
+      <div class="logo-badge consol">Tagetik</div>
+    </div>
+
+    <div class="logo-section-title">Disclosure Management</div>
+    <div class="logo-row">
+      <div class="logo-badge dm">Workiva</div>
+      <div class="logo-badge dm">DFIN</div>
+      <div class="logo-badge dm">Certent</div>
+      <div class="logo-badge us">IRIS Carbon</div>
+    </div>
+
+    <div class="we-are-here">We are <span>here!</span> 🎯</div>
+
+    <div class="score-bar mt" style="max-width:640px;margin-top:28px;">
+      <span>Your final score</span><span id="finalScoreVal">0 / 0</span>
+    </div>
+    <div style="text-align:center;margin-top:24px;">
+      <button class="nav-btn finish" id="finishBtn">Complete &amp; Finish Module ➔</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="nav-bar">
+  <button class="nav-btn back" id="backBtn">← Back</button>
+  <span class="step-label" id="stepLabel"></span>
+  <button class="nav-btn next" id="nextBtn">Next →</button>
+</div>
+
+</div>
+
+<!-- ============================================================
+     STATIC SCORING METADATA BANK — parser-friendly, single source
+     of truth. Present in the raw DOM (hidden from view) so an
+     external HTML parser can compute the max score (sum of
+     data-points across every .qblock) WITHOUT executing any JS.
+     The runtime below reads this exact same markup to build its
+     scoring weights, so the displayed score always matches what a
+     static parser would calculate.
+     Scoring weights: mcq = 5 pts, fill-blank = 7 pts,
+     descriptive = 10 pts, unscored = 0 pts (explicit).
+============================================================= -->
+<div id="quizBank" style="display:none" aria-hidden="true">
+  <div class="qblock" data-id="q1" data-type="mcq" data-points="5" data-correct="C"><div class="qtext">Prospect: "We already consolidate in OneStream, why do we need you?" What's the sharpest response?</div></div>
+  <div class="qblock" data-id="q2" data-type="mcq" data-points="5" data-correct="A"><div class="qtext">Which of these is NOT something an ERP typically does?</div></div>
+  <div class="qblock" data-id="q3" data-type="mcq" data-points="5" data-correct="D"><div class="qtext">Two companies use different ERPs and different consolidation tools. What's most likely true about their filing step?</div></div>
+  <div class="qblock" data-id="q4" data-type="mcq" data-points="5" data-correct="B"><div class="qtext">What's the core difference between Consolidation and DM?</div></div>
+  <div class="qblock" data-id="q5" data-type="mcq" data-points="5" data-correct="C"><div class="qtext">A client asks: "Does IRIS Carbon replace our ERP?" What's the correct answer?</div></div>
+  <div class="qblock" data-id="q6" data-type="mcq" data-points="5" data-correct="A"><div class="qtext">Which of the following consolidation tools does NOT give you narratives on the financial and non-financial affairs of a company?</div></div>
+  <div class="qblock" data-id="q7" data-type="mcq" data-points="5" data-correct="D"><div class="qtext">Why do we partner with Board and Prophix instead of competing with them?</div></div>
+  <div class="qblock" data-id="q8" data-type="mcq" data-points="5" data-correct="B"><div class="qtext">KPMG and EY show up in deals doing automation/AI implementation work. What's the right move?</div></div>
+</div>
+
+<script>
+const steps = document.querySelectorAll('.step');
+const totalSteps = steps.length;
+let current = 0;
+const progressDots = document.getElementById('progressDots');
+for(let i=0;i<totalSteps;i++){
+  const d = document.createElement('div');
+  d.className = 'dot' + (i===0 ? ' active':'');
+  d.addEventListener('click', () => goTo(i));
+  progressDots.appendChild(d);
+}
+const dots = document.querySelectorAll('.dot');
+const backBtn = document.getElementById('backBtn');
+const nextBtn = document.getElementById('nextBtn');
+const stepLabel = document.getElementById('stepLabel');
+
+/* ---------- PARSE THE STATIC METADATA BANK ----------
+   Single source of truth for scoring weights: both MAX_SCORE and the
+   per-question WEIGHTS map used at runtime are derived from this bank,
+   so a static parser reading the raw HTML always agrees with the
+   live, running score. */
+function parseQuizBank(){
+  const map={};
+  document.querySelectorAll('#quizBank .qblock').forEach(b=>{
+    const id=b.dataset.id;
+    map[id]={
+      id,
+      type: b.dataset.type,                       // 'mcq' | 'fill-blank' | 'descriptive'
+      points: parseInt(b.dataset.points,10) || 0,  // explicit 0 if unscored
+      correct: b.dataset.correct || '',
+      text: (b.querySelector('.qtext')||{}).textContent.trim()
+    };
+  });
+  return map;
+}
+const QMETA = parseQuizBank();
+const WEIGHTS = {};
+Object.keys(QMETA).forEach(id=>{ WEIGHTS[id]=QMETA[id].points; });
+/* Max possible score — always derived from the metadata bank above, never hardcoded elsewhere. */
+const MAX_SCORE = Object.values(QMETA).reduce((sum,it)=>sum+it.points,0);
+
+const sc={};
+const chosenAns={};  // qid -> chosen option letter, used in the submit payload
+let score = 0;
+document.getElementById('scoreVal').textContent = '0 / ' + MAX_SCORE;
+document.getElementById('finalScoreVal').textContent = '0 / ' + MAX_SCORE;
+
+function updateFinalScore(){
+  const el=document.getElementById('finalScoreVal');
+  if(el) el.textContent = score + ' / ' + MAX_SCORE;
+}
+
+function goTo(i){
+  if(i<0||i>=totalSteps) return;
+  steps[current].classList.remove('active');
+  dots[current].classList.remove('active');
+  current = i;
+  steps[current].classList.add('active');
+  dots[current].classList.add('active');
+  backBtn.disabled = current===0;
+  if(current===totalSteps-1){
+    nextBtn.style.display='none';
+    updateFinalScore();
+  }else{
+    nextBtn.style.display='';
+    nextBtn.textContent = 'Next →';
+  }
+  stepLabel.textContent = 'Step ' + (current+1) + ' of ' + totalSteps;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+backBtn.addEventListener('click', () => goTo(current-1));
+nextBtn.addEventListener('click', () => { goTo(current+1); });
+goTo(0);
+
+const pillars = [
+  {cls:'c-p2p', tag:'P2P', name:'Procure-to-Pay', front:'AP · vendors · spend control', back:'Example: a clerk matches a vendor invoice to a PO before approving payment.'},
+  {cls:'c-o2c', tag:'O2C', name:'Order-to-Cash', front:'AR · billing · collections', back:'Example: an invoice auto-generates the moment a subscription renews.'},
+  {cls:'c-r2r', tag:'R2R', name:'Record-to-Report', front:'Close · reconciliation', back:'Example: month-end bank reconciliation before locking the books.'},
+  {cls:'c-fpa', tag:'FP&A', name:'Planning & Analysis', front:'Budgets · forecasts', back:'Example: explaining why marketing spend ran ₹8L over budget.'},
+  {cls:'c-erp', tag:'Backbone', name:'ERP', front:'Transactions · ledger', back:'Example: SAP or Oracle recording every invoice and payroll run.'},
+  {cls:'c-rpa', tag:'Automation Layer', name:'RPA', front:'Bots · scripted steps', back:'Example: a bot copy-pasting invoice data exactly like a human would.'},
+  {cls:'c-tax', tag:'Compliance', name:'Tax', front:'Filings · compliance', back:'Example: Vertex auto-calculating sales tax across jurisdictions.'},
+  {cls:'c-treasury', tag:'Cash', name:'Treasury', front:'Cash · liquidity', back:'Example: Kyriba forecasting cash position across bank accounts.'},
+];
+const grid = document.getElementById('pillarGrid');
+pillars.forEach(p => {
+  const card = document.createElement('div');
+  card.className = 'pillar-card ' + p.cls;
+  card.innerHTML = `<div class="hint">tap ↻</div><div class="tag">${p.tag}</div><div class="name">${p.name}</div><div class="front-line">${p.front}</div><div class="back">${p.back}</div>`;
+  card.addEventListener('click', () => card.classList.toggle('flipped'));
+  grid.appendChild(card);
+});
+
+const questions = [
+  { q: "Prospect: “We already consolidate in OneStream, why do we need you?” What's the sharpest response?",
+    opts: [
+      "OneStream is an older platform, so switching everything over to us is the simplest path forward",
+      "We can match every consolidation feature OneStream has, so running two platforms becomes redundant soon",
+      "OneStream computes your consolidated numbers; we turn that number into a filed, tagged disclosure — a different step",
+      "Offering a bundled discount usually resolves this kind of objection without further discussion"
+    ], correct: 2,
+    explain: "OneStream and IRIS Carbon aren't substitutes — one computes the group number, the other files it." },
+
+  { q: "Which of these is NOT something an ERP typically does?",
+    opts: [
+      "Tag a filing in XBRL for regulatory submission",
+      "Record vendor invoices as they come in",
+      "Store the general ledger for the company",
+      "Process payroll transactions each month"
+    ], correct: 0,
+    explain: "XBRL tagging for a filing is a Disclosure Management job — ERPs don't do this natively." },
+
+  { q: "Two companies use different ERPs and different consolidation tools. What's most likely true about their filing step?",
+    opts: [
+      "Only the company using SAP can realistically use a dedicated disclosure platform",
+      "Each company must build a fully custom in-house tool, since no shared option exists",
+      "Disclosure requirements differ so much that a shared filing tool becomes impossible",
+      "Both can converge on the same category of disclosure platform, regardless of what runs underneath"
+    ], correct: 3,
+    explain: "This is exactly the NHOA pattern — different stack underneath, same category of tool at the filing stage." },
+
+  { q: "What's the core difference between Consolidation and DM?",
+    opts: [
+      "DM combines multiple entities into one number, while Consolidation formats the public filing",
+      "Consolidation combines entities into one group figure; DM turns that figure into a filed, audited document",
+      "They describe the same underlying finance function, just under two different names",
+      "DM always happens earlier in the calendar, before Consolidation even begins"
+    ], correct: 1,
+    explain: "Consolidation is the group math. DM is what happens once that math needs to become a public document." },
+
+  { q: "A client asks: “Does IRIS Carbon replace our ERP?” What's the correct answer?",
+    opts: [
+      "Yes, over time it can fully absorb most core ERP functionality",
+      "It depends entirely on which ERP vendor the client currently uses",
+      "No — ERP handles transactions and the ledger; we pick up after consolidation",
+      "Only for smaller companies running relatively simple ERP setups"
+    ], correct: 2,
+    explain: "We never touch transactions or the ledger — that's ERP's job at every company, regardless of size or vendor." },
+
+  { q: "Which of the following consolidation tools does NOT give you narratives on the financial and non-financial affairs of a company?",
+    opts: [
+      "All of the above — consolidation tools compute numbers, not narrative disclosure",
+      "Oracle Hyperion",
+      "Board",
+      "OneStream"
+    ], correct: 0,
+    explain: "None of them do — narrative on financial and non-financial matters (MD&A, ESG, etc.) is the DM layer's job, not consolidation's." },
+
+  { q: "Why do we partner with Board and Prophix instead of competing with them?",
+    opts: [
+      "Their pricing is too aggressive for us to compete against directly in most deals",
+      "They implement our software for clients as part of their consulting arrangement",
+      "They're reporting and disclosure platforms, so we simply divide up the market",
+      "They're FP&A platforms; their consolidated output feeds into what we take to disclosure"
+    ], correct: 3,
+    explain: "Board and Prophix are upstream of us — their output becomes our input, which is exactly why it's a partnership." },
+
+  { q: "KPMG and EY show up in deals doing automation/AI implementation work. What's the right move?",
+    opts: [
+      "Wait until their engagement fully concludes before attempting to engage the account",
+      "Find out what they're recommending, and position IRIS Carbon as the platform they implement on top of",
+      "Treat them as a direct competitor and prepare a defensive strategy immediately",
+      "Offer them a reseller discount right away to formalize a referral relationship"
+    ], correct: 1,
+    explain: "They're consulting/SI firms, not a competing vendor — find out what they're recommending and get in front of it." },
+];
+
+const quizContainer = document.getElementById('quizContainer');
+questions.forEach((item, qi) => {
+  const qid = 'q' + (qi+1);
+  const card = document.createElement('div');
+  card.className = 'quiz-card';
+  card.innerHTML = `<div class="qnum">Question ${qi+1} of ${questions.length}</div><div class="qtext">${item.q}</div>`;
+  const optsWrap = document.createElement('div');
+  item.opts.forEach((optText, oi) => {
+    const btn = document.createElement('button');
+    btn.className = 'opt';
+    btn.textContent = String.fromCharCode(65+oi) + '.  ' + optText;
+    btn.addEventListener('click', () => {
+      const allOpts = optsWrap.querySelectorAll('.opt');
+      if (allOpts[0].classList.contains('disabled')) return;
+      allOpts.forEach((o, idx) => { o.classList.add('disabled'); if (idx === item.correct) o.classList.add('correct'); });
+      chosenAns[qid] = String.fromCharCode(65+oi);
+      if (oi !== item.correct) {
+        btn.classList.add('wrong');
+        sc[qid]=false;
+      } else {
+        sc[qid]=true;
+        score += WEIGHTS[qid];
+        document.getElementById('scoreVal').textContent = score + ' / ' + MAX_SCORE;
+      }
+      explainDiv.classList.add('show');
+    });
+    optsWrap.appendChild(btn);
+  });
+  card.appendChild(optsWrap);
+  const explainDiv = document.createElement('div');
+  explainDiv.className = 'explain';
+  explainDiv.textContent = '💡 ' + item.explain;
+  card.appendChild(explainDiv);
+  quizContainer.appendChild(card);
+});
+
+/* ---------- SUBMIT FUNCTION ---------- */
+function computeScore(){
+  let s=0;
+  Object.keys(QMETA).forEach(id=>{ if(sc[id]) s+=WEIGHTS[id]; });
+  return s;
+}
+function fireSubmit(){
+  const finalScore = computeScore();
+  const pct = MAX_SCORE>0 ? Math.round(finalScore/MAX_SCORE*100) : 0;
+  const questionsPayload = Object.values(QMETA).map(it=>{
+    const idx = parseInt(it.id.replace('q',''),10)-1;
+    const qData = questions[idx];
+    const correct = !!sc[it.id];
+    const chosenLetter = chosenAns[it.id];
+    const opts = qData.opts.map((t,i)=>({key:String.fromCharCode(65+i),text:t}));
+    const chosenOpt = opts.find(o=>o.key===chosenLetter);
+    const correctOpt = opts.find(o=>o.key===it.correct);
+    return {
+      id: it.id,
+      questionText: it.text,
+      type: it.type,
+      userAnswer: chosenOpt ? chosenOpt.text : (chosenLetter||null),
+      correctAnswer: correctOpt ? correctOpt.text : it.correct,
+      isCorrect: correct,
+      options: opts.map(o=>o.text),
+      points: correct ? it.points : 0,
+      maxPoints: it.points
+    };
+  });
+  // 1. Broadcast evaluation payload out to the parent embedding frame
+  window.parent.postMessage({
+    fromSandboxEngine: true,
+    type: 'HTML_SIMULATION_SUBMIT',
+    score: finalScore,
+    maxPossibleScore: MAX_SCORE,
+    textResponses: { questions: questionsPayload }
+  }, '*');
+  // 2. High-reliability exit protocol cascade (final cleanup / close fallback)
+  setTimeout(() => {
+    // Strategy A: Native script close window rule
+    window.close();
+
+    // Strategy B: Browser history rollback back-up
+    if (window.history.length > 1) {
+      window.history.back();
+    }
+
+    // Strategy C: Target empty blank node to scrub presentation container viewport
+    // (Crucial fallback for sandboxed browser view environments)
+    document.getElementById('appShell').innerHTML = `
+      <div style="max-width:640px;margin:60px auto;text-align:center;padding:28px;background:#fff;border-radius:18px;box-shadow:0 12px 30px rgba(30,36,48,.10);">
+        <div style="font-size:48px;margin-bottom:10px;">✓</div>
+        <h2 style="color:var(--ink);font-family:'Poppins';">Module Successfully Submitted</h2>
+        <p style="color:var(--muted);margin-top:10px;">Your progress data has been recorded. You can safely close or navigate away from this section.</p>
+      </div>`;
+
+    // Strategy D: Force redirect container frame to safety target location
+    setTimeout(() => {
+      window.location.replace("about:blank");
+    }, 500);
+  }, 200);
+}
+document.getElementById('finishBtn').addEventListener('click', fireSubmit);
+</script>
+</body>
+</html>

@@ -89,35 +89,11 @@ const resolveModuleOrder = async (categoryId, requestedOrder) => {
 // 🛡️ GRANULAR SECURITY HANDSHAKE FIREWALL — shared by GET /:id and the
 // review endpoints below (GET /:id/reviews, GET /:id/my-review) so viewing
 // a module's reviews is gated by the exact same visibility rules as viewing
-// the module itself. Returns { ok: true } or { ok: false, status, message }
-// rather than throwing, matching this file's existing control-flow style.
-const assertModuleViewAccess = (moduleData, req) => {
-  if (req.user.role === "superadmin") return { ok: true };
-
-  const contextUser = req.user.user ? req.user.user : req.user;
-  const userDeptStr = contextUser.department?.toString();
-  const userTeamStr = contextUser.team?.toString();
-
-  if (moduleData.visibility === "Departmental" && !moduleHasDept(moduleData, userDeptStr)) {
-    return { ok: false, status: 403, message: "Access Denied: Foreign Department content locked." };
-  }
-
-  if (moduleData.visibility === "Team-Specific") {
-    if (!moduleHasDept(moduleData, userDeptStr)) {
-      return { ok: false, status: 403, message: "Access Denied: Foreign Department content locked." };
-    }
-    const hasTeamAccess = moduleData.targetTeams.some(tId => tId.toString() === userTeamStr);
-    if (!hasTeamAccess) {
-      return { ok: false, status: 403, message: "Access Denied: Locked for your specific team scope." };
-    }
-  }
-
-  if (!passesRegionScope(moduleData, req)) {
-    return { ok: false, status: 403, message: "Access Denied: Not available in your region." };
-  }
-
-  return { ok: true };
-};
+// the module itself. Lives in utils/moduleAccess.js so the topic routes and
+// the grading endpoints apply the identical rule.
+const { assertModuleViewAccess } = require("../utils/moduleAccess");
+const { normalizeCardForClient, isAuthorRole } = require("../utils/learnerCard");
+const { extractSandboxKey } = require("../services/grading/sandboxKey");
 
 
 // =========================================================================
@@ -300,7 +276,13 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
             $map: {
               input: "$allocatedCards",
               as: "c",
-              in: { card_type: "$$c.card_type", content: "$$c.content" }
+              in: {
+                card_type: "$$c.card_type",
+                // 🔒 Only the sandbox HTML (needed for its point parse) —
+                // never the rest of `content`, which for quiz/code cards
+                // carries the answer key. Stripped from the response below.
+                content: { htmlSource: { $cond: [{ $eq: ["$$c.card_type", "html_sandbox"] }, "$$c.content.htmlSource", null] } }
+              }
             }
           }
         }
@@ -315,9 +297,9 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
     // approximation for a listing page; the per-topic/whole-module Type A/B
     // split (topics summed for a hierarchy module) is computed precisely on
     // the single-module GET route below, which has the real topic structure.
-    const dataWithPoints = workspaceModules.map((mod) => ({
+    const dataWithPoints = workspaceModules.map(({ cardsForPoints, ...mod }) => ({
       ...mod,
-      pointsReward: computePointsReward(mod.cardsForPoints),
+      pointsReward: computePointsReward(cardsForPoints),
     }));
 
     // 🔒 SEQUENTIAL MODULE LOCK — attach `locked` per module. Admin/
@@ -564,36 +546,7 @@ router.get("/:id", auth, async (req, res) => {
         .sort({ cardOrder: 1 })
         .lean();
 
-      const normalizedCards = directCards.map(card => {
-        const contentObj = card.content || {};
-        let safeOptions = contentObj.options;
-        let safeCorrectIndex = contentObj.correctIndex;
-        let safeExplanation = contentObj.explanation;
-
-        if (card.card_type === "quiz" && contentObj.text) {
-          try {
-            const parsedQuiz = JSON.parse(contentObj.text);
-            safeOptions = parsedQuiz.options || safeOptions;
-            safeCorrectIndex = parsedQuiz.correctAnswerIndex !== undefined ? parsedQuiz.correctAnswerIndex : safeCorrectIndex;
-            safeExplanation = parsedQuiz.explanationHint || safeExplanation;
-          } catch (e) {}
-        }
-
-        return {
-          ...card,
-          id: card._id.toString(),
-          content: {
-            ...contentObj,
-            title: contentObj.title || "",
-            text: contentObj.text || "",
-            // Extract code directly out of 'htmlSource' or fallback content structures
-            htmlSource: card.card_type === "html_sandbox" ? (contentObj.htmlSource || contentObj.text || "") : "",
-            options: safeOptions || [],
-            correctIndex: safeCorrectIndex !== undefined ? safeCorrectIndex : 0,
-            explanation: safeExplanation || ""
-          }
-        };
-      });
+      const normalizedCards = directCards.map(card => normalizeCardForClient(card, { includeAnswers: isAuthorRole(req) }));
 
       structuralPayload.cards = normalizedCards;
       structuralPayload.topics = [];
@@ -614,36 +567,7 @@ router.get("/:id", auth, async (req, res) => {
       structuralPayload.topics = topics.map((topic) => {
         const matchingCards = allCards
           .filter((card) => card.topic_id && card.topic_id.toString() === topic._id.toString())
-          .map((card) => {
-            const contentObj = card.content || {};
-            let safeOptions = contentObj.options;
-            let safeCorrectIndex = contentObj.correctIndex;
-            let safeExplanation = contentObj.explanation;
-
-            if (card.card_type === "quiz" && contentObj.text) {
-              try {
-                const parsedQuiz = JSON.parse(contentObj.text);
-                safeOptions = parsedQuiz.options || safeOptions;
-                safeCorrectIndex = parsedQuiz.correctAnswerIndex !== undefined ? parsedQuiz.correctAnswerIndex : safeCorrectIndex;
-                safeExplanation = parsedQuiz.explanationHint || safeExplanation;
-              } catch (e) {}
-            }
-
-            return {
-              ...card,
-              id: card._id.toString(),
-              content: {
-                ...contentObj,
-                title: contentObj.title || "",
-                text: contentObj.text || "",
-                // Support standalone sandboxes safely inside a multi-topic syllabus timeline deck node context
-                htmlSource: card.card_type === "html_sandbox" ? (contentObj.htmlSource || contentObj.text || "") : "",
-                options: safeOptions || [],
-                correctIndex: safeCorrectIndex !== undefined ? safeCorrectIndex : 0,
-                explanation: safeExplanation || ""
-              }
-            };
-          });
+          .map((card) => normalizeCardForClient(card, { includeAnswers: isAuthorRole(req) }));
 
         return {
           ...topic,
@@ -815,6 +739,18 @@ router.post("/", [auth, admin], async (req, res) => {
     const cleanStrategy = isHtmlSandboxModule ? 'EXPRESS_FLAT' : (engineStrategy || 'STANDARD');
     const cleanHasTopics = isHtmlSandboxModule ? false : cleanStrategy === 'STANDARD';
 
+    // 🔒 SERVER-SIDE GRADING: an HTML module must carry a gradable answer key
+    // (no ungradable module goes live). Checked BEFORE anything is saved, so
+    // a rejected module never leaves a half-created record behind.
+    let gradingSummary = null;
+    if (isHtmlSandboxModule) {
+      const keyCheck = extractSandboxKey(req.body.htmlSource || '');
+      if (!keyCheck.ok) {
+        return res.status(400).json({ success: false, message: `HTML module cannot be graded: ${keyCheck.error}`, gradingError: keyCheck.error });
+      }
+      gradingSummary = keyCheck.summary;
+    }
+
     // 🏷️ Always resolves to a real Category — falls back to "Uncategorized"
     // if the admin didn't pick one (or picked something that doesn't exist).
     const resolvedCategoryId = await resolveCategoryId(req.body.categoryId);
@@ -872,7 +808,7 @@ router.post("/", [auth, admin], async (req, res) => {
       }
     }
 
-    return res.status(201).json(module);
+    return res.status(201).json(gradingSummary ? { ...module.toObject(), gradingSummary } : module);
   } catch (err) {
     return handleError(res, err, 400);
   }
@@ -1021,6 +957,17 @@ router.put("/:id", [auth, admin], async (req, res) => {
     // — this is a well-documented Mongoose limitation, not specific to this
     // schema. Reusing the targetModule already fetched above for the
     // permission check also saves a second DB round-trip.
+    // 🔒 SERVER-SIDE GRADING: validate a changed HTML source's answer key
+    // BEFORE saving anything (see the create route).
+    let gradingSummary = null;
+    if (isHtmlSandboxModule && req.body.htmlSource !== undefined) {
+      const keyCheck = extractSandboxKey(req.body.htmlSource || '');
+      if (!keyCheck.ok) {
+        return res.status(400).json({ success: false, message: `HTML module cannot be graded: ${keyCheck.error}`, gradingError: keyCheck.error });
+      }
+      gradingSummary = keyCheck.summary;
+    }
+
     Object.assign(targetModule, req.body);
     const updatedModule = await targetModule.save();
 
@@ -1040,7 +987,7 @@ router.put("/:id", [auth, admin], async (req, res) => {
       }
     }
 
-    return res.json(updatedModule);
+    return res.json(gradingSummary ? { ...updatedModule.toObject(), gradingSummary } : updatedModule);
   } catch (err) {
     return handleError(res, err, 400);
   }

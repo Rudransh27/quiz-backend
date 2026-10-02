@@ -29,6 +29,7 @@ const ideaRoutes = require("./routes/ideaRoutes");
 const notificationRoutes = require('./routes/notificationRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const regionRoutes = require('./routes/regionRoutes');
+const gradingRoutes = require('./routes/gradingRoutes');
 
 const app = express();
 
@@ -96,6 +97,7 @@ app.use("/api/ideas", ideaRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/regions', regionRoutes);
+app.use('/api/grading', gradingRoutes);
 
 // 🛡️ CREATING HYBRID SERVER TO BRIDGE EXPRESS AND SOCKET.IO TOGETHER CLEANLY
 const server = http.createServer(app);
