@@ -11,6 +11,7 @@ const upload = require("../middleware/multer");
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
 const { moduleHasDept } = require("../utils/moduleDepartments");
+const { handleError } = require("../utils/safeError");
 
 // @route   GET /api/modules/:id
 // @desc    Get single module details with filtered structural verification gates
@@ -162,7 +163,7 @@ router.get("/:id", auth, async (req, res) => {
 
     return res.json(structuralPayload);
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -236,7 +237,7 @@ router.get("/cards/:id", auth, async (req, res) => {
 
     return res.json(augmentedCard);
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -281,7 +282,7 @@ router.post("/", [auth, admin], async (req, res) => {
       .status(201)
       .json({ ...topic.toObject(), id: topic._id.toString() });
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -318,7 +319,7 @@ router.put("/:id", [auth, admin], async (req, res) => {
     ).lean();
     return res.json({ ...updatedTopic, id: updatedTopic._id.toString() });
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -375,7 +376,7 @@ router.delete("/:id", [auth, admin], async (req, res) => {
         "Topic, its structural flashcards, and all matching user analytics matching logs deleted successfully.",
     });
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -458,7 +459,7 @@ router.post("/:targetId/cards", [auth, admin], async (req, res) => {
       card: { ...card.toObject(), id: card._id.toString() },
     });
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -502,7 +503,7 @@ router.put("/cards/:cardId", [auth, admin], async (req, res) => {
     ).lean();
     return res.json({ ...updatedCard, id: updatedCard._id.toString() });
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -551,7 +552,7 @@ router.delete("/cards/:cardId", [auth, admin], async (req, res) => {
       message: "Card and tracking logs dropped successfully.",
     });
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -661,7 +662,7 @@ router.post(
       });
     } catch (error) {
       console.error("❌ Binary creation error:", error);
-      return res.status(500).json({ success: false, message: error.message });
+      return handleError(res, error, 500);
     }
   },
 );
@@ -814,7 +815,6 @@ router.post(
         success: false,
         message:
           "Internal storage clustering infrastructure failed parameter integration loop.",
-        error: error.message,
       });
     }
   },

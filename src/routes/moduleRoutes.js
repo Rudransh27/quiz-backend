@@ -17,6 +17,7 @@ const { computeModuleCompletionMap, walkSequentialUnlock, isModuleUnlockedForUse
 
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
+const { handleError } = require("../utils/safeError");
 
 const getDepartmentIdString = (doc) => {
   if (!doc) return null;
@@ -368,7 +369,7 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
     return res.json({ success: true, data: dataWithPoints });
   } catch (err) {
     console.error("Workspace Curriculum API Failure:", err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -492,7 +493,7 @@ router.get("/", auth, async (req, res) => {
     return res.json(modulesWithRatings);
   } catch (err) {
     console.error("Fetch Modules Aggregation Failure:", err.message);
-    return res.status(500).json({ message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -668,7 +669,7 @@ router.get("/:id", auth, async (req, res) => {
     return res.json(structuralPayload);
   } catch (err) {
     console.error("❌ Single Module Fetch Fatal Error:", err.message);
-    return res.status(500).json({ message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -714,7 +715,7 @@ router.post("/:id/rate", auth, async (req, res) => {
     return res.json({ success: true, message: "Thank you for rating this module!", review: savedReview });
   } catch (err) {
     if (err.name === "ValidationError") {
-      return res.status(400).json({ message: err.message });
+      return handleError(res, err, 400);
     }
     return res.status(500).json({ message: "Rating submission failed." });
   }
@@ -762,7 +763,7 @@ router.get("/:id/reviews", auth, async (req, res) => {
       })),
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -779,7 +780,7 @@ router.get("/:id/my-review", auth, async (req, res) => {
     const review = await ModuleRating.findOne({ user_id: userId, module_id: req.params.id }).lean();
     return res.json({ success: true, review: review || null });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -873,7 +874,7 @@ router.post("/", [auth, admin], async (req, res) => {
 
     return res.status(201).json(module);
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -1041,7 +1042,7 @@ router.put("/:id", [auth, admin], async (req, res) => {
 
     return res.json(updatedModule);
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -1093,7 +1094,7 @@ router.delete("/:id", [auth, admin], async (req, res) => {
     await module.deleteOne();
     return res.json({ success: true, message: "Purge execution resolved successfully." });
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -1119,7 +1120,7 @@ router.patch("/:id/hot-module", [auth, admin], async (req, res) => {
 
     return res.json(target);
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -1143,7 +1144,7 @@ router.patch("/:id/popular", [auth, admin], async (req, res) => {
 
     return res.json(target);
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    return handleError(res, err, 400);
   }
 });
 

@@ -1,5 +1,6 @@
 // src/controllers/notificationController.js
 const UserNotification = require('../models/UserNotification');
+const { handleError } = require("../utils/safeError");
 
 const resolveUser = (req) => {
   const ctx = req.user && req.user.user ? req.user.user : req.user;
@@ -20,7 +21,7 @@ exports.getNotifications = async (req, res) => {
 
     return res.status(200).json({ success: true, notifications, unreadCount });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -36,7 +37,7 @@ exports.markNotificationRead = async (req, res) => {
     );
     return res.status(200).json({ success: true });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -48,6 +49,6 @@ exports.markAllRead = async (req, res) => {
     await UserNotification.updateMany({ user_id: userId, read: false }, { read: true });
     return res.status(200).json({ success: true });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };

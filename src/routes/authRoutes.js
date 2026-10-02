@@ -11,6 +11,7 @@ const { msalClient, MICROSOFT_SCOPES, getMicrosoftRedirectUri } = require("../ut
 const { resolveClientToday, shiftDateKey } = require("../utils/localDate");
 const { loginLimiter, otpLimiter, forgotPasswordLimiter } = require("../middleware/rateLimiters");
 const verifyCaptcha = require("../middleware/verifyCaptcha");
+const { handleError } = require("../utils/safeError");
 
 // 🌍 Resolves whatever `regions` the client submitted (array of ids, or a
 // single id) down to only the ids that actually correspond to a real Region
@@ -144,7 +145,9 @@ router.post("/register", verifyCaptcha, async (req, res) => {
     }
 
     // Secure OTP Generations Matrix
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // crypto.randomInt (CSPRNG) — Math.random is predictable and flagged by
+    // security scanners for anything used as a verification secret.
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
 
     // ✨ DYNAMIC DEPARTMENT LOOKUP (No Hardcoded IDs!)
@@ -206,10 +209,21 @@ router.post("/register", verifyCaptcha, async (req, res) => {
       });
       console.log(`📬 Verification email successfully sent to: ${user.email}`);
     } catch (mailErr) {
-      console.error("⚠️ SMTP Transport Fault (Gracefully Bypassed):", mailErr.message);
-      return res.status(200).json({ 
-        success: true, 
-        message: `[DEV MODE] Account saved. Your OTP code is: ${otp}` 
+      console.error("⚠️ SMTP Transport Fault:", mailErr.message);
+      // 🛡️ Security fix: the OTP used to be returned in this response whenever
+      // SMTP failed — on a live server that let anyone register with someone
+      // else's email and verify it without access to that mailbox. Now only a
+      // developer machine that explicitly opts in (DEV_OTP_FALLBACK=true, and
+      // NODE_ENV not "production") gets the code back.
+      if (process.env.NODE_ENV !== "production" && process.env.DEV_OTP_FALLBACK === "true") {
+        return res.status(200).json({
+          success: true,
+          message: `[DEV MODE] Account saved. Your OTP code is: ${otp}`
+        });
+      }
+      return res.status(503).json({
+        success: false,
+        message: "We couldn't send the verification email right now. Please try again in a few minutes.",
       });
     }
 
@@ -217,7 +231,7 @@ router.post("/register", verifyCaptcha, async (req, res) => {
     
   } catch (err) {
     console.error("❌ CRITICAL REGISTRATION CRASH LOG:", err.message);
-    return res.status(500).json({ success: false, message: `Server Error: ${err.message}` });
+    return handleError(res, err, 500);
   }
 });
 

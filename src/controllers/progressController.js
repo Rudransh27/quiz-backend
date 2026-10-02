@@ -15,6 +15,7 @@ const { parseHtmlSandboxPoints } = require('../utils/pointsCalculator');
 const { resolveClientToday, shiftDateKey } = require('../utils/localDate');
 const { resolveIsCouncilAdmin, canWriteUserProgress } = require('../utils/teamAccess');
 const { isModuleUnlockedForUser } = require('../utils/moduleLock');
+const { handleError } = require("../utils/safeError");
 
 /*
  * STANDARD HTML SANDBOX postMessage FORMAT
@@ -581,7 +582,7 @@ exports.getAdminUsersList = async (req, res) => {
     return res.status(200).json({ success: true, users: result });
   } catch (err) {
     console.error('getAdminUsersList error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -923,7 +924,7 @@ exports.getAdminPlatformStats = async (req, res) => {
     });
   } catch (err) {
     console.error('getAdminPlatformStats error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -962,7 +963,7 @@ exports.getAdminModuleEngagement = async (req, res) => {
     return res.status(200).json({ success: true, modules: stats });
   } catch (err) {
     console.error('getAdminModuleEngagement error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1025,7 +1026,7 @@ exports.getUserSandboxAnswersForAdmin = async (req, res) => {
     });
   } catch (err) {
     console.error('getUserSandboxAnswersForAdmin error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1166,7 +1167,7 @@ exports.importGrades = async (req, res) => {
     return res.status(200).json({ success: true, results });
   } catch (err) {
     console.error('importGrades error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1217,7 +1218,7 @@ exports.gradeSingleSubmission = async (req, res) => {
     return res.status(200).json({ success: true, result });
   } catch (err) {
     console.error('gradeSingleSubmission error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1289,7 +1290,7 @@ exports.exportModuleSubmissionsCsv = async (req, res) => {
     return res.status(200).send(csv);
   } catch (err) {
     console.error('exportModuleSubmissionsCsv error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1377,7 +1378,7 @@ exports.importModuleGradesCsv = async (req, res) => {
     return res.status(200).json({ success: true, moduleId, results });
   } catch (err) {
     console.error('importModuleGradesCsv error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1431,7 +1432,7 @@ exports.getAdminDepartmentStats = async (req, res) => {
     return res.status(200).json({ success: true, departments: stats });
   } catch (err) {
     console.error('getAdminDepartmentStats error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1528,7 +1529,7 @@ exports.getAdminTeamStats = async (req, res) => {
     return res.status(200).json({ success: true, teams: stats });
   } catch (err) {
     console.error('getAdminTeamStats error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1569,7 +1570,7 @@ exports.getModuleCompletionReal = async (req, res) => {
     return res.status(200).json({ success: true, modules: results });
   } catch (err) {
     console.error('getModuleCompletionReal error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1603,7 +1604,7 @@ exports.getDailyReadParticipation = async (req, res) => {
     return res.status(200).json({ success: true, days: result });
   } catch (err) {
     console.error('getDailyReadParticipation error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1660,7 +1661,7 @@ exports.getQuizScoreDistribution = async (req, res) => {
     return res.status(200).json({ success: true, bands, avgPct, usersWithQuizzes });
   } catch (err) {
     console.error('getQuizScoreDistribution error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1735,7 +1736,7 @@ exports.getDeptSandboxAnswers = async (req, res) => {
     return res.status(200).json({ success: true, department: deptDoc?.name || 'N/A', users });
   } catch (err) {
     console.error('getDeptSandboxAnswers error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1799,7 +1800,7 @@ exports.getMySandboxResults = async (req, res) => {
     return res.status(200).json({ success: true, sandboxResults });
   } catch (err) {
     console.error('getMySandboxResults error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1885,7 +1886,7 @@ exports.verifyDailyStreak = async (req, res) => {
     });
   } catch (err) {
     console.error('verifyDailyStreak error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -1930,7 +1931,7 @@ exports.getMyStreak = async (req, res) => {
     });
   } catch (err) {
     console.error('getMyStreak error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 
@@ -2086,7 +2087,7 @@ exports.getAdminModuleProgressTable = async (req, res) => {
     return res.status(200).json({ success: true, rows });
   } catch (err) {
     console.error('getAdminModuleProgressTable error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 };
 

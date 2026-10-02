@@ -1,14 +1,28 @@
 // src/validators/codeValidator.js
 
-const { DOMParser } = require('xmldom');
+// Security scan fix: the unmaintained `xmldom` package (critical, no fix
+// available) is replaced by its maintained successor `@xmldom/xmldom`.
+const { DOMParser } = require('@xmldom/xmldom');
 // The xpath library is no longer needed.
 // import xpath from 'xpath';
 
-const parser = new DOMParser();
+// @xmldom/xmldom THROWS a ParseError on malformed XML (old `xmldom` silently
+// accepted it), so parse failures come back as `null` here and are reported
+// by checkParserErrors below as the usual "Invalid XML format" result —
+// never as a 500. onError keeps learner typos out of the server console.
+const parser = {
+  parseFromString(source, mimeType) {
+    try {
+      return new DOMParser({ onError: () => {} }).parseFromString(String(source ?? ''), mimeType);
+    } catch (err) {
+      return null;
+    }
+  },
+};
 
 // This function remains the same and will be used by all validators.
 function checkParserErrors(xmlDoc) {
-  const errors = xmlDoc.getElementsByTagName("parsererror");
+  const errors = xmlDoc ? xmlDoc.getElementsByTagName("parsererror") : [1];
   if (errors.length > 0) {
     return {
       isCorrect: false,

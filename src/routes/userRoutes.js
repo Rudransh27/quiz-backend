@@ -6,6 +6,7 @@ const Region = require('../models/Region');
 const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
 const { checkAndAwardBadges, getOrbitTier, getLast7Days, getMyDepartmentRank } = require('../utils/achievements');
+const { handleError } = require("../utils/safeError");
 
 // =========================================================================
 // @route   GET /api/users/count-verified
@@ -184,7 +185,7 @@ router.put('/:id/regions', [auth, admin], async (req, res) => {
     return res.json({ success: true, data: { _id: target._id, regions: found } });
   } catch (err) {
     console.error('Assign user regions error:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 

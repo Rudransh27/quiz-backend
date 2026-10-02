@@ -5,6 +5,7 @@ const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
 const Idea = require("../models/Idea");
 const mongoose = require("mongoose");
+const { handleError } = require("../utils/safeError");
 
 // 📥 1. POST A NEW CONCEPT (Private - Trainee Entry)
 // @route   POST /api/ideas
@@ -45,7 +46,7 @@ router.post("/", auth, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Idea Submission Error:", err.message);
-    res.status(500).json({ success: false, message: `Server Error: ${err.message}` });
+    handleError(res, err, 500);
   }
 });
 
@@ -62,7 +63,7 @@ router.get("/my-history", auth, async (req, res) => {
     res.json({ success: true, data: history });
   } catch (err) {
     console.error("❌ Fetch Personal Ideas History Fault:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    handleError(res, err, 500);
   }
 });
 
@@ -81,7 +82,7 @@ router.get("/council-board", [auth, admin], async (req, res) => {
     const boardReviewItems = await Idea.find(searchFilter).sort({ createdAt: -1 });
     res.json({ success: true, data: boardReviewItems });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    handleError(res, err, 500);
   }
 });
 
@@ -154,7 +155,7 @@ router.put("/:ideaId/curate", [auth, admin], async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Curation processing error:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    handleError(res, err, 500);
   }
 });
 

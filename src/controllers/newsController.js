@@ -5,6 +5,7 @@
 // live in newsService.js) — mirrors the Controller/Service split the whole
 // feature is built around.
 const newsService = require("../services/newsService");
+const { handleError } = require("../utils/safeError");
 
 function getRequestUser(req) {
   return req.user && req.user.user ? req.user.user : req.user;
@@ -51,6 +52,6 @@ exports.createNewsPost = async (req, res) => {
   } catch (err) {
     const status = err.status || 500;
     if (status === 500) console.error("News post creation failed:", err.message);
-    return res.status(status).json({ success: false, message: err.message || "Failed to create news post." });
+    return handleError(res, err, status);
   }
 };
