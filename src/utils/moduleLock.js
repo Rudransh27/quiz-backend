@@ -138,7 +138,15 @@ async function getUnlockedModuleIds({ modules, userId, sequentialUnlock }) {
 // walks. Without it, a module the user can never open (another
 // department's / team's / region's) would sit in the chain uncompleted and
 // lock every later module forever, while the Learn page shows them unlocked.
-async function isModuleUnlockedForUser({ moduleId, categoryId, userId, isVisible }) {
+async function isModuleUnlockedForUser({ moduleId, categoryId, userId, isVisible, req }) {
+  // 🧭 PATHS: once any Path is published, a module is open only if it is
+  // unlocked in at least one published Path visible to this learner (see
+  // services/paths.js). Required lazily — services/paths depends on this file.
+  if (req) {
+    const paths = require("../services/paths");
+    if (await paths.pathsEnabled()) return paths.isModuleUnlockedInPaths(req, moduleId);
+  }
+
   // Defensive only — every module always resolves to a real categoryId via
   // resolveCategoryId() at write time; fail-open rather than lock a module
   // that somehow has no category to walk against.

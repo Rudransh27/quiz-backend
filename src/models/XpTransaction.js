@@ -17,6 +17,7 @@ const XP_SOURCES = [
   'manual_grade',      // admin grade (or regrade delta) of descriptive answers
   'reset_clawback',    // module/topic reset reversing this generation's awards
   'passive_card',      // knowledge / video / pdf / ppt completion
+  'assessment',        // Path Post-assessment (Pre never awards XP)
   'streak',
   'daily_login',
   'idea',

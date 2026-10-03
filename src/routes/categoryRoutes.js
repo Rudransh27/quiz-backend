@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const Category = require("../models/Category");
 const Module = require("../models/Module");
 const Region = require("../models/Region");
+const Path = require("../models/Path");
 const { getOrCreateUncategorizedCategory } = require("../utils/defaultCategory");
 const { toIdArray, resolveOwnedTeamIds, buildRegionMatch, passesRegionScope } = require("../utils/scopeHelpers");
 // Generic "does this doc's .departments array contain X" helpers — written
@@ -308,9 +309,15 @@ router.delete("/:id", [auth, admin], async (req, res) => {
       { categoryId: category._id },
       { $set: { categoryId: fallback._id } }
     );
+    // 🧭 Its Paths move with the modules (still published, so learners
+    // don't lose their journeys).
+    await Path.updateMany(
+      { categoryId: category._id },
+      { $set: { categoryId: fallback._id } }
+    );
     await category.deleteOne();
 
-    return res.json({ success: true, message: "Category removed; its modules moved to Uncategorized." });
+    return res.json({ success: true, message: "Category removed; its modules and paths moved to Uncategorized." });
   } catch (err) {
     return handleError(res, err, 500);
   }

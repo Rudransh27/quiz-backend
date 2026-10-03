@@ -8,6 +8,8 @@ const Card = require("../models/Card");
 const Team = require("../models/Team");
 const ModuleRating = require("../models/ModuleRating");
 const Category = require("../models/Category");
+require("../models/Path");
+require("../models/BankQuestion");
 const progressController = require("../controllers/progressController");
 const { computePointsReward } = require("../utils/pointsCalculator");
 const { moduleHasDept, moduleDeptIds } = require("../utils/moduleDepartments");
@@ -310,6 +312,26 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
     // categories it spans), then walk each category's chain in pure JS
     // against that shared map — no per-module/per-category DB round-trips.
     const isPrivilegedForLock = req.user.role === "admin" || req.user.role === "superadmin";
+
+    // 🧭 PATHS: once Paths are published, a learner sees only the modules of
+    // the Paths meant for them (a module in no visible Path is hidden, like a
+    // draft), and lock state comes from those Paths' own order — the same
+    // rule GET /:id and the grading endpoints enforce.
+    const pathsSvc = require("../services/paths");
+    if (!isPrivilegedForLock && await pathsSvc.pathsEnabled()) {
+      const states = await pathsSvc.visiblePathStates(req);
+      const inPath = new Set();
+      const unlockedInPath = new Set();
+      states.forEach((s) => s.modules.forEach((m) => {
+        const id = m.module._id.toString();
+        inPath.add(id);
+        if (m.unlocked) unlockedInPath.add(id);
+      }));
+      const visibleData = dataWithPoints.filter((m) => inPath.has(m._id.toString()));
+      visibleData.forEach((m) => { m.locked = !unlockedInPath.has(m._id.toString()); });
+      return res.json({ success: true, data: visibleData });
+    }
+
     if (isPrivilegedForLock) {
       dataWithPoints.forEach((m) => { m.locked = false; });
     } else {
@@ -512,6 +534,7 @@ router.get("/:id", auth, async (req, res) => {
         userId: lockUserId,
         // Same chain the Learn page walks: only modules this user can see.
         isVisible: (m) => assertModuleViewAccess(m, req).ok,
+        req,
       });
       if (!unlocked) {
         return res.status(403).json({
@@ -1040,6 +1063,10 @@ router.delete("/:id", [auth, admin], async (req, res) => {
       });
     }
 
+    // 🧭 Take it out of every Path. Its bank questions are retired, not
+    // deleted — past Pre/Post attempts still reference them.
+    await mongoose.model("Path").updateMany({ moduleIds: module._id }, { $pull: { moduleIds: module._id } });
+    await mongoose.model("BankQuestion").updateMany({ moduleId: module._id }, { $set: { status: "retired" } });
     await module.deleteOne();
     return res.json({ success: true, message: "Purge execution resolved successfully." });
   } catch (err) {

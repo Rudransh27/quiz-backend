@@ -1403,6 +1403,7 @@ async function resolveAnalyticsUserScope(req) {
   const users = await User.find(query, '_id').lean();
   return { userIds: users.map((u) => u._id), deptId: query.department || null };
 }
+exports.resolveAnalyticsUserScope = resolveAnalyticsUserScope;
 
 // =========================================================================
 // CONTROLLER 9A: Admin — per-team analytics (mirrors getAdminDepartmentStats
