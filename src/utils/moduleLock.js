@@ -133,7 +133,12 @@ async function getUnlockedModuleIds({ modules, userId, sequentialUnlock }) {
 // should call getUnlockedModuleIds/computeModuleCompletionMap directly to
 // keep the whole catalog's lock computation to one query batch total.
 // =========================================================================
-async function isModuleUnlockedForUser({ moduleId, categoryId, userId }) {
+// `isVisible(moduleDoc) → boolean` (optional) restricts the chain to the
+// modules this user can actually see — the same set workspace-curriculum
+// walks. Without it, a module the user can never open (another
+// department's / team's / region's) would sit in the chain uncompleted and
+// lock every later module forever, while the Learn page shows them unlocked.
+async function isModuleUnlockedForUser({ moduleId, categoryId, userId, isVisible }) {
   // Defensive only — every module always resolves to a real categoryId via
   // resolveCategoryId() at write time; fail-open rather than lock a module
   // that somehow has no category to walk against.
@@ -143,10 +148,15 @@ async function isModuleUnlockedForUser({ moduleId, categoryId, userId }) {
   const sequentialUnlock = category ? category.sequentialUnlock !== false : true;
   if (!sequentialUnlock) return true;
 
-  const siblingModules = await Module.find(
+  let siblingModules = await Module.find(
     { categoryId },
-    "_id order hasTopics engineStrategy"
+    "_id order hasTopics engineStrategy visibility departments targetTeams regions"
   ).lean();
+  if (typeof isVisible === "function") {
+    siblingModules = siblingModules.filter(
+      (m) => m._id.toString() === moduleId.toString() || isVisible(m)
+    );
+  }
 
   const unlockedIds = await getUnlockedModuleIds({ modules: siblingModules, userId, sequentialUnlock });
   return unlockedIds.has(moduleId.toString());

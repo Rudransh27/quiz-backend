@@ -510,6 +510,8 @@ router.get("/:id", auth, async (req, res) => {
         moduleId: moduleData._id,
         categoryId: moduleData.categoryId,
         userId: lockUserId,
+        // Same chain the Learn page walks: only modules this user can see.
+        isVisible: (m) => assertModuleViewAccess(m, req).ok,
       });
       if (!unlocked) {
         return res.status(403).json({

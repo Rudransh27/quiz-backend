@@ -51,6 +51,7 @@ const assertModuleLearnerAccess = async (moduleData, req) => {
     moduleId: moduleData._id,
     categoryId: moduleData.categoryId,
     userId: contextUser.id || contextUser._id,
+    isVisible: (m) => assertModuleViewAccess(m, req).ok,
   });
   if (!unlocked) return { ok: false, status: 403, message: LOCKED_MESSAGE, locked: true };
   return { ok: true };

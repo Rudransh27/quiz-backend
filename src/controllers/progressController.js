@@ -1794,10 +1794,24 @@ exports.verifyDailyStreak = async (req, res) => {
       user.lastActiveDate = today;
 
       pointsAwarded = POINTS_BY_ACTION[actionType] || 0;
-      user.xp = (user.xp || 0) + pointsAwarded;
     }
 
     await user.save();
+
+    // 🔒 XP LEDGER: the day's streak payout is one ledger entry per user per
+    // day — a concurrent second verify for the same day can't pay twice.
+    let xpNow = user.xp;
+    if (pointsAwarded > 0) {
+      const award = await awardXp({
+        userId,
+        amount: pointsAwarded,
+        source: 'streak',
+        idempotencyKey: `streak:${userId}:${today}`,
+        meta: { actionType },
+      });
+      if (!award.awarded) pointsAwarded = 0;
+      xpNow = (user.xp || 0) + pointsAwarded;
+    }
 
     return res.status(200).json({
       success:            true,
@@ -1810,7 +1824,7 @@ exports.verifyDailyStreak = async (req, res) => {
       longestStreak:      user.longestStreak,
       lastActiveDate:     user.lastActiveDate,
       pointsAwarded,
-      xp:                 user.xp,
+      xp:                 xpNow,
     });
   } catch (err) {
     console.error('verifyDailyStreak error:', err.message);

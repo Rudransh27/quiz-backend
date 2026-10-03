@@ -138,11 +138,15 @@ router.put("/:ideaId/curate", [auth, admin], async (req, res) => {
 
       if (claimedAward) {
         console.log(`🚀 [XP Engine] Awarding +25 XP to User ID: ${originalIdea.userId} for approved innovation.`);
-        const User = require("../models/User");
-        await User.findByIdAndUpdate(
-          originalIdea.userId,
-          { $inc: { xp: 25 } } // Atomically increments user's XP profile field by 25 points
-        );
+        // 🔒 XP LEDGER: one award per idea, ever (idempotency key = idea id).
+        const { awardXp } = require("../services/xpLedger");
+        await awardXp({
+          userId: originalIdea.userId,
+          amount: 25,
+          source: "idea",
+          idempotencyKey: `idea:${ideaId}`,
+          sourceId: ideaId,
+        });
       }
     }
 

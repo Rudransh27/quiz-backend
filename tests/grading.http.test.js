@@ -179,6 +179,22 @@ describe('sequential lock and access', () => {
     expect((await authed(request(app).get(`/api/topics/cards/${quizB._id}`), learner)).status).toBe(403);
   });
 
+  test('a module the learner cannot see does not lock the rest of the chain', async () => {
+    // Another department's module sits between A and B in the same category.
+    const otherDept = await makeDepartment();
+    const hidden = await Module.create({ title: 'Other dept only', visibility: 'Departmental', departments: [otherDept._id], categoryId: category._id, engineStrategy: 'EXPRESS_FLAT', hasTopics: false, order: 0.5 });
+    // A card makes it a real, never-completable (for this learner) link in the chain.
+    await Card.create({ module_id: hidden._id, card_type: 'knowledge', cardOrder: 1, content: { text: 'x' } });
+    await attempt(learner, quizA, { answer: { selectedOption: 1 } });
+    await attempt(learner, quizA2, { answer: { selectedOption: 2 } });
+    // Learn page and grading must agree: B is unlocked for this learner.
+    const curriculum = await authed(request(app).get('/api/modules/workspace-curriculum'), learner);
+    const list = Array.isArray(curriculum.body) ? curriculum.body : (curriculum.body.modules || curriculum.body.data);
+    expect(list.find((m) => m.title === 'Module B').locked).toBe(false);
+    expect((await authed(request(app).get(`/api/modules/${modB._id}`), learner)).status).toBe(200);
+    expect((await attempt(learner, quizB, { answer: { selectedOption: 0 } })).status).toBe(200);
+  });
+
   test('a module outside the learner\'s department is not gradable', async () => {
     const otherDept = await makeDepartment();
     const privateMod = await Module.create({ title: 'Private', visibility: 'Departmental', departments: [otherDept._id], categoryId: null, engineStrategy: 'EXPRESS_FLAT', hasTopics: false });

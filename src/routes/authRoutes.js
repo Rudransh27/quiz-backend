@@ -73,12 +73,18 @@ const ALLOWED_EMAIL_DOMAINS = ["irisregtech.com", "irisbusiness.com"];
 // one-time "+25 XP on building" award) so two near-simultaneous requests
 // can't double-pay.
 async function claimDailyLoginBonus(userId, today) {
-  const updated = await User.findOneAndUpdate(
+  const claimed = await User.findOneAndUpdate(
     { _id: userId, lastLoginBonusDate: { $ne: today } },
-    { $set: { lastLoginBonusDate: today }, $inc: { xp: 1 } },
+    { $set: { lastLoginBonusDate: today } },
     { new: true }
   );
-  return updated ? { awarded: true, xp: updated.xp } : { awarded: false };
+  if (!claimed) return { awarded: false };
+  // 🔒 XP LEDGER: the +1 goes through the idempotent ledger (one key per
+  // user per day), like every other XP change.
+  const { awardXp } = require("../services/xpLedger");
+  await awardXp({ userId, amount: 1, source: "daily_login", idempotencyKey: `login:${userId}:${today}` });
+  const fresh = await User.findById(userId, "xp").lean();
+  return { awarded: true, xp: fresh?.xp ?? claimed.xp + 1 };
 }
 
 // 🔐 SESSION-BINDING COOKIE — closes the "capture a valid Superadmin JWT in

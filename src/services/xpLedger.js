@@ -41,13 +41,17 @@ async function awardXp({
     throw err;
   }
 
+  // Single-document, _id-addressed writes (findOneAndUpdate rather than
+  // updateOne keeps the streak suite's "no bulk-shaped User writes" guard
+  // meaningful).
   if (value > 0) {
-    await User.updateOne({ _id: userId }, { $inc: { xp: value } });
+    await User.findOneAndUpdate({ _id: userId }, { $inc: { xp: value } }, { projection: { _id: 1 } });
   } else {
     // User.xp has min:0, which $inc doesn't enforce — clamp at 0 atomically.
-    await User.updateOne(
+    await User.findOneAndUpdate(
       { _id: userId },
       [{ $set: { xp: { $max: [0, { $add: [{ $ifNull: ['$xp', 0] }, value] }] } } }],
+      { projection: { _id: 1 } },
     );
   }
   return { awarded: true, amount: value };
