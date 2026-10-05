@@ -56,7 +56,7 @@ function bindingFor(user) {
 // a forged/stale claim while the DB record stays the source of truth.
 function authForClaims(user, claimOverrides = {}) {
   const { bh, cookie } = bindingFor(user);
-  const token = signToken({ id: user._id.toString(), role: user.role, bh, ...claimOverrides });
+  const token = signToken({ id: user._id.toString(), role: user.role, bh, sessionId: crypto.randomUUID(), ...claimOverrides });
   return { token, cookie };
 }
 

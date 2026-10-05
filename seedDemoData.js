@@ -11,6 +11,11 @@
 //
 require("dotenv").config();
 const mongoose = require("mongoose");
+const crypto = require("crypto");
+
+// Demo accounts exist to populate leaderboards/analytics — nobody logs in as
+// them. Set SEED_DEMO_PASSWORD only if you need a known login for one.
+const DEMO_ACCOUNT_SECRET = process.env.SEED_DEMO_PASSWORD || crypto.randomBytes(24).toString("base64url");
 
 const Department = require("./src/models/Department");
 const Team = require("./src/models/Team");
@@ -59,7 +64,7 @@ async function ensureUser({ role, department, team, xp, verified = true }) {
   return User.create({
     username: p.username,
     email: p.email,
-    password: "Demo@1234",
+    password: DEMO_ACCOUNT_SECRET,
     role,
     department,
     team,
@@ -102,7 +107,7 @@ async function main() {
       let admin = existingAdmin;
       if (!admin) {
         admin = await ensureUser({ role: "admin", department: dept._id, team: team._id, xp: randInt(300, 1200) });
-        credentials.push(`${dept.code}/${team.code} admin  -> ${admin.email} / Demo@1234`);
+        credentials.push(`${dept.code}/${team.code} admin  -> ${admin.email}`);
       }
       const memberCount = randInt(5, 7);
       const members = [];
@@ -135,7 +140,7 @@ async function main() {
     let councilAdmin = await User.findOne({ team: council._id, role: "admin" });
     if (!councilAdmin) {
       councilAdmin = await ensureUser({ role: "admin", department: dept._id, team: council._id, xp: randInt(500, 1500) });
-      credentials.push(`${dept.code}/COUNCIL admin -> ${councilAdmin.email} / Demo@1234`);
+      credentials.push(`${dept.code}/COUNCIL admin -> ${councilAdmin.email}`);
     }
 
     deptContext.push({ dept, teams, teamMembers, council, councilAdmin });
@@ -368,10 +373,10 @@ async function main() {
   // Summary
   // ============================================================
   console.log("=".repeat(70));
-  console.log("DEMO DATA SEEDED. Sample login credentials (password: Demo@1234):");
+  console.log("DEMO DATA SEEDED. Sample admin accounts (password: SEED_DEMO_PASSWORD if you set it, otherwise random):");
   console.log("=".repeat(70));
   credentials.slice(0, 12).forEach((c) => console.log("  " + c));
-  console.log(`  ...and ${Math.max(0, credentials.length - 12)} more admin accounts (all password Demo@1234).`);
+  console.log(`  ...and ${Math.max(0, credentials.length - 12)} more admin accounts.`);
   console.log("\nYour existing superadmin account is unchanged — log in with that to see everything.");
 
   await mongoose.disconnect();

@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
 const DailyRead = require("../models/DailyRead"); // ✅ Synced matching collection model filename lookup
+const DailyReadOpen = require("../models/DailyReadOpen");
 const { handleError } = require("../utils/safeError");
 
 // 🗓️ UTC day-key helper — same "YYYY-MM-DD" convention User.engagementHistory
@@ -228,6 +229,36 @@ router.get("/by-date/:dateKey", auth, async (req, res) => {
     res.json({ success: true, data: read || null });
   } catch (err) {
     console.error("❌ Fetch Daily Read By Date Fault:", err.message);
+    handleError(res, err, 500);
+  }
+});
+
+// =========================================================================
+// 📖 7. POST /api/daily-reads/:id/open — the reader page calls this when an
+// article opens. Records the FIRST open per user, read and UTC day; the
+// streak check (services/streakProof.js) only accepts a "daily_read" claim
+// made at least the reading threshold after a real open.
+// =========================================================================
+router.post("/:id/open", auth, async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid read id." });
+    }
+    const read = await DailyRead.findById(req.params.id, "department").lean();
+    if (!read) return res.status(404).json({ success: false, message: "Read not found." });
+    if (req.user.role !== "superadmin"
+      && (!req.user.department || String(read.department) !== String(req.user.department))) {
+      return res.status(404).json({ success: false, message: "Read not found." });
+    }
+    const now = new Date();
+    const doc = await DailyReadOpen.findOneAndUpdate(
+      { user_id: req.user.id, read_id: read._id, dayKey: todayUtcKey() },
+      { $setOnInsert: { openedAt: now } },
+      { upsert: true, new: true }
+    ).lean();
+    return res.json({ success: true, openedAt: doc.openedAt });
+  } catch (err) {
+    if (err && err.code === 11000) return res.json({ success: true }); // concurrent first open
     handleError(res, err, 500);
   }
 });

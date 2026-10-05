@@ -7,6 +7,7 @@
 // Admin (reports — questions live in the module bank, tests in pathRoutes)
 //   GET    /admin/report?categoryId=&departmentId=&teamId=&format=csv   one row per Path
 //   GET    /admin/report/paths/:pathId?format=csv                       per learner + per module + per question
+//   POST   /admin/paths/:pathId/users/:userId/reset  { kind, reason }  undo one learner's Pre or Post so they retake it
 const express = require("express");
 const mongoose = require("mongoose");
 const rateLimit = require("express-rate-limit");
@@ -14,7 +15,9 @@ const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
 const Path = require("../models/Path");
 const Category = require("../models/Category");
+const AssessmentAttempt = require("../models/AssessmentAttempt");
 const assessments = require("../services/assessments");
+const { loadLearner, ReportError } = require("../services/learnerReport");
 const { assertModuleViewAccess } = require("../utils/moduleAccess");
 const { resolveAnalyticsUserScope } = require("../controllers/progressController");
 const { buildCsv } = require("../utils/csvBuilder");
@@ -29,7 +32,7 @@ const submitLimiter = rateLimit({
   message: { success: false, message: "Too many submissions. Please wait a moment." },
 });
 
-const sendError = (res, err) => (err instanceof assessments.AssessmentError
+const sendError = (res, err) => (err instanceof assessments.AssessmentError || err instanceof ReportError
   ? res.status(err.status).json({ success: false, message: err.message })
   : handleError(res, err, 500));
 
@@ -53,7 +56,10 @@ const fmt = (v) => (v === null || v === undefined ? "" : v);
 router.get("/admin/report", [auth, admin], async (req, res) => {
   try {
     const { userIds } = await resolveAnalyticsUserScope(req);
-    const filter = { "assessment.enabled": true };
+    // Paths with the check on, plus any that have attempts — switching a
+    // check off later must not hide the results already collected.
+    const taken = await AssessmentAttempt.aggregate([{ $group: { _id: "$pathId" } }]);
+    const filter = { $or: [{ "assessment.enabled": true }, { _id: { $in: taken.map((t) => t._id) } }] };
     if (req.query.categoryId && isValidId(req.query.categoryId)) filter.categoryId = req.query.categoryId;
     let list = await Path.find(filter).sort({ categoryId: 1, order: 1 }).lean();
     const cats = await Category.find({ _id: { $in: list.map((p) => p.categoryId) } }, "name visibility departments targetTeams regions").lean();
@@ -63,7 +69,7 @@ router.get("/admin/report", [auth, admin], async (req, res) => {
     const rows = [];
     for (const p of list) {
       const { summary } = await assessments.pathReport(p, userIds);
-      rows.push({ pathId: p._id, path: p.name, tag: catMap.get(String(p.categoryId))?.name || "", status: p.status, moduleCount: (p.moduleIds || []).length, ...summary });
+      rows.push({ pathId: p._id, path: p.name, tag: catMap.get(String(p.categoryId))?.name || "", status: p.status, assessmentEnabled: !!p.assessment?.enabled, moduleCount: (p.moduleIds || []).length, ...summary });
     }
     if (req.query.format === "csv") {
       return sendCsv(res, "pre-post-report.csv",
@@ -82,8 +88,10 @@ router.get("/admin/report/paths/:pathId", [auth, admin], async (req, res) => {
     const { learners, summary, byModule, byQuestion } = await assessments.pathReport(path.toObject(), userIds);
     const data = (await assessments.attachUsers(learners)).sort((a, b) => a.username.localeCompare(b.username));
     const statusOf = (l) => (l.postPercent !== null ? "Complete"
-      : l.modulesCompleted >= l.modulesTotal && l.modulesTotal > 0 ? "Post-check pending"
-        : "In progress");
+      : l.postResetPending ? "Post-check reset — retake pending"
+        : l.modulesCompleted >= l.modulesTotal && l.modulesTotal > 0 ? "Post-check pending"
+          : l.preResetPending ? "Pre-check reset — retake pending"
+            : "In progress");
     if (req.query.format === "csv") {
       return sendCsv(res, `pre-post-${path.name.replace(/[^\w-]+/g, "_")}.csv`,
         ["Name", "Email", "Department", "Team", "Pre %", "Post %", "Improvement (points)", "Modules completed", "Modules total", "Status", "Baseline"],
@@ -98,6 +106,22 @@ router.get("/admin/report/paths/:pathId", [auth, admin], async (req, res) => {
       data: data.map((l) => ({ ...l, status: statusOf(l) })),
     });
   } catch (err) { return handleError(res, err, 500); }
+});
+
+router.post("/admin/paths/:pathId/users/:userId/reset", [auth, admin], async (req, res) => {
+  try {
+    const { path, error } = await loadPathForAdmin(req, req.params.pathId);
+    if (error) return res.status(error[0]).json({ success: false, message: error[1] });
+    const learner = await loadLearner(req, req.params.userId);
+    const data = await assessments.resetAttempt({
+      adminId: req.user.id,
+      userId: learner._id,
+      pathId: path._id,
+      kind: req.body?.kind,
+      reason: req.body?.reason,
+    });
+    return res.json({ success: true, data });
+  } catch (err) { return sendError(res, err); }
 });
 
 // ---------------- learner ----------------

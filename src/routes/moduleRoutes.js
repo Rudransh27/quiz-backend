@@ -822,6 +822,9 @@ router.post("/", [auth, admin], async (req, res) => {
           content: {
             title: module.title,
             htmlSource: req.body.htmlSource || '',
+            // 🔒 Trusted = the module iframe keeps allow-same-origin (needed
+            // for embedded SharePoint video sign-in). Superadmin-only.
+            sandboxTrusted: req.user.role === 'superadmin' && req.body.sandboxTrusted === true,
             maxPoints: Number(req.body.maxPoints) || 10,
             baseTimeThresholdSec: Number(req.body.baseTimeThresholdSec) || 0,
             estimatedDurationMin: Number(req.body.estimatedDurationMin) || 0,
@@ -829,7 +832,8 @@ router.post("/", [auth, admin], async (req, res) => {
         });
       } catch (cardErr) {
         await module.deleteOne();
-        return res.status(400).json({ message: 'Failed to create sandbox card: ' + cardErr.message });
+        console.error('Sandbox card creation failed:', cardErr.message);
+        return res.status(400).json({ message: 'Failed to create the HTML module card. Check the HTML and try again.' });
       }
     }
 
@@ -993,7 +997,15 @@ router.put("/:id", [auth, admin], async (req, res) => {
       gradingSummary = keyCheck.summary;
     }
 
-    Object.assign(targetModule, req.body);
+    // 🔒 Never let the request body set ownership, identity or the
+    // platform-wide featured flags (those have their own superadmin-only
+    // routes below). Copying `createdBy` from the body used to let any admin
+    // make themselves a module's "creator" and then pass the ownership gate.
+    const PROTECTED_FIELDS = ["_id", "__v", "createdBy", "createdAt", "updatedAt", "isHotModule", "isPopular", "moduleType"];
+    const changes = Object.fromEntries(
+      Object.entries(req.body || {}).filter(([k]) => !PROTECTED_FIELDS.includes(k) && !k.startsWith("$")),
+    );
+    Object.assign(targetModule, changes);
     const updatedModule = await targetModule.save();
 
     if (isHtmlSandboxModule) {
@@ -1003,6 +1015,13 @@ router.put("/:id", [auth, admin], async (req, res) => {
       if (req.body.baseTimeThresholdSec !== undefined) cardContentUpdate['content.baseTimeThresholdSec'] = Number(req.body.baseTimeThresholdSec);
       if (req.body.estimatedDurationMin !== undefined) cardContentUpdate['content.estimatedDurationMin'] = Number(req.body.estimatedDurationMin);
       if (req.body.title !== undefined) cardContentUpdate['content.title'] = req.body.title;
+      // 🔒 Only a superadmin can (un)trust a module. If anyone else changes
+      // its HTML, the trust is dropped — a superadmin must re-approve it.
+      if (req.user.role === 'superadmin' && req.body.sandboxTrusted !== undefined) {
+        cardContentUpdate['content.sandboxTrusted'] = req.body.sandboxTrusted === true;
+      } else if (req.user.role !== 'superadmin' && req.body.htmlSource !== undefined) {
+        cardContentUpdate['content.sandboxTrusted'] = false;
+      }
 
       if (Object.keys(cardContentUpdate).length > 0) {
         await Card.findOneAndUpdate(
@@ -1032,6 +1051,13 @@ router.delete("/:id", [auth, admin], async (req, res) => {
         || (existingDeptIds.length === 1 && existingDeptIds[0] === req.user.department.toString());
       if (!isSolelyOwnDept) {
         return res.status(403).json({ message: "Forbidden: Deleting foreign department models is banned." });
+      }
+      // 🔒 A Global module is shared by every department — only its creator
+      // (or a superadmin) may delete it, since the purge below also wipes
+      // every learner's progress in it.
+      const isOwner = module.createdBy && module.createdBy.toString() === req.user.id.toString();
+      if (existingDeptIds.length === 0 && !isOwner) {
+        return res.status(403).json({ message: "Only this module's creator or a superadmin can delete a Global module." });
       }
     }
 
@@ -1084,6 +1110,10 @@ router.get("/:id/submissions", [auth, admin], progressController.exportModuleSub
 // =========================================================================
 router.patch("/:id/hot-module", [auth, admin], async (req, res) => {
   try {
+    // 🔒 Platform-wide flag — it changes what every department sees.
+    if (req.user.role !== "superadmin") {
+      return res.status(403).json({ message: "Only a superadmin can feature modules platform-wide." });
+    }
     const { isHotModule } = req.body;
     const target = await Module.findById(req.params.id);
     if (!target) return res.status(404).json({ message: "Module not found" });
@@ -1105,6 +1135,10 @@ router.patch("/:id/hot-module", [auth, admin], async (req, res) => {
 // =========================================================================
 router.patch("/:id/popular", [auth, admin], async (req, res) => {
   try {
+    // 🔒 Platform-wide flag — it changes what every department sees.
+    if (req.user.role !== "superadmin") {
+      return res.status(403).json({ message: "Only a superadmin can feature modules platform-wide." });
+    }
     const { isPopular } = req.body;
     const target = await Module.findById(req.params.id);
     if (!target) return res.status(404).json({ message: "Module not found" });

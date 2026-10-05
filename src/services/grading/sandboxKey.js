@@ -242,4 +242,35 @@ function extractSandboxKey(htmlSource) {
   }
 }
 
-module.exports = { extractSandboxKey, contentHashOf, SandboxKeyError };
+// ---------------------------------------------------------------------------
+// 🔒 Learner copy without the answers ("server feedback" modules)
+// ---------------------------------------------------------------------------
+// A module that declares <meta name="orbit-feedback" content="server"> asks
+// Orbit whether each answer is right (window.orbitCheck → the grading API)
+// instead of checking it in-page, so the copy a learner's browser receives
+// can have the key removed and nobody can read it in DevTools:
+//   • quizBank family: every data-correct="…" attribute;
+//   • literal question arrays (const Q = [...] / the option bank): each
+//     item's `correct` value becomes null.
+// The admin copy (and the server's answerKey) keep the full HTML.
+const SERVER_FEEDBACK_META = /<meta\s+[^>]*name\s*=\s*["']orbit-feedback["'][^>]*content\s*=\s*["']server["'][^>]*>/i;
+
+function usesServerFeedback(htmlSource) {
+  return typeof htmlSource === 'string' && SERVER_FEEDBACK_META.test(htmlSource);
+}
+
+function stripSandboxKey(htmlSource) {
+  let html = String(htmlSource || '').replace(/\sdata-correct\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  // Replace array literals back-to-front so earlier offsets stay valid.
+  const decls = findLiteralArrayDeclarations(html)
+    .filter((d) => Array.isArray(d.value) && d.value.some((item) => item && typeof item === 'object' && 'correct' in item))
+    .sort((a, b) => b.start - a.start);
+  decls.forEach((d) => {
+    const open = html.indexOf('[', d.start);
+    const cleaned = d.value.map((item) => (item && typeof item === 'object' && 'correct' in item ? { ...item, correct: null } : item));
+    html = html.slice(0, open) + JSON.stringify(cleaned) + html.slice(d.end);
+  });
+  return html;
+}
+
+module.exports = { extractSandboxKey, contentHashOf, SandboxKeyError, usesServerFeedback, stripSandboxKey };

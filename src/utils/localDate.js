@@ -12,11 +12,17 @@
 
 const LOCAL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-function resolveClientToday(localDateInput) {
+// 🔒 The client's date is only trusted within ±1 day of the server's UTC
+// date (every real timezone, UTC−12…UTC+14, falls inside that). Anything
+// else — e.g. replaying "2001-01-01", "2001-01-02", … to farm the
+// once-per-day login bonus or forge a streak — falls back to the server date.
+function resolveClientToday(localDateInput, now = new Date()) {
+  const serverToday = now.toISOString().split('T')[0];
   if (typeof localDateInput === 'string' && LOCAL_DATE_RE.test(localDateInput)) {
-    return localDateInput;
+    const allowed = [shiftDateKey(serverToday, -1), serverToday, shiftDateKey(serverToday, 1)];
+    if (allowed.includes(localDateInput)) return localDateInput;
   }
-  return new Date().toISOString().split('T')[0];
+  return serverToday;
 }
 
 // Pure calendar-day arithmetic on a "YYYY-MM-DD" key — anchored at UTC

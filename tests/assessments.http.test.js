@@ -19,6 +19,7 @@ const AssessmentForm = require('../src/models/AssessmentForm');
 const AssessmentAttempt = require('../src/models/AssessmentAttempt');
 const XpTransaction = require('../src/models/XpTransaction');
 const UserCardProgress = require('../src/models/UserCardProgress');
+const AssessmentReset = require('../src/models/AssessmentReset');
 const { invalidatePathsEnabled } = require('../src/services/paths');
 
 jest.setTimeout(60000);
@@ -28,7 +29,7 @@ let app;
 function authed(req, user) {
   const bindingSecret = crypto.randomBytes(32).toString('hex');
   const bh = crypto.createHash('sha256').update(bindingSecret).digest('hex');
-  const token = jwt.sign({ user: { id: user._id.toString(), role: user.role, bh } }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({ user: { id: user._id.toString(), role: user.role, bh, sessionId: crypto.randomUUID() } }, process.env.JWT_SECRET, { expiresIn: '1h' });
   return req.set('Authorization', `Bearer ${token}`).set('Cookie', `orbit_bind=${bindingSecret}`);
 }
 const get = (u, url) => authed(request(app).get(url), u);
@@ -202,4 +203,76 @@ test('admin report: averages, per learner, per module and per question; departme
 
   const csv = await get(admin, '/api/assessments/admin/report?format=csv');
   expect(csv.text.split('\r\n')[1]).toMatch(/^FR,FR Path,published,2,1,1,1,1,50,100,50,1,0$/);
+});
+
+// ---------------- admin reset ----------------
+const resetUrl = (u = learner) => `/api/assessments/admin/paths/${path._id}/users/${u._id}/reset`;
+
+test('admin reset of a Post: attempt removed and logged, learner retakes it, no second XP award', async () => {
+  await take(learner, 'pre', 1);
+  await finishModules();
+  await take(learner, 'post', 2);
+  const xpBefore = (await User.findById(learner._id).lean()).xp;
+
+  const res = await post(admin, resetUrl(), { kind: 'post', reason: 'Submitted by mistake' });
+  expect(res.status).toBe(200);
+  expect(await AssessmentAttempt.countDocuments({ kind: 'post' })).toBe(0);
+  expect(await AssessmentReset.findOne().lean()).toMatchObject({
+    kind: 'post', status: 'pending', reason: 'Submitted by mistake',
+    previous: { score: 2, maxScore: 4, percent: 50, formVersion: 1, xpAwarded: 10 },
+  });
+  const detail = await get(admin, `/api/assessments/admin/report/paths/${path._id}`);
+  expect(detail.body.data[0]).toMatchObject({ postPercent: null, postResetPending: true });
+
+  const { res: retake } = await take(learner, 'post', 4);
+  expect(retake.status).toBe(201);
+  expect(retake.body.data).toMatchObject({ percent: 100, prePercent: 25, improvement: 75, xpChange: 0 });
+  expect((await User.findById(learner._id).lean()).xp).toBe(xpBefore);
+  expect(await XpTransaction.countDocuments({ source: 'assessment' })).toBe(1);
+  expect(await AssessmentReset.findOne().lean()).toMatchObject({ status: 'retaken' });
+});
+
+test('a Pre can only be reset once the Post is reset', async () => {
+  await take(learner, 'pre', 1);
+  await finishModules();
+  await take(learner, 'post', 2);
+  const res = await post(admin, resetUrl(), { kind: 'pre' });
+  expect(res.status).toBe(409);
+  expect(res.body.message).toMatch(/Post-check first/);
+  expect(await AssessmentAttempt.countDocuments()).toBe(2);
+  expect(await AssessmentReset.countDocuments()).toBe(0);
+});
+
+test('a reset Pre is asked for again even after the learner started modules, and gates the path', async () => {
+  await take(learner, 'pre', 1);
+  await post(learner, `/api/grading/cards/${cards[0]._id}/attempt`, { answer: { selectedOption: 0 } });
+  expect((await post(admin, resetUrl(), { kind: 'pre' })).status).toBe(200);
+
+  const pre = await get(learner, `/api/assessments/paths/${path._id}/pre`);
+  expect(pre.body.data.available).toBe(true); // not "skipped (no baseline)"
+  const blocked = await post(learner, `/api/grading/cards/${cards[1]._id}/attempt`, { answer: { selectedOption: 0 } });
+  expect(blocked.status).toBe(403);
+
+  await take(learner, 'pre', 3);
+  expect(await AssessmentAttempt.findOne({ kind: 'pre' }).lean()).toMatchObject({ score: 3 });
+  expect(await AssessmentReset.findOne().lean()).toMatchObject({ kind: 'pre', status: 'retaken', previous: { score: 1 } });
+  expect((await post(learner, `/api/grading/cards/${cards[1]._id}/attempt`, { answer: { selectedOption: 0 } })).status).toBe(200);
+});
+
+test('reset: nothing to reset, bad kind, learner outside the admin department', async () => {
+  expect((await post(admin, resetUrl(), { kind: 'post' })).status).toBe(404);
+  await take(learner, 'pre', 1);
+  expect((await post(admin, resetUrl(), { kind: 'everything' })).status).toBe(400);
+  await post(otherLearner, `/api/assessments/paths/${path._id}/pre`, { answers: [] });
+  expect((await post(admin, resetUrl(otherLearner), { kind: 'pre' })).status).toBe(403);
+  expect((await post(learner, resetUrl(), { kind: 'pre' })).status).toBe(403);
+  expect(await AssessmentAttempt.countDocuments()).toBe(2);
+});
+
+test('switching the check off keeps its results in the report', async () => {
+  await take(learner, 'pre', 2);
+  await Path.updateOne({ _id: path._id }, { $set: { 'assessment.enabled': false } });
+  const report = await get(admin, '/api/assessments/admin/report');
+  expect(report.body.data).toHaveLength(1);
+  expect(report.body.data[0]).toMatchObject({ path: 'FR Path', preDone: 1, assessmentEnabled: false });
 });

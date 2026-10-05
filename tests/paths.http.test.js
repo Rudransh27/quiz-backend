@@ -31,7 +31,7 @@ let app;
 function authed(req, user) {
   const bindingSecret = crypto.randomBytes(32).toString('hex');
   const bh = crypto.createHash('sha256').update(bindingSecret).digest('hex');
-  const token = jwt.sign({ user: { id: user._id.toString(), role: user.role, bh } }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({ user: { id: user._id.toString(), role: user.role, bh, sessionId: crypto.randomUUID() } }, process.env.JWT_SECRET, { expiresIn: '1h' });
   return req.set('Authorization', `Bearer ${token}`).set('Cookie', `orbit_bind=${bindingSecret}`);
 }
 const get = (user, url) => authed(request(app).get(url), user);
@@ -90,6 +90,7 @@ describe('learner navigation', () => {
     const tags = await get(learner, '/api/learn/tags');
     expect(tags.body.data).toHaveLength(1);
     expect(tags.body.data[0]).toMatchObject({ name: 'Financial Reporting', pathCount: 1, moduleCount: 3 });
+    expect(tags.body.paths.map((x) => [x.name, x.categoryId, x.moduleCount, x.percent])).toEqual([['FR – India', tag._id.toString(), 3, 0]]);
 
     const list = await get(learner, `/api/learn/tags/${tag._id}/paths`);
     expect(list.body.data.map((x) => x.name)).toEqual(['FR – India']);
@@ -131,6 +132,7 @@ describe('learner navigation', () => {
 
     const names = (await get(learner, `/api/learn/tags/${tag._id}/paths`)).body.data.map((x) => x.name);
     expect(names).toEqual(['Mine']);
+    expect((await get(learner, '/api/learn/tags')).body.paths.map((x) => x.name)).toEqual(['Mine']);
     expect((await get(learner, `/api/learn/paths/${draft._id}`)).status).toBe(404);
     expect((await get(superadmin, `/api/learn/paths/${draft._id}`)).status).toBe(200); // admin preview
   });
@@ -139,7 +141,9 @@ describe('learner navigation', () => {
     const other = await makeDepartment();
     const privateMod = await Module.create({ ...flat, title: 'Private', visibility: 'Departmental', departments: [other._id], categoryId: tag._id });
     await publishPath({ name: 'Only private', moduleIds: [privateMod._id] });
-    expect((await get(learner, '/api/learn/tags')).body.data).toHaveLength(0);
+    const none = (await get(learner, '/api/learn/tags')).body;
+    expect(none.data).toHaveLength(0);
+    expect(none.paths).toHaveLength(0);
   });
 
   test('a shared module completed once counts in every Path that contains it', async () => {

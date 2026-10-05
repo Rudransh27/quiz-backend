@@ -17,6 +17,12 @@
 //   Remove it after the engagement is done:
 //     node createVaptTestUser.js --delete --email=vapt.test@irisregtech.com
 //
+// The password is NEVER printed or written to disk. To hand the account to a
+// VAPT team, choose the password yourself and pass it in the environment:
+//     VAPT_TEST_PASSWORD='<strong password>' node createVaptTestUser.js
+// Without it, a random password is set that nobody knows (fine for automated
+// tests that mint a session token directly).
+//
 require("dotenv").config();
 const crypto = require("crypto");
 const mongoose = require("mongoose");
@@ -38,10 +44,11 @@ function parseArgs() {
   };
 }
 
-function generatePassword() {
-  // base64url -> letters, digits, "-", "_" only (no ambiguous quoting issues
-  // when this gets pasted into a terminal or a ticket).
-  return crypto.randomBytes(15).toString("base64url");
+function resolveInitialSecret() {
+  const provided = process.env.VAPT_TEST_PASSWORD;
+  if (provided && provided.length >= 12) return { value: provided, fromEnv: true };
+  if (provided) throw new Error("VAPT_TEST_PASSWORD must be at least 12 characters.");
+  return { value: crypto.randomBytes(24).toString("base64url"), fromEnv: false };
 }
 
 async function main() {
@@ -75,12 +82,12 @@ async function main() {
     return;
   }
 
-  const password = generatePassword();
+  const initialSecret = resolveInitialSecret();
 
   const user = new User({
     username,
     email: normalizedEmail,
-    password, // hashed by the User model's pre-save hook
+    password: initialSecret.value, // hashed by the User model's pre-save hook
     role,
     authProvider: "local",
     isVerified: true, // skips the OTP step — nobody should be reading this inbox
@@ -91,7 +98,9 @@ async function main() {
 
   console.log("=== VAPT test account created ===");
   console.log(`  Email    : ${normalizedEmail}`);
-  console.log(`  Password : ${password}`);
+  console.log(initialSecret.fromEnv
+    ? "  Password : (the value you supplied in VAPT_TEST_PASSWORD)"
+    : "  Password : random and not shown — set VAPT_TEST_PASSWORD to choose one");
   console.log(`  Role     : ${role}`);
   console.log(`  Dept     : ${department.name} (${department.code})`);
   console.log("\nHand these to the VAPT team over a secure channel (not plaintext chat/email).");

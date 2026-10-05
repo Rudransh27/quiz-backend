@@ -11,9 +11,11 @@ const { handleError } = require("../utils/safeError");
 // @route   POST /api/ideas
 // =========================================================================
 router.post("/", auth, async (req, res) => {
-  const { title, details, userName, userEmail, tag } = req.body;
+  // The author's name/email come from their account, never the request —
+  // otherwise the council board could show a forged author.
+  const { title, details, tag } = req.body;
 
-  if (!title || !details || !tag) {
+  if (typeof title !== "string" || typeof details !== "string" || !title.trim() || !details.trim() || !tag) {
     return res.status(400).json({ success: false, message: "Missing required parameters." });
   }
 
@@ -27,11 +29,14 @@ router.post("/", auth, async (req, res) => {
       return res.status(400).json({ success: false, message: "Tenant Error: User profile has no assigned department." });
     }
 
+    const author = await mongoose.model("User").findById(userId).select("username email").lean();
+    if (!author) return res.status(401).json({ success: false, message: "User not found." });
+
     const newIdea = new Idea({
       title: title.trim(),
       details: details.trim(),
-      userName: userName.trim(),
-      userEmail: userEmail.trim(),
+      userName: author.username,
+      userEmail: author.email,
       tag,
       userId,
       departmentId: new mongoose.Types.ObjectId(departmentId.toString())

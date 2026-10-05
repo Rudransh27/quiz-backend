@@ -15,6 +15,7 @@ const Path = require("../models/Path");
 const Module = require("../models/Module");
 const UserCardProgress = require("../models/UserCardProgress");
 const AssessmentAttempt = require("../models/AssessmentAttempt");
+const AssessmentReset = require("../models/AssessmentReset");
 const { computeModuleCompletionMap } = require("../utils/moduleLock");
 const { assertModuleViewAccess } = require("../utils/moduleAccess");
 const { toIdArray } = require("../utils/scopeHelpers");
@@ -83,9 +84,10 @@ async function computePathStates(req, paths) {
   const visibleSet = new Set(visibleModules.map((m) => m._id.toString()));
 
   const pathIds = paths.map((p) => p._id);
-  const [completionMap, attempts, touched] = await Promise.all([
+  const [completionMap, attempts, preResets, touched] = await Promise.all([
     computeModuleCompletionMap({ modules: visibleModules, userId }),
     AssessmentAttempt.find({ user_id: userId, pathId: { $in: pathIds } }, "pathId kind percent score maxScore createdAt").lean(),
+    AssessmentReset.find({ user_id: userId, pathId: { $in: pathIds }, kind: "pre", status: "pending" }, "pathId").lean(),
     // aggregate, not distinct: the server connects with the Stable API in
     // strict mode (config/db.js), where `distinct` is not allowed.
     allIds.length
@@ -97,6 +99,7 @@ async function computePathStates(req, paths) {
   ]);
   const touchedSet = new Set(touched.map((t) => idStr(t._id)));
   const attemptBy = new Map(attempts.map((a) => [`${a.pathId}:${a.kind}`, a]));
+  const preRetake = new Set(preResets.map((r) => idStr(r.pathId)));
 
   return paths.map((path) => {
     const mods = (path.moduleIds || []).map(idStr).filter((id) => visibleSet.has(id)).map((id) => moduleMap.get(id));
@@ -104,8 +107,9 @@ async function computePathStates(req, paths) {
     const post = attemptBy.get(`${path._id}:post`) || null;
     const assessmentOn = !!path.assessment?.enabled;
     // Learners who already had progress in this Path's modules when its
-    // assessment started (e.g. before launch) skip Pre: "no baseline".
-    const noBaseline = assessmentOn && !pre && mods.some((m) => touchedSet.has(m._id.toString()));
+    // assessment started (e.g. before launch) skip Pre: "no baseline" —
+    // unless an admin reset their Pre-check, which asks for it again.
+    const noBaseline = assessmentOn && !pre && !preRetake.has(idStr(path._id)) && mods.some((m) => touchedSet.has(m._id.toString()));
     const preRequired = assessmentOn && !pre && !noBaseline;
 
     let unlocked;

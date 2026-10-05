@@ -31,6 +31,14 @@ const axios = require('axios');
 const { connect, closeDatabase, clearCollections } = require('./setup/inMemoryMongo');
 const { makeUser } = require('./setup/fixtures');
 const User = require('../src/models/User');
+const crypto = require('crypto');
+
+// Credentials are generated per run — no literal passwords in source.
+const randomSecret = (tag) => `${tag}-${crypto.randomBytes(9).toString('base64url')}-9a`;
+const GOOD_PW = randomSecret('Good');
+const OTHER_GOOD_PW = randomSecret('Other');
+const BAD_PW = randomSecret('Bad');
+const GUESSES = [randomSecret('G1'), randomSecret('G2'), randomSecret('G3'), GOOD_PW, randomSecret('G5')];
 
 jest.mock('axios');
 
@@ -80,8 +88,8 @@ afterEach(async () => {
 
 describe('POST /api/auth/login — CAPTCHA is mandatory on every attempt', () => {
   test('a request with no captchaToken is rejected before the password is even checked — even with the CORRECT password', async () => {
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
-    const res = await loginReq({ email: user.email, password: 'CorrectHorseBattery1' });
+    const user = await makeUser({ password: GOOD_PW });
+    const res = await loginReq({ email: user.email, password: GOOD_PW });
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/CAPTCHA/i);
@@ -93,9 +101,9 @@ describe('POST /api/auth/login — CAPTCHA is mandatory on every attempt', () =>
 
   test('a token Google rejects (expired/already-used/invalid) is treated as no CAPTCHA at all', async () => {
     axios.post.mockResolvedValue({ data: { success: false } });
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
+    const user = await makeUser({ password: GOOD_PW });
 
-    const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'CorrectHorseBattery1' });
+    const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: GOOD_PW });
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/CAPTCHA/i);
@@ -117,8 +125,8 @@ describe('POST /api/auth/login — CAPTCHA is mandatory on every attempt', () =>
       return { data: { success: true } };
     });
 
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
-    const wordlist = ['password1', 'letmein', 'qwerty123', 'CorrectHorseBattery1', 'admin123'];
+    const user = await makeUser({ password: GOOD_PW });
+    const wordlist = GUESSES;
 
     const results = [];
     for (const password of wordlist) {
@@ -140,15 +148,15 @@ describe('POST /api/auth/login — CAPTCHA is mandatory on every attempt', () =>
 
 describe('POST /api/auth/login — per-account lockout (CAPTCHA satisfied)', () => {
   test('correct credentials succeed under normal conditions', async () => {
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
-    const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'CorrectHorseBattery1' });
+    const user = await makeUser({ password: GOOD_PW });
+    const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: GOOD_PW });
     expect(res.status).toBe(200);
     expect(res.body.token).toBeTruthy();
   });
 
   test('a single incorrect password is rejected without any lockout side effect', async () => {
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
-    const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'WrongPassword!' });
+    const user = await makeUser({ password: GOOD_PW });
+    const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: BAD_PW });
     expect(res.status).toBe(400);
 
     const fresh = await User.findById(user._id).select('+failedLoginAttempts +lockUntil');
@@ -157,9 +165,9 @@ describe('POST /api/auth/login — per-account lockout (CAPTCHA satisfied)', () 
   });
 
   test('a small number of failed attempts (below threshold) behaves normally — no lockout yet', async () => {
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
+    const user = await makeUser({ password: GOOD_PW });
     for (let i = 0; i < 3; i++) {
-      const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'WrongPassword!' });
+      const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: BAD_PW });
       expect(res.status).toBe(400);
     }
     const fresh = await User.findById(user._id).select('+failedLoginAttempts +lockUntil');
@@ -167,15 +175,15 @@ describe('POST /api/auth/login — per-account lockout (CAPTCHA satisfied)', () 
     expect(fresh.lockUntil).toBeNull();
 
     // The account isn't locked yet — the correct password still works.
-    const goodRes = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'CorrectHorseBattery1' });
+    const goodRes = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: GOOD_PW });
     expect(goodRes.status).toBe(200);
   });
 
   test('locks the account after 5 consecutive wrong passwords, and rejects even the correct password while locked', async () => {
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
+    const user = await makeUser({ password: GOOD_PW });
 
     for (let i = 0; i < 5; i++) {
-      const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'WrongPassword!' });
+      const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: BAD_PW });
       expect(res.status).toBe(400);
     }
 
@@ -187,7 +195,7 @@ describe('POST /api/auth/login — per-account lockout (CAPTCHA satisfied)', () 
     expect(afterFiveFails.failedLoginAttempts).toBe(0);
 
     // The account's real, correct password must still be rejected while locked.
-    const lockedAttempt = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'CorrectHorseBattery1' });
+    const lockedAttempt = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: GOOD_PW });
     expect(lockedAttempt.status).toBe(423);
 
     // The lockout must not be indefinite — it carries a bounded expiry.
@@ -196,25 +204,25 @@ describe('POST /api/auth/login — per-account lockout (CAPTCHA satisfied)', () 
   }, 20000);
 
   test('the lockout expires on its own — a correct password succeeds again once it has passed', async () => {
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
+    const user = await makeUser({ password: GOOD_PW });
     // Simulate having already tripped the lock and the window having
     // elapsed, rather than waiting 15 real minutes in a test.
     await User.updateOne({ _id: user._id }, { $set: { lockUntil: new Date(Date.now() - 1000), failedLoginAttempts: 0 } });
 
-    const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'CorrectHorseBattery1' });
+    const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: GOOD_PW });
     expect(res.status).toBe(200);
   });
 
   test('a successful login resets any prior failed-attempt count', async () => {
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
+    const user = await makeUser({ password: GOOD_PW });
 
-    await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'nope' });
-    await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'nope' });
+    await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: BAD_PW });
+    await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: BAD_PW });
 
     const midway = await User.findById(user._id).select('+failedLoginAttempts');
     expect(midway.failedLoginAttempts).toBe(2);
 
-    const goodRes = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'CorrectHorseBattery1' });
+    const goodRes = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: GOOD_PW });
     expect(goodRes.status).toBe(200);
 
     const afterSuccess = await User.findById(user._id).select('+failedLoginAttempts +lockUntil');
@@ -223,23 +231,23 @@ describe('POST /api/auth/login — per-account lockout (CAPTCHA satisfied)', () 
   }, 15000);
 
   test('a nonexistent email is rejected without touching any account lockout state', async () => {
-    const res = await loginReq({ ...SOLVED_CAPTCHA, email: 'nobody@irisregtech.com', password: 'whatever' });
+    const res = await loginReq({ ...SOLVED_CAPTCHA, email: 'nobody@irisregtech.com', password: BAD_PW });
     expect(res.status).toBe(400);
   });
 
   test('does not reveal account existence: wrong password vs. nonexistent email look identical', async () => {
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
-    const wrongPwRes = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'WrongPassword!' });
-    const noAccountRes = await loginReq({ ...SOLVED_CAPTCHA, email: 'nobody@irisregtech.com', password: 'WrongPassword!' });
+    const user = await makeUser({ password: GOOD_PW });
+    const wrongPwRes = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: BAD_PW });
+    const noAccountRes = await loginReq({ ...SOLVED_CAPTCHA, email: 'nobody@irisregtech.com', password: BAD_PW });
 
     expect(wrongPwRes.status).toBe(noAccountRes.status);
     expect(wrongPwRes.body.message).toBe(noAccountRes.body.message);
   });
 
   test('the lockout is temporary, not permanent — an attacker cannot permanently deny the real owner access', async () => {
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
+    const user = await makeUser({ password: GOOD_PW });
     for (let i = 0; i < 5; i++) {
-      await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'WrongPassword!' });
+      await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: BAD_PW });
     }
     const locked = await User.findById(user._id).select('+lockUntil');
     expect(locked.lockUntil).not.toBeNull();
@@ -249,11 +257,11 @@ describe('POST /api/auth/login — per-account lockout (CAPTCHA satisfied)', () 
   }, 20000);
 
   test('two accounts are isolated — locking one does not affect, and is not affected by, the other', async () => {
-    const userA = await makeUser({ password: 'CorrectHorseBattery1' });
-    const userB = await makeUser({ password: 'AnotherGoodPassword2' });
+    const userA = await makeUser({ password: GOOD_PW });
+    const userB = await makeUser({ password: OTHER_GOOD_PW });
 
     for (let i = 0; i < 5; i++) {
-      await loginReq({ ...SOLVED_CAPTCHA, email: userA.email, password: 'WrongPassword!' });
+      await loginReq({ ...SOLVED_CAPTCHA, email: userA.email, password: BAD_PW });
     }
 
     const freshA = await User.findById(userA._id).select('+lockUntil');
@@ -263,12 +271,12 @@ describe('POST /api/auth/login — per-account lockout (CAPTCHA satisfied)', () 
     expect(freshB.failedLoginAttempts).toBe(0);
 
     // B's own correct password still works — unaffected by A's lockout.
-    const resB = await loginReq({ ...SOLVED_CAPTCHA, email: userB.email, password: 'AnotherGoodPassword2' });
+    const resB = await loginReq({ ...SOLVED_CAPTCHA, email: userB.email, password: OTHER_GOOD_PW });
     expect(resB.status).toBe(200);
   }, 20000);
 
   test('concurrent failed attempts cannot bypass the lockout threshold via a race condition', async () => {
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
+    const user = await makeUser({ password: GOOD_PW });
 
     // 8 simultaneous wrong-password requests against a 5-attempt threshold —
     // if the counter increment weren't atomic, more than 5 "wrong password"
@@ -276,7 +284,7 @@ describe('POST /api/auth/login — per-account lockout (CAPTCHA satisfied)', () 
     // could drift. MongoDB's $inc (used in authRoutes.js) is atomic per
     // document, so each request gets a distinct, race-free increment.
     const attempts = await Promise.all(
-      Array.from({ length: 8 }, () => loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'WrongPassword!' })),
+      Array.from({ length: 8 }, () => loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: BAD_PW })),
     );
 
     attempts.forEach((res) => expect([400, 423]).toContain(res.status));
@@ -293,18 +301,18 @@ describe('POST /api/auth/login — per-account lockout (CAPTCHA satisfied)', () 
 
     // Correct password must still be rejected — no race let a guess slip
     // through as authenticated before/while the lock was being set.
-    const afterRace = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'CorrectHorseBattery1' });
+    const afterRace = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: GOOD_PW });
     expect(afterRace.status).toBe(423);
   }, 20000);
 });
 
 describe('POST /api/auth/login — IP-based rate limiting (complements the per-account lockout)', () => {
   test('the 11th login request from one source within the window is rate-limited with 429', async () => {
-    const user = await makeUser({ password: 'CorrectHorseBattery1' });
+    const user = await makeUser({ password: GOOD_PW });
 
     let lastRes;
     for (let i = 0; i < 11; i++) {
-      lastRes = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: 'WrongPassword!' });
+      lastRes = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: BAD_PW });
     }
 
     expect(lastRes.status).toBe(429);
@@ -318,7 +326,7 @@ describe('POST /api/auth/login — IP-based rate limiting (complements the per-a
 
     let lastRes;
     for (const email of usernames) {
-      lastRes = await loginReq({ ...SOLVED_CAPTCHA, email, password: 'whatever' });
+      lastRes = await loginReq({ ...SOLVED_CAPTCHA, email, password: BAD_PW });
     }
 
     expect(lastRes.status).toBe(429);

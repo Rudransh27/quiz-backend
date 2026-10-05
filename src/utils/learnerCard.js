@@ -15,8 +15,15 @@
 // Admins/superadmins (content authors) keep the full content so the
 // authoring screens that read these routes keep working.
 const { readQuizContent } = require('../services/grading/answerKey');
+const { usesServerFeedback, stripSandboxKey } = require('../services/grading/sandboxKey');
 
 const isAuthorRole = (req) => req?.user?.role === 'admin' || req?.user?.role === 'superadmin';
+
+// 🔒 "Server feedback" HTML modules reach learners without their answer key
+// (see services/grading/sandboxKey.js stripSandboxKey); authors get it all.
+function learnerHtml(html, includeAnswers) {
+  return !includeAnswers && usesServerFeedback(html) ? stripSandboxKey(html) : html;
+}
 
 function normalizeCardForClient(card, { includeAnswers }) {
   const contentObj = card.content || {};
@@ -27,7 +34,7 @@ function normalizeCardForClient(card, { includeAnswers }) {
     ...contentObj,
     title: contentObj.title || '',
     text: contentObj.text || '',
-    htmlSource: card.card_type === 'html_sandbox' ? (contentObj.htmlSource || contentObj.text || '') : '',
+    htmlSource: card.card_type === 'html_sandbox' ? learnerHtml(contentObj.htmlSource || contentObj.text || '', includeAnswers) : '',
     options: (quiz ? quiz.options : contentObj.options) || [],
   };
 

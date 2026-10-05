@@ -2,6 +2,7 @@
 //
 // Learner-facing Learn navigation: Tag → Path → modules.
 //   GET /api/learn/tags                 Tags with ≥1 Path visible to this learner
+//                                       (+ `paths`: every visible Path, with progress)
 //   GET /api/learn/tags/:id/paths       those Paths, with this learner's progress
 //   GET /api/learn/paths/:id            one Path: ordered modules + lock/progress + Pre/Post state
 //   GET /api/learn/legacy-path          ?categoryId=&regionId= → the Path an old
@@ -70,9 +71,14 @@ router.get("/tags", auth, async (req, res) => {
           completedModuleCount: agg.completed.size,
         };
       });
+    // Every visible Path too (same summaries as /tags/:id/paths), so the
+    // Learn page can show and filter Paths by Tag without a request per Tag.
+    // Only Paths whose Tag passed the access check above are included.
+    const allowed = new Set(data.map((c) => c._id.toString()));
+    const pathList = states.filter((s) => allowed.has(s.path.categoryId.toString())).map(summarizePathState);
     // pathsEnabled=false (no Path published yet) lets the Learn page fall
     // back to the old Tag → Region flow instead of showing nothing.
-    return res.json({ success: true, pathsEnabled: await paths.pathsEnabled(), data });
+    return res.json({ success: true, pathsEnabled: await paths.pathsEnabled(), data, paths: pathList });
   } catch (err) {
     return handleError(res, err, 500);
   }

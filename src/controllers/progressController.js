@@ -19,6 +19,7 @@ const mongoose = require('mongoose');
 const UserCardGeneration = require('../models/UserCardGeneration');
 const { awardXp, ledgerNetForCard } = require('../services/xpLedger');
 const { buildAnswerKey } = require('../services/grading/answerKey');
+const { hasActivityProof } = require('../services/streakProof');
 
 /*
  * STANDARD HTML SANDBOX postMessage FORMAT
@@ -1382,22 +1383,27 @@ async function distinctValues(Model, field, match) {
 // =========================================================================
 // Shared scoping helper for the "real analytics" endpoints below — resolves
 // which verified user _ids a request is allowed to see, honoring the
-// optional ?teamId= query param (mirrors the existing pattern already used
-// by GET /api/users/count-verified).
+// optional ?teamId= and ?regionId= query params (mirrors the existing
+// pattern already used by GET /api/users/count-verified).
 // =========================================================================
 async function resolveAnalyticsUserScope(req) {
   const isSuperAdmin = req.user.role === 'superadmin';
   const query = { isVerified: true };
 
+  const validId = (v) => /^[a-f0-9]{24}$/i.test(String(v || ''));
+
   if (!isSuperAdmin) {
     if (!req.user.department) return { userIds: [], deptId: null };
     query.department = req.user.department;
-  } else if (req.query.departmentId) {
+  } else if (validId(req.query.departmentId)) {
     query.department = req.query.departmentId;
   }
 
-  if (req.query.teamId) {
+  if (validId(req.query.teamId)) {
     query.team = req.query.teamId;
+  }
+  if (validId(req.query.regionId)) {
+    query.regions = req.query.regionId;
   }
 
   const users = await User.find(query, '_id').lean();
@@ -1756,6 +1762,14 @@ exports.verifyDailyStreak = async (req, res) => {
     // to the wrong calendar date for hours at a time for any user not at
     // UTC+0, see utils/localDate.js.
     const today = resolveClientToday(localDate);
+
+    // 🔒 The action must have really happened (server-side record from the
+    // last day) — the client's word alone no longer counts. See
+    // services/streakProof.js.
+    const proof = await hasActivityProof(userId, actionType);
+    if (!proof.ok) {
+      return res.status(409).json({ success: false, message: proof.message, streakIncremented: false, pointsAwarded: 0 });
+    }
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
@@ -2124,11 +2138,17 @@ exports.resetModuleProgress = async (req, res) => {
     const userId = req.user.id;
     const { moduleId, topicId } = req.body;
 
-    if (!moduleId) {
+    // 🔒 Ids only — an object such as {"$ne": null} would otherwise match
+    // (and reset) every card.
+    const isId = (v) => typeof v === 'string' && mongoose.Types.ObjectId.isValid(v);
+    if (!isId(moduleId)) {
       return res.status(400).json({ success: false, message: 'moduleId is required.' });
     }
 
-    const isExpressFlatTrack = !topicId || topicId === "undefined" || topicId.toString().trim() === "";
+    const isExpressFlatTrack = !topicId || topicId === "undefined" || (typeof topicId === 'string' && topicId.trim() === "");
+    if (!isExpressFlatTrack && !isId(topicId)) {
+      return res.status(400).json({ success: false, message: 'Invalid topicId.' });
+    }
 
     const cardQuery = isExpressFlatTrack ? { module_id: moduleId } : { topic_id: topicId };
     const cardIds = (await Card.find(cardQuery, '_id').lean()).map(c => c._id);

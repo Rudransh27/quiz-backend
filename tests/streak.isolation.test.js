@@ -10,6 +10,11 @@
 // itself isn't involved here — req/res are minimal hand-built stand-ins
 // (see mockReqRes) shaped exactly like what auth.js's real middleware
 // attaches to req.user, so the controller runs completely unmodified.
+// streakProof is stubbed here: these suites test that the streak mutation
+// touches only the acting user's document. Whether the activity really
+// happened is covered by tests/streakProof.test.js.
+jest.mock('../src/services/streakProof', () => ({ hasActivityProof: async () => ({ ok: true }) }));
+
 const { connect, closeDatabase, clearCollections } = require('./setup/inMemoryMongo');
 const { makeUser, mockReqRes, toDateString, daysAgo } = require('./setup/fixtures');
 const User = require('../src/models/User');

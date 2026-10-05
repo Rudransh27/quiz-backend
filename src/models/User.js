@@ -37,10 +37,13 @@ const userSchema = new mongoose.Schema({
     enum: ["user", "admin", "superadmin"],
     default: "user",
   },
-  // 🔐 SSO — how this account authenticates. "microsoft" accounts are
-  // auto-created on first Entra ID SSO login (see authRoutes.js) and skip
-  // both the password field and the OTP verification flow, since Microsoft
-  // has already verified their identity.
+  // 🔐 How this account was CREATED. "microsoft" accounts are auto-created
+  // on first Entra ID SSO login (services/auth/identity.js) and skip both
+  // the password field and the OTP verification flow, since Microsoft has
+  // already verified their identity. Not how the person signs in today —
+  // one account can have several ways in (AuthIdentity rows + an optional
+  // password); each sign-in's method is recorded on lastLoginMethod and in
+  // the AuthEvent audit log.
   authProvider: {
     type: String,
     enum: ["local", "microsoft"],
@@ -78,10 +81,28 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-  emailVerificationToken: String,
+  // Hashed one-time secrets — never returned by default queries.
+  emailVerificationToken: { type: String, select: false },
   emailVerificationExpire: Date,
-  resetPasswordToken: String,
+  // 🔒 Wrong OTP guesses against this account's current code; at 5 the
+  // code is burned and a new one must be requested (per-ACCOUNT, on top of
+  // the per-IP otpLimiter).
+  emailVerificationAttempts: { type: Number, default: 0, select: false },
+  resetPasswordToken: { type: String, select: false },
   resetPasswordExpire: Date,
+  // 🔒 Set whenever the password changes; tokens issued before it are
+  // rejected (middleware/auth.js), so a reset logs out every old session
+  // even if Redis is unavailable.
+  passwordChangedAt: { type: Date, default: null },
+  // 🔒 Set when all of this user's sessions are ended (admin, password
+  // reset): tokens issued before it that never got a session row are
+  // refused too (services/auth/sessions.checkSession).
+  sessionsRevokedAt: { type: Date, default: null },
+  // Last successful sign-in — written only by services/auth/sessions, never
+  // by profile or admin edits.
+  lastLoginAt: { type: Date, default: null },
+  lastLoginMethod: { type: String, default: null },   // LOCAL | SSO
+  lastLoginProvider: { type: String, default: null }, // local | microsoft | …
 
   // 🔒 Brute-force lockout — separate from the loginLimiter IP rate limit
   // (middleware/rateLimiters.js): that one caps attempts per IP regardless
@@ -201,6 +222,10 @@ userSchema.pre("findOneAndDelete", async function (next) {
 // =========================================================================
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
+  // Tokens issued before this moment stop working (middleware/auth.js).
+  if (!this.isNew) this.passwordChangedAt = new Date();
+  // Removed (an unverified sign-up claimed by SSO): nothing to hash.
+  if (!this.password) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();

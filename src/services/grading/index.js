@@ -262,7 +262,13 @@ async function recordSandboxAnswer(req, cardId, { qid, chosen }) {
     xpChange = award.amount;
   }
 
-  return { success: true, recorded: true, firstAnswer: ins.isFirst, isCorrect: result.isCorrect, xpChange };
+  // The right answer is revealed only AFTER the attempt is recorded (the
+  // first answer is the one that counts), so a "server feedback" module can
+  // show the learner what was correct without ever shipping the key.
+  return {
+    success: true, recorded: true, firstAnswer: ins.isFirst, isCorrect: result.isCorrect, xpChange,
+    correct: { key: q.correctKey || null, text: q.correctText || null },
+  };
 }
 
 // ===========================================================================

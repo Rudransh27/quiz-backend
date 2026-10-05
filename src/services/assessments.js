@@ -13,7 +13,8 @@
 //    Y%", and the answers with explanations. XP: 5 per correct answer, via
 //    the ledger (one idempotency key per learner per Path).
 //  • One attempt per (user, path, kind) — enforced by a unique index, so a
-//    double submit can't create two attempts.
+//    double submit can't create two attempts. An admin can reset an attempt
+//    (resetAttempt below) so the learner takes that check again.
 const mongoose = require("mongoose");
 const Path = require("../models/Path");
 const Topic = require("../models/Topic");
@@ -27,11 +28,13 @@ const BankQuestion = require("../models/BankQuestion");
 const AssessmentForm = require("../models/AssessmentForm");
 const { activeLockedForm } = require("./formGenerator");
 const AssessmentAttempt = require("../models/AssessmentAttempt");
+const AssessmentReset = require("../models/AssessmentReset");
 const paths = require("./paths");
 const { awardXp, isDuplicateKey } = require("./xpLedger");
 
 const POST_XP_PER_CORRECT = 5;
 const KINDS = ["pre", "post"];
+const CHECK_NAME = { pre: "Pre-check", post: "Post-check" };
 
 class AssessmentError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -163,6 +166,11 @@ async function submitAssessment(req, pathId, kind, answers) {
     if (isDuplicateKey(err)) throw new AssessmentError(409, `You've already taken the ${kind === "pre" ? "Pre" : "Post"}-check.`);
     throw err;
   }
+  // A retake after an admin reset closes that reset.
+  await AssessmentReset.updateMany(
+    { user_id: userId, pathId: path._id, kind, status: "pending" },
+    { $set: { status: "retaken", retakenAt: attempt.createdAt } },
+  );
 
   // Per-question stats in the bank (how often answered / answered right).
   await BankQuestion.bulkWrite(graded.map((g) => ({
@@ -225,6 +233,46 @@ async function learnerResult(req, pathId) {
   return buildResult(userIdOf(req), path);
 }
 
+// Admin: undo a learner's Pre or Post so they take it again. The attempt is
+// deleted (one per user/path/kind) and its numbers kept in AssessmentReset.
+//  • A Pre can't be reset while a Post exists: the Post is compared with,
+//    and uses the test version of, the Pre. Reset the Post first.
+//  • A reset Pre is asked for again even if the learner has started the
+//    Path's modules (see the pending-reset override in services/paths.js),
+//    and it gates the Path's modules again until it's retaken.
+//  • Post XP is paid once per learner per Path (ledger key post:<user>:<path>),
+//    so a retake earns no further XP; what was earned is kept.
+async function resetAttempt({ adminId, userId, pathId, kind, reason }) {
+  if (!KINDS.includes(kind)) throw new AssessmentError(400, "Choose the Pre-check or the Post-check.");
+  const attempt = await AssessmentAttempt.findOne({ user_id: userId, pathId, kind }).lean();
+  if (!attempt) throw new AssessmentError(404, `This learner hasn't taken the ${CHECK_NAME[kind]}.`);
+  if (kind === "pre" && await AssessmentAttempt.exists({ user_id: userId, pathId, kind: "post" })) {
+    throw new AssessmentError(409, "Reset the Post-check first — it is compared against this Pre-check.");
+  }
+  const log = await AssessmentReset.create({
+    user_id: userId,
+    pathId,
+    kind,
+    resetBy: adminId,
+    reason: typeof reason === "string" ? reason.trim().slice(0, 500) : "",
+    previous: {
+      score: attempt.score,
+      maxScore: attempt.maxScore,
+      percent: attempt.percent,
+      formVersion: attempt.formVersion,
+      xpAwarded: attempt.xpAwarded || 0,
+      takenAt: attempt.createdAt,
+    },
+  });
+  const { deletedCount } = await AssessmentAttempt.deleteOne({ _id: attempt._id });
+  if (!deletedCount) {
+    // Lost a race with another reset of the same attempt.
+    await AssessmentReset.deleteOne({ _id: log._id });
+    throw new AssessmentError(409, "This attempt has already been reset.");
+  }
+  return log.toObject();
+}
+
 // ---------------------------------------------------------------------------
 // Reporting
 // ---------------------------------------------------------------------------
@@ -271,8 +319,9 @@ const avg = (nums) => (nums.length ? Math.round(nums.reduce((s, n) => s + n, 0) 
 // One Path's numbers for a set of users.
 async function pathReport(path, userIds) {
   const moduleIds = (path.moduleIds || []).map((id) => new mongoose.Types.ObjectId(String(id)));
-  const [attempts, touched, completion] = await Promise.all([
+  const [attempts, pendingResets, touched, completion] = await Promise.all([
     AssessmentAttempt.find({ pathId: path._id, user_id: { $in: userIds } }, "user_id kind percent answers").lean(),
+    AssessmentReset.find({ pathId: path._id, user_id: { $in: userIds }, status: "pending" }, "user_id kind").lean(),
     // aggregate, not distinct (Stable API strict mode — see config/db.js).
     moduleIds.length
       ? UserCardProgress.aggregate([
@@ -285,6 +334,7 @@ async function pathReport(path, userIds) {
   const pre = new Map(); const post = new Map();
   attempts.forEach((a) => (a.kind === "pre" ? pre : post).set(String(a.user_id), a.percent));
   const touchedSet = new Set(touched.map((t) => String(t._id)));
+  const resetPending = new Set(pendingResets.map((r) => `${r.user_id}:${r.kind}`));
 
   const learners = userIds.map((uid) => {
     const id = String(uid);
@@ -298,7 +348,9 @@ async function pathReport(path, userIds) {
       modulesCompleted: Math.min(completed, moduleIds.length),
       modulesTotal: moduleIds.length,
       started,
-      noBaseline: started && !pre.has(id) && touchedSet.has(id),
+      noBaseline: started && !pre.has(id) && touchedSet.has(id) && !resetPending.has(`${id}:pre`),
+      preResetPending: resetPending.has(`${id}:pre`),
+      postResetPending: resetPending.has(`${id}:post`),
     };
   }).filter((l) => l.started);
 
@@ -374,6 +426,7 @@ module.exports = {
   startAssessment,
   submitAssessment,
   learnerResult,
+  resetAttempt,
   pathReport,
   attachUsers,
   completionByUser,

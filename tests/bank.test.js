@@ -41,7 +41,7 @@ let app;
 function authed(req, user) {
   const bindingSecret = crypto.randomBytes(32).toString('hex');
   const bh = crypto.createHash('sha256').update(bindingSecret).digest('hex');
-  const token = jwt.sign({ user: { id: user._id.toString(), role: user.role, bh } }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({ user: { id: user._id.toString(), role: user.role, bh, sessionId: crypto.randomUUID() } }, process.env.JWT_SECRET, { expiresIn: '1h' });
   return req.set('Authorization', `Bearer ${token}`).set('Cookie', `orbit_bind=${bindingSecret}`);
 }
 const get = (u, url) => authed(request(app).get(url), u);
