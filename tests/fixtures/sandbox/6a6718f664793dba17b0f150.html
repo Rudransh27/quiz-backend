@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Know Your Competitor: F19 · IRIS Orbit</title>
+<style>
+:root {
+  --navy:    #1E1B3A;
+  --indigo:  #3D3580;
+  --violet:  #6B5BA6;
+  --lav:     #9B8EC4;
+  --mauve:   #C9AECB;
+  --blush:   #EDE0EE;
+  --bg:      #F3F1F8;
+  --surface: #FFFFFF;
+  --ink:     #1E1B3A;
+  --ink2:    #4A4570;
+  --ink3:    #8A85AA;
+  --border:  #E0DCF0;
+  --ok:      #1A7A48;
+  --ok-bg:   #E6F5EE;
+  --bad:     #C0392B;
+  --bad-bg:  #FDF0EF;
+  --gold:    #C9971F;
+  --gold-bg: #FFF8E6;
+  --r: 12px; --rl: 18px;
+  --mono: 'Courier New', monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;display:flex;justify-content:center;padding:24px 16px 80px;}
+.shell{width:100%;max-width:660px;}
+
+/* TOP */
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.brand{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--violet);}
+.meta{font-size:11px;color:var(--ink3);}
+.dots{display:flex;gap:5px;justify-content:center;margin-bottom:20px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:all .3s;}
+.dot.on{background:var(--violet);transform:scale(1.4);}
+.dot.done{background:var(--lav);}
+
+/* SCREENS */
+.screen{display:none;}
+.screen.active{display:block;animation:fadeUp .28s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* HERO */
+.hero{border-radius:var(--rl);padding:26px 26px 22px;margin-bottom:12px;position:relative;overflow:hidden;color:#fff;}
+.hero-tag{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;background:rgba(255,255,255,.18);padding:3px 10px;border-radius:99px;display:inline-block;margin-bottom:10px;}
+.hero h2{font-size:21px;font-weight:800;line-height:1.25;margin-bottom:6px;color:#fff;}
+.hero h3{color:#fff;}
+.hero p{font-size:13px;line-height:1.6;opacity:.85;max-width:76%;color:#fff;}
+.hero-icon{position:absolute;right:20px;bottom:14px;font-size:48px;opacity:.45;pointer-events:none;}
+.hero,.hero p,.hero h2,.hero h3,.hero span{color:#fff;}
+
+/* CARD */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:22px;margin-bottom:12px;}
+.card-tag{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--lav);margin-bottom:10px;}
+
+/* TYPE */
+h3{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px;}
+p{font-size:13.5px;line-height:1.7;color:var(--ink2);margin-bottom:10px;}
+p:last-child{margin-bottom:0;}
+ul,ol{padding-left:18px;margin-bottom:10px;}
+li{font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:3px;}
+.div{border:none;border-top:1px solid var(--border);margin:16px 0;}
+.mt{margin-top:14px;}
+.mono{font-family:var(--mono);font-size:11.5px;background:var(--blush);padding:2px 6px;border-radius:4px;color:var(--navy);}
+
+/* TABLE */
+.tbl{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border);margin:12px 0;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th{background:var(--navy);color:#fff;text-align:left;padding:9px 12px;font-size:10.5px;font-weight:700;letter-spacing:.04em;}
+td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--ink2);vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+tr:nth-child(even) td{background:#F9F8FC;}
+.ft{font-family:var(--mono);font-size:11px;font-weight:700;background:var(--blush);color:var(--navy);padding:2px 7px;border-radius:4px;}
+
+/* CALLOUTS */
+.co{border-radius:var(--r);padding:13px 15px;margin:10px 0;font-size:13px;line-height:1.6;}
+.co-lbl{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.65;margin-bottom:5px;}
+.co-sales{background:#FFFBEA;border:1px solid #E8D060;color:#5A4000;}
+.co-disc{background:#EEF2FF;border:1px solid #C0CFFF;color:#1A3080;}
+.co-note{background:var(--bg);border:1px solid var(--border);color:var(--ink2);}
+.co-warn{background:var(--bad-bg);border:1px solid #F0C0BC;color:#7A1010;}
+.co-ok{background:var(--ok-bg);border:1px solid #A0D8B8;color:#0E4A28;}
+
+/* ACCORDION */
+.ac-item{border-bottom:1px solid var(--border);}
+.ac-item:last-child{border-bottom:none;}
+.ac-btn{width:100%;display:flex;align-items:center;gap:10px;padding:11px 0;background:none;border:none;cursor:pointer;text-align:left;}
+.ac-code{font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--violet);min-width:50px;}
+.ac-title{font-size:13.5px;font-weight:600;color:var(--ink);flex:1;}
+.ac-arr{font-size:10px;color:var(--ink3);transition:transform .2s;flex-shrink:0;}
+.ac-body{display:none;padding:0 0 12px 60px;font-size:12.5px;color:var(--ink2);line-height:1.65;}
+.ac-item.open .ac-arr{transform:rotate(180deg);}
+.ac-item.open .ac-body{display:block;}
+
+/* INFO ROW */
+.irow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;}
+.ibox{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:11px 13px;}
+.ibox-lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:4px;}
+.ibox-val{font-size:13px;font-weight:600;color:var(--ink);line-height:1.4;}
+
+/* CLIENT SPOTLIGHT */
+.spotlight{border:2px solid var(--lav);border-radius:var(--rl);padding:18px;margin:12px 0;background:linear-gradient(135deg,#FAF8FF,#F0ECF8);}
+.sp-lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--violet);margin-bottom:7px;}
+.sp-title{font-size:15px;font-weight:800;color:var(--navy);margin-bottom:10px;}
+
+/* PILLS */
+.pills{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0;}
+.pill{font-size:11.5px;color:var(--ink2);background:#fff;border:1px solid var(--border);border-radius:99px;padding:4px 12px;}
+
+/* VIDEO PLACEHOLDER */
+.vid-frame{position:relative;width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#1E1B3A,#3D3580);border-radius:var(--rl);border:2px dashed rgba(255,255,255,.25);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;overflow:hidden;}
+.vid-play{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;}
+.vid-label{font-size:12.5px;color:rgba(255,255,255,.8);font-weight:600;}
+.vid-sub{font-size:11px;color:rgba(255,255,255,.4);text-align:center;max-width:80%;line-height:1.5;}
+
+/* FEATURE / EXCHANGE-STYLE GRID */
+.ex-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0;}
+.ex-card{border-radius:var(--r);padding:14px;text-align:center;cursor:pointer;transition:transform .15s;border:2px solid transparent;}
+.ex-card:hover{transform:translateY(-2px);}
+.ex-a{background:#FFF8E8;border-color:#E8D060;}
+.ex-b{background:#E8F0FF;border-color:#90AFFF;}
+.ex-c{background:#F0E8FF;border-color:#C090E8;}
+.ex-icon{font-size:24px;margin-bottom:6px;}
+.ex-name{font-size:13px;font-weight:800;color:var(--navy);line-height:1.3;}
+.ex-sub{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);font-weight:600;margin-top:3px;}
+.ex-detail{background:var(--bg);border-radius:var(--r);padding:14px;margin:8px 0;font-size:13px;color:var(--ink2);line-height:1.65;border:1px solid var(--border);display:none;}
+.ex-detail.show{display:block;}
+
+/* QUIZ */
+.quiz{background:var(--navy);border-radius:var(--rl);padding:22px;margin-top:12px;}
+.quiz-b{background:#17142E;}
+.q-eye{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.q-num{width:22px;height:22px;background:var(--violet);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;}
+.q-label{font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.4);}
+.q-text{font-size:14.5px;font-weight:600;color:#fff;line-height:1.5;margin-bottom:16px;}
+.q-opts{list-style:none;padding:0;display:flex;flex-direction:column;gap:7px;}
+.q-opt{width:100%;display:flex;align-items:flex-start;gap:10px;padding:11px 14px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);border-radius:10px;cursor:pointer;font-size:13px;color:rgba(255,255,255,.82);line-height:1.5;text-align:left;transition:all .12s;font-family:inherit;}
+.q-opt:hover:not(:disabled){background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.28);}
+.q-opt:disabled{cursor:default;}
+.q-l{min-width:20px;height:20px;background:rgba(255,255,255,.14);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;flex-shrink:0;margin-top:2px;}
+.q-opt.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ink);}
+.q-opt.ok .q-l{background:var(--ok);}
+.q-opt.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--ink);}
+.q-opt.bad .q-l{background:var(--bad);}
+.q-opt.reveal{background:rgba(26,122,72,.18);border-color:var(--ok);}
+.q-fb{margin-top:12px;padding:12px 14px;border-radius:9px;font-size:12.5px;line-height:1.6;display:none;}
+.q-fb.ok{background:var(--ok-bg);color:#0E4A28;border:1px solid var(--ok);display:block;}
+.q-fb.bad{background:var(--bad-bg);color:#7A1010;border:1px solid var(--bad);display:block;}
+.gate{background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.18);border-radius:8px;padding:9px 13px;margin-top:12px;font-size:11.5px;color:rgba(255,255,255,.35);text-align:center;}
+
+/* BUTTONS */
+.btn-row{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:10px;}
+.btn{padding:11px 22px;border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;border:none;font-family:inherit;transition:opacity .15s,transform .1s;}
+.btn:active{transform:scale(.98);}
+.btn-p{background:var(--violet);color:#fff;}
+.btn-p:hover{opacity:.88;}
+.btn-p:disabled{background:var(--lav);cursor:not-allowed;opacity:.7;}
+.btn-g{background:#fff;color:var(--ink2);border:1px solid var(--border);}
+.btn-g:hover{background:var(--bg);}
+.btn-finish{background:linear-gradient(135deg,var(--gold),#e0b23f);color:#fff;font-size:15px;padding:14px 26px;box-shadow:0 8px 20px rgba(201,151,31,.35);}
+.btn-finish:hover{opacity:.92;transform:translateY(-1px);}
+
+/* RESULT */
+.r-hero{text-align:center;padding:28px;background:#fff;border:1px solid var(--border);border-radius:var(--rl);margin-bottom:12px;}
+.r-lbl{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;font-weight:700;margin-bottom:4px;}
+.r-name{font-size:20px;font-weight:800;color:var(--navy);margin-bottom:14px;}
+.r-score{font-size:66px;font-weight:900;color:var(--violet);line-height:1;margin-bottom:4px;}
+.r-of{font-size:13px;color:var(--ink3);margin-bottom:18px;}
+.r-cert{font-family:var(--mono);font-size:11px;color:var(--ink2);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin-bottom:16px;line-height:1.6;}
+.r-tw{font-size:14.5px;font-style:italic;color:var(--ink2);border-top:1px solid var(--border);padding-top:16px;line-height:1.6;}
+
+@media(max-width:500px){
+  .irow,.ex-grid{grid-template-columns:1fr;}
+  .hero h2{font-size:19px;}
+  .hero-icon{display:none;}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<div class="topbar"><span class="brand">IRIS Orbit</span><span class="meta">Knowledge of Market · Competitive Intel</span></div>
+<div class="dots" id="dots">
+  <div class="dot on"></div><div class="dot"></div><div class="dot"></div>
+  <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+</div>
+
+<!-- ══ S0 INTRO ══ -->
+<div class="screen active" id="s0">
+  <div class="hero" style="background:linear-gradient(135deg,#1E1B3A,#3D3580)">
+    <div class="hero-tag">Knowledge of Market · Competitive Intelligence</div>
+    <h2>Know Your Competitor: F19</h2>
+    <p>Same battlefield, different playbook. Get familiar with the European rival matching IRIS CARBON deal for deal in CSRD and ESEF reporting.</p>
+    <div class="hero-icon">🎯</div>
+  </div>
+  <div class="card">
+    <p>F19 Digital Reporting is a Netherlands-based platform built around the "last inch" of corporate reporting — the final stretch where a finished report has to become a compliant, published, multi-format document. It shows up in the same conversations IRIS CARBON does, especially with EU-listed and Dutch organisations working through CSRD and ESEF.</p>
+    <p>This module walks through their actual product demo, lines their platform up against ours feature by feature, and gives you the talk track for when a prospect says "we're also looking at F19."</p>
+    <div class="pills">
+      <div class="pill">📋 6 screens</div><div class="pill">⏱ ~15 mins</div>
+      <div class="pill">🔒 Locked quizzes</div><div class="pill">🎬 Product demo</div>
+      <div class="pill" id="lyPill">⚡ Plasma</div>
+    </div>
+    <div class="btn-row" style="justify-content:flex-end">
+      <button class="btn btn-p" onclick="go(1)">Let's go →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S1 VIDEO + SNAPSHOT ══ -->
+<div class="screen" id="s1">
+  <div class="hero" style="background:linear-gradient(135deg,#1A3A80,#3460C8)">
+    <div class="hero-tag">Screen 1 · Watch The Demo</div>
+    <h2>F19, In Their Own Words</h2>
+    <p>The same walkthrough a prospect would see on a sales call.</p>
+    <div class="hero-icon">🎬</div>
+  </div>
+
+  <div class="vid-frame">
+    <div class="vid-play">▶</div>
+    <div class="vid-label">F19 Product Demo</div>
+    <div class="vid-sub">
+	<iframe src="https://irisindiacloud-my.sharepoint.com/personal/aashima_singh_irisregtech_com/_layouts/15/embed.aspx?UniqueId=7e687ca0-13b4-4b5e-b2a2-3afec5e149d7&embed=%7B%22ust%22%3Atrue%2C%22hv%22%3A%22CopyEmbedCode%22%7D&referrer=StreamWebApp&referrerScenario=EmbedDialog.Create" width="640" height="360" frameborder="0" scrolling="no" allowfullscreen title="F19 Demo.mp4"></iframe>
+ </div>
+  </div>
+
+  <div class="card">
+    <h3>Who is F19?</h3>
+    <p>F19 Digital Reporting is a Netherlands-based software company (Eindhoven) building a cloud platform for CSRD, ESEF, and SBR (Dutch Standard Business Reporting) compliant corporate reporting. Their pitch is squarely about the final, complex stage of reporting: taking finished content and turning it into a compliant, multi-format publication without manual rework.</p>
+    <div class="irow">
+      <div class="ibox"><div class="ibox-lbl">HQ</div><div class="ibox-val">Eindhoven, Netherlands</div></div>
+      <div class="ibox"><div class="ibox-lbl">Regulatory focus</div><div class="ibox-val">CSRD, ESEF, SBR</div></div>
+      <div class="ibox"><div class="ibox-lbl">Positioning</div><div class="ibox-val">"The last inch" of reporting</div></div>
+      <div class="ibox"><div class="ibox-lbl">Output formats</div><div class="ibox-val">Website, PDF, XHTML, iXBRL, InDesign</div></div>
+    </div>
+    <div class="spotlight mt">
+      <div class="sp-lbl">💬 Straight from their own marketing</div>
+      <div class="sp-title">"Streamline the last inch in corporate reporting with F19, the digital-first, multichannel publishing platform."</div>
+      <p style="font-size:12.5px;">Their whole story is built around that phrase — the "last inch" being the gap between a finished Word/Excel draft and a compliant, published, on-brand report.</p>
+    </div>
+    <p class="mt" style="font-size:12px;color:var(--ink3);">Confirmed reference clients: KPMG Netherlands, Arcadis, Alliander, FMO, Port of Rotterdam, CZ.</p>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-g" onclick="go(0)">← Back</button>
+    <button class="btn btn-p" onclick="go(2)">Next: F19 vs IRIS CARBON →</button>
+  </div>
+</div>
+
+<!-- ══ S2 COMPARISON ══ -->
+<div class="screen" id="s2">
+  <div class="hero" style="background:linear-gradient(135deg,#3D3580,#6B5BA6)">
+    <div class="hero-tag">Screen 2 · Head To Head</div>
+    <h2>F19 vs IRIS CARBON</h2>
+    <p>Same problem, two different companies solving it. Know exactly where the lines are before a prospect asks.</p>
+    <div class="hero-icon">⚖️</div>
+  </div>
+  <div class="card">
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Dimension</th><th>F19 Digital Reporting</th><th>IRIS CARBON</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Primary market</strong></td><td>Netherlands / Benelux-heavy</td><td>Global — 30+ regulatory authorities, five continents</td></tr>
+          <tr><td><strong>Regulatory focus</strong></td><td>CSRD, ESEF, SBR (Dutch)</td><td>SEC/EDGAR, CSRD/ESRS, BRSR, FERC, and more</td></tr>
+          <tr><td><strong>Output formats</strong></td><td>Website, PDF, XHTML, iXBRL, InDesign</td><td>iXBRL, PDF, web-based disclosure</td></tr>
+          <tr><td><strong>AI-assisted tagging</strong></td><td>Not shown — manual taxonomy tree tagging</td><td>IRIS Niti: AI-powered iXBRL tagging</td></tr>
+          <tr><td><strong>Approval workflow</strong></td><td>Per-article remarks + validate/approve/publish gates</td><td>Role-based workflow across the suite</td></tr>
+          <tr><td><strong>Design/print output</strong></td><td>Direct InDesign export</td><td>Not a native output format</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="co co-note mt">
+      <div class="co-lbl">🤝 Where we're similar</div>
+      Both are cloud-based, single-source reporting platforms built around iXBRL tagging for CSRD/ESEF compliance, with block-based content editors and multi-format publishing from one place.
+    </div>
+    <div class="co co-ok mt">
+      <div class="co-lbl">✅ Where IRIS CARBON pulls ahead</div>
+      Regulatory breadth beyond Europe (US SEC, India BRSR, FERC), AI-assisted tagging through Niti, and a larger, more geographically spread client base.
+    </div>
+    <div class="co co-warn mt">
+      <div class="co-lbl">⚠️ Where F19 pulls ahead</div>
+      Direct InDesign export for print-quality annual reports, rich media (video) embedded natively inside published report pages, and deep, specific support for Dutch SBR.
+    </div>
+  </div>
+
+  <div class="quiz" id="quiz-c1">
+    <div class="q-eye"><span class="q-num">1</span><span class="q-label">QUIZ — Q1 OF 4</span></div>
+    <div class="q-text">F19 is headquartered in Eindhoven, and its confirmed client list (KPMG Netherlands, Arcadis, Alliander, FMO, Port of Rotterdam) is concentrated in which market?</div>
+    <ul class="q-opts" id="qo-c1">
+      <li><button class="q-opt" onclick="ans('c1','A','B')"><span class="q-l">A</span>Southeast Asia</button></li>
+      <li><button class="q-opt" onclick="ans('c1','B','B')"><span class="q-l">B</span>The Netherlands / Benelux</button></li>
+      <li><button class="q-opt" onclick="ans('c1','C','B')"><span class="q-l">C</span>The United States</button></li>
+      <li><button class="q-opt" onclick="ans('c1','D','B')"><span class="q-l">D</span>India</button></li>
+    </ul>
+    <div class="q-fb" id="qf-c1"></div>
+  </div>
+  <div class="quiz quiz-b mt" id="quiz-c2">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">2</span><span class="q-label">QUIZ — Q2 OF 4</span></div>
+    <div class="q-text">Which output format does F19 offer that IRIS CARBON does not natively provide?</div>
+    <ul class="q-opts" id="qo-c2">
+      <li><button class="q-opt" onclick="ans('c2','A','C')"><span class="q-l">A</span>PDF</button></li>
+      <li><button class="q-opt" onclick="ans('c2','B','C')"><span class="q-l">B</span>Website</button></li>
+      <li><button class="q-opt" onclick="ans('c2','C','C')"><span class="q-l">C</span>InDesign</button></li>
+      <li><button class="q-opt" onclick="ans('c2','D','C')"><span class="q-l">D</span>iXBRL</button></li>
+    </ul>
+    <div class="q-fb" id="qf-c2"></div>
+  </div>
+  <div class="quiz mt" id="quiz-c3">
+    <div class="q-eye"><span class="q-num">3</span><span class="q-label">QUIZ — Q3 OF 4</span></div>
+    <div class="q-text">What is IRIS CARBON's AI-powered tagging product called?</div>
+    <ul class="q-opts" id="qo-c3">
+      <li><button class="q-opt" onclick="ans('c3','A','A')"><span class="q-l">A</span>Niti</button></li>
+      <li><button class="q-opt" onclick="ans('c3','B','A')"><span class="q-l">B</span>Atlas</button></li>
+      <li><button class="q-opt" onclick="ans('c3','C','A')"><span class="q-l">C</span>Sentinel</button></li>
+      <li><button class="q-opt" onclick="ans('c3','D','A')"><span class="q-l">D</span>Core</button></li>
+    </ul>
+    <div class="q-fb" id="qf-c3"></div>
+  </div>
+  <div class="quiz quiz-b mt" id="quiz-c4">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">4</span><span class="q-label">QUIZ — Q4 OF 4</span></div>
+    <div class="q-text">Which regulatory regime does F19's platform explicitly support that's specific to the Netherlands?</div>
+    <ul class="q-opts" id="qo-c4">
+      <li><button class="q-opt" onclick="ans('c4','A','A')"><span class="q-l">A</span>SBR (Standard Business Reporting)</button></li>
+      <li><button class="q-opt" onclick="ans('c4','B','A')"><span class="q-l">B</span>BRSR</button></li>
+      <li><button class="q-opt" onclick="ans('c4','C','A')"><span class="q-l">C</span>FERC</button></li>
+      <li><button class="q-opt" onclick="ans('c4','D','A')"><span class="q-l">D</span>SOX 404(b)</button></li>
+    </ul>
+    <div class="q-fb" id="qf-c4"></div>
+  </div>
+  <div class="gate" id="gate-2">○ Answer all four questions to continue</div>
+  <div class="btn-row">
+    <button class="btn btn-g" onclick="go(1)">← Back</button>
+    <button class="btn btn-p" id="nx-2" onclick="go(3)" disabled>Next: Their Cool Stuff →</button>
+  </div>
+</div>
+
+<!-- ══ S3 FEATURES ══ -->
+<div class="screen" id="s3">
+  <div class="hero" style="background:linear-gradient(135deg,#1E1B3A,#3D4A80)">
+    <div class="hero-tag">Screen 3 · Their Cool Stuff</div>
+    <h2>What F19 Actually Shows In A Demo</h2>
+    <p>This is what's winning them time on a prospect's calendar. Tap each one.</p>
+    <div class="hero-icon">✨</div>
+  </div>
+  <div class="card">
+    <p style="font-size:12.5px;color:var(--ink3);margin-bottom:4px;">Tap each feature 👇</p>
+    <div class="ex-grid">
+      <div class="ex-card ex-a" onclick="showEx('video')"><div class="ex-icon">🎬</div><div class="ex-name">Embedded Video Reports</div><div class="ex-sub">Rich media</div></div>
+      <div class="ex-card ex-b" onclick="showEx('indesign')"><div class="ex-icon">🎨</div><div class="ex-name">InDesign Export</div><div class="ex-sub">Print-ready</div></div>
+      <div class="ex-card ex-c" onclick="showEx('tag')"><div class="ex-icon">🏷️</div><div class="ex-name">Tagging Tree</div><div class="ex-sub">Taxonomy</div></div>
+      <div class="ex-card ex-b" onclick="showEx('sync')"><div class="ex-icon">🔄</div><div class="ex-name">Word &amp; Excel Sync</div><div class="ex-sub">Import wizard</div></div>
+      <div class="ex-card ex-a" onclick="showEx('workflow')"><div class="ex-icon">✅</div><div class="ex-name">Approval Workflow</div><div class="ex-sub">Role-gated</div></div>
+      <div class="ex-card ex-c" onclick="showEx('multi')"><div class="ex-icon">🌐</div><div class="ex-name">One Source, Five Outputs</div><div class="ex-sub">Publishing</div></div>
+    </div>
+    <div class="ex-detail" id="ex-video"><strong>Embedded video reports.</strong> Report pages can carry a native video block, not just a link out. In the demo, a Sustainable Development Goals video sits directly inside a Continuous Reporting page — published straight to the live website alongside the surrounding text and charts, no separate media player needed.</div>
+    <div class="ex-detail" id="ex-indesign"><strong>InDesign export.</strong> Same source content, one click away from a print-ready InDesign file. Design teams and agencies can pick up the layout without a manual re-key — alongside the website, PDF, XHTML, and iXBRL exports generated from that same source.</div>
+    <div class="ex-detail" id="ex-tag"><strong>Taxonomy &amp; tagging tree.</strong> A dedicated Taxonomy tab lets a preparer browse the full ESEF element tree — assets, non-current assets, property/plant/equipment, equity, liabilities — and apply a tag directly onto text or figures inside the article. It's manual, but visible and auditable line by line.</div>
+    <div class="ex-detail" id="ex-sync"><strong>Word &amp; Excel sync.</strong> Existing Word documents import through a 5-step wizard — Upload, Options, Cut, Verify, Menus — that turns each into a structured, taggable article. An "ExcelSync" feature keeps live financial tables in step with the source spreadsheet instead of a one-time paste.</div>
+    <div class="ex-detail" id="ex-workflow"><strong>Built-in approval workflow.</strong> Every article carries its own remarks thread plus three role-gated checkpoints — Prepare for validation, Approve for publication, Publish article — each assignable to a specific role, like Administrators.</div>
+    <div class="ex-detail" id="ex-multi"><strong>One source, five outputs.</strong> Upload once — Word, Excel, images, video, slides — and publish to iXBRL, a responsive website, XHTML, PDF, and InDesign, all from the same CMS, without re-keying content per channel.</div>
+  </div>
+
+  <div class="quiz" id="quiz-f1">
+    <div class="q-eye"><span class="q-num">1</span><span class="q-label">QUIZ — Q1 OF 5</span></div>
+    <div class="q-text">In the F19 demo, where does the embedded Sustainable Development Goals video actually appear?</div>
+    <ul class="q-opts" id="qo-f1">
+      <li><button class="q-opt" onclick="ans('f1','A','B')"><span class="q-l">A</span>As a separate download link on the dashboard</button></li>
+      <li><button class="q-opt" onclick="ans('f1','B','B')"><span class="q-l">B</span>Inline, inside a Continuous Reporting content block on the published page</button></li>
+      <li><button class="q-opt" onclick="ans('f1','C','B')"><span class="q-l">C</span>Only in the internal editor, stripped out before publishing</button></li>
+      <li><button class="q-opt" onclick="ans('f1','D','B')"><span class="q-l">D</span>As an email attachment sent to stakeholders</button></li>
+    </ul>
+    <div class="q-fb" id="qf-f1"></div>
+  </div>
+  <div class="quiz quiz-b mt" id="quiz-f2">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">2</span><span class="q-label">QUIZ — Q2 OF 5</span></div>
+    <div class="q-text">What does F19's "ExcelSync" feature do?</div>
+    <ul class="q-opts" id="qo-f2">
+      <li><button class="q-opt" onclick="ans('f2','A','B')"><span class="q-l">A</span>Converts Excel files into PDF automatically</button></li>
+      <li><button class="q-opt" onclick="ans('f2','B','B')"><span class="q-l">B</span>Keeps a report's financial tables in sync with the source spreadsheet</button></li>
+      <li><button class="q-opt" onclick="ans('f2','C','B')"><span class="q-l">C</span>Emails a copy of the spreadsheet to reviewers</button></li>
+      <li><button class="q-opt" onclick="ans('f2','D','B')"><span class="q-l">D</span>Locks the spreadsheet from further edits after import</button></li>
+    </ul>
+    <div class="q-fb" id="qf-f2"></div>
+  </div>
+  <div class="quiz mt" id="quiz-f3">
+    <div class="q-eye"><span class="q-num">3</span><span class="q-label">QUIZ — Q3 OF 5</span></div>
+    <div class="q-text">How many steps does F19's Word document import wizard use?</div>
+    <ul class="q-opts" id="qo-f3">
+      <li><button class="q-opt" onclick="ans('f3','A','C')"><span class="q-l">A</span>Two</button></li>
+      <li><button class="q-opt" onclick="ans('f3','B','C')"><span class="q-l">B</span>Three</button></li>
+      <li><button class="q-opt" onclick="ans('f3','C','C')"><span class="q-l">C</span>Five</button></li>
+      <li><button class="q-opt" onclick="ans('f3','D','C')"><span class="q-l">D</span>Eight</button></li>
+    </ul>
+    <div class="q-fb" id="qf-f3"></div>
+  </div>
+  <div class="quiz quiz-b mt" id="quiz-f4">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">4</span><span class="q-label">QUIZ — Q4 OF 5</span></div>
+    <div class="q-text">Which role-gated checkpoint comes first in F19's article approval workflow?</div>
+    <ul class="q-opts" id="qo-f4">
+      <li><button class="q-opt" onclick="ans('f4','A','C')"><span class="q-l">A</span>Publish article</button></li>
+      <li><button class="q-opt" onclick="ans('f4','B','C')"><span class="q-l">B</span>Approve for publication</button></li>
+      <li><button class="q-opt" onclick="ans('f4','C','C')"><span class="q-l">C</span>Prepare for validation</button></li>
+      <li><button class="q-opt" onclick="ans('f4','D','C')"><span class="q-l">D</span>Create new report</button></li>
+    </ul>
+    <div class="q-fb" id="qf-f4"></div>
+  </div>
+  <div class="quiz mt" id="quiz-f5" style="background:#17142E;">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">5</span><span class="q-label">QUIZ — Q5 OF 5</span></div>
+    <div class="q-text">A design agency wants a print-ready annual report file straight out of the reporting platform, with no manual re-key. Which F19 output format is built for exactly that?</div>
+    <ul class="q-opts" id="qo-f5">
+      <li><button class="q-opt" onclick="ans('f5','A','C')"><span class="q-l">A</span>XHTML</button></li>
+      <li><button class="q-opt" onclick="ans('f5','B','C')"><span class="q-l">B</span>iXBRL</button></li>
+      <li><button class="q-opt" onclick="ans('f5','C','C')"><span class="q-l">C</span>InDesign</button></li>
+      <li><button class="q-opt" onclick="ans('f5','D','C')"><span class="q-l">D</span>Website</button></li>
+    </ul>
+    <div class="q-fb" id="qf-f5"></div>
+  </div>
+  <div class="gate" id="gate-3">○ Answer all five questions to continue</div>
+  <div class="btn-row">
+    <button class="btn btn-g" onclick="go(2)">← Back</button>
+    <button class="btn btn-p" id="nx-3" onclick="go(4)" disabled>Next: Where We Win →</button>
+  </div>
+</div>
+
+<!-- ══ S4 BATTLECARD ══ -->
+<div class="screen" id="s4">
+  <div class="hero" style="background:linear-gradient(135deg,#3D3580,#1E1B3A)">
+    <div class="hero-tag">Screen 4 · Where We Win</div>
+    <h2>Read The Room Before You Walk In</h2>
+    <p>F19's own client list tells you exactly who they're strong with — and where that leaves room for us.</p>
+    <div class="hero-icon">🏆</div>
+  </div>
+  <div class="card">
+    <div class="co co-disc">
+      <div class="co-lbl">📍 Their footprint</div>
+      Every confirmed F19 client — KPMG Netherlands, Arcadis, Alliander, FMO, Port of Rotterdam, CZ — is a Dutch organisation. That's a real, credible base, but it's a single-country base. It's the first thing to listen for on a call.
+    </div>
+    <h3 class="mt">Tap each claim to see the counter 👇</h3>
+    <div class="ac-item"><button class="ac-btn" onclick="tAcc(this)"><span class="ac-code">Claim 1</span><span class="ac-title">"We publish to InDesign, iXBRL, PDF and web from one source."</span><span class="ac-arr">▼</span></button><div class="ac-body">True, and a genuine strength worth acknowledging. But the real question is regulatory breadth, not output count — ask what happens the day their client also needs a US SEC or India BRSR filing.</div></div>
+    <div class="ac-item"><button class="ac-btn" onclick="tAcc(this)"><span class="ac-code">Claim 2</span><span class="ac-title">"Our tagging tree gives teams full manual control."</span><span class="ac-arr">▼</span></button><div class="ac-body">Point to Niti — AI-assisted iXBRL tagging plus historical period comparison. Manual tagging trees scale badly once filing volume grows across multiple entities and reporting cycles.</div></div>
+    <div class="ac-item"><button class="ac-btn" onclick="tAcc(this)"><span class="ac-code">Claim 3</span><span class="ac-title">"We're the 'last inch' specialist — deep in Dutch SBR."</span><span class="ac-arr">▼</span></button><div class="ac-body">That's real, and worth respecting on a call. It's also a tell: their playbook is built around one filing regime. Ask how they'd support a global group with US, India, or multi-jurisdiction reporting needs.</div></div>
+    <div class="ac-item"><button class="ac-btn" onclick="tAcc(this)"><span class="ac-code">Claim 4</span><span class="ac-title">Their client list reads like a who's-who of Dutch blue chips.</span><span class="ac-arr">▼</span></button><div class="ac-body">Good proof they're credible in the Netherlands. It also means most of their reference stories won't travel outside Benelux — useful context if your prospect operates across multiple regulatory geographies.</div></div>
+  </div>
+
+  <div class="quiz" id="quiz-b1">
+    <div class="q-eye"><span class="q-num">1</span><span class="q-label">QUIZ — Q1 OF 4</span></div>
+    <div class="q-text">F19's confirmed client list is heavily concentrated around which single country's blue-chip and public-sector organisations?</div>
+    <ul class="q-opts" id="qo-b1">
+      <li><button class="q-opt" onclick="ans('b1','A','B')"><span class="q-l">A</span>Germany</button></li>
+      <li><button class="q-opt" onclick="ans('b1','B','B')"><span class="q-l">B</span>The Netherlands</button></li>
+      <li><button class="q-opt" onclick="ans('b1','C','B')"><span class="q-l">C</span>Ireland</button></li>
+      <li><button class="q-opt" onclick="ans('b1','D','B')"><span class="q-l">D</span>Belgium</button></li>
+    </ul>
+    <div class="q-fb" id="qf-b1"></div>
+  </div>
+  <div class="quiz quiz-b mt" id="quiz-b2">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">2</span><span class="q-label">QUIZ — Q2 OF 4</span></div>
+    <div class="q-text">What's the strongest counter when a prospect says F19's tagging tree gives them full manual control?</div>
+    <ul class="q-opts" id="qo-b2">
+      <li><button class="q-opt" onclick="ans('b2','A','B')"><span class="q-l">A</span>Manual control means F19 has no tagging tree at all</button></li>
+      <li><button class="q-opt" onclick="ans('b2','B','B')"><span class="q-l">B</span>IRIS CARBON's Niti adds AI-assisted tagging on top, which scales better as filing volume grows</button></li>
+      <li><button class="q-opt" onclick="ans('b2','C','B')"><span class="q-l">C</span>Manual tagging isn't allowed under ESEF rules</button></li>
+      <li><button class="q-opt" onclick="ans('b2','D','B')"><span class="q-l">D</span>F19's tagging tree can't be edited by users</button></li>
+    </ul>
+    <div class="q-fb" id="qf-b2"></div>
+  </div>
+  <div class="quiz mt" id="quiz-b3">
+    <div class="q-eye"><span class="q-num">3</span><span class="q-label">QUIZ — Q3 OF 4</span></div>
+    <div class="q-text">A prospect currently reports under Dutch SBR but also has a US-listed subsidiary needing SEC/EDGAR filing. What's the honest read on F19's fit?</div>
+    <ul class="q-opts" id="qo-b3">
+      <li><button class="q-opt" onclick="ans('b3','A','B')"><span class="q-l">A</span>F19 covers this natively since SBR and SEC use the same taxonomy</button></li>
+      <li><button class="q-opt" onclick="ans('b3','B','B')"><span class="q-l">B</span>This is exactly the gap — F19's public footprint shows deep Netherlands/SBR focus, not confirmed SEC/EDGAR support</button></li>
+      <li><button class="q-opt" onclick="ans('b3','C','B')"><span class="q-l">C</span>F19 would require the prospect to drop their US listing</button></li>
+      <li><button class="q-opt" onclick="ans('b3','D','B')"><span class="q-l">D</span>This scenario doesn't affect platform choice</button></li>
+    </ul>
+    <div class="q-fb" id="qf-b3"></div>
+  </div>
+  <div class="quiz quiz-b mt" id="quiz-b4">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">4</span><span class="q-label">QUIZ — Q4 OF 4</span></div>
+    <div class="q-text">What is the single most defensible, provable structural difference to lead with against F19?</div>
+    <ul class="q-opts" id="qo-b4">
+      <li><button class="q-opt" onclick="ans('b4','A','B')"><span class="q-l">A</span>IRIS CARBON's logo is more modern</button></li>
+      <li><button class="q-opt" onclick="ans('b4','B','B')"><span class="q-l">B</span>IRIS CARBON's confirmed regulator and geography coverage spans well beyond F19's Netherlands-centered footprint</button></li>
+      <li><button class="q-opt" onclick="ans('b4','C','B')"><span class="q-l">C</span>F19 doesn't use cloud hosting</button></li>
+      <li><button class="q-opt" onclick="ans('b4','D','B')"><span class="q-l">D</span>F19 charges more per user</button></li>
+    </ul>
+    <div class="q-fb" id="qf-b4"></div>
+  </div>
+  <div class="gate" id="gate-4">○ Answer all four questions to continue</div>
+  <div class="btn-row">
+    <button class="btn btn-g" onclick="go(3)">← Back</button>
+    <button class="btn btn-p" id="nx-4" onclick="showResult()" disabled>See My Score →</button>
+  </div>
+</div>
+
+<!-- ══ S5 RESULT ══ -->
+<div class="screen" id="s5">
+  <div class="r-hero">
+    <div class="r-score" id="rScore">0/0</div>
+    <div class="r-of" id="rOf">0% · Plasma earned</div>
+    <div class="r-cert" id="rCert">— · Know Your Competitor: F19 · Knowledge of Market · IRIS Orbit</div>
+    <div class="r-tw">"Know their platform as well as you know ours. That's the difference between defending a deal and losing it to a feature list."</div>
+  </div>
+  <div class="card">
+    <h3 style="margin-bottom:14px;">📊 Breakdown by question</h3>
+    <div class="tbl"><table><tbody id="breakdown"></tbody></table></div>
+  </div>
+  <div id="retryBlk" style="display:none;margin-top:12px;">
+    <div class="co co-warn"><strong>Score below 80% — try again.</strong> This is exactly the knowledge you need on hand the moment a prospect says "we're also talking to F19."</div>
+    <div class="btn-row" style="justify-content:flex-end;margin-top:10px;">
+      <button class="btn btn-p" onclick="restart()">↺ Try Again</button>
+    </div>
+  </div>
+  <div id="passBlk" style="display:none;margin-top:12px;">
+    <div class="co co-ok"><strong>⚡ Plasma earned.</strong> Next time F19 comes up on a call, you'll already know exactly where to steer it.</div>
+    <div class="btn-row" style="justify-content:flex-end;margin-top:14px;">
+      <button class="btn btn-finish" id="finishBtn">Complete &amp; Finish Module ➔</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- ============================================================
+     STATIC SCORING METADATA BANK — parser-friendly, single source
+     of truth. Present in the raw DOM (hidden from view) so an
+     external HTML parser can compute the max score (sum of
+     data-points across every .qblock) WITHOUT executing any JS.
+     The runtime below reads this exact same markup to build its
+     scoring weights, so the displayed score always matches what a
+     static parser would calculate.
+     Scoring weights: mcq = 5 pts, fill-blank = 7 pts,
+     descriptive = 10 pts, unscored = 0 pts (explicit).
+============================================================= -->
+<div id="quizBank" style="display:none" aria-hidden="true">
+  <div class="qblock" data-id="c1" data-type="mcq" data-points="5" data-correct="B"><div class="qtext">S2·Q1 — F19's client base: which country?</div></div>
+  <div class="qblock" data-id="c2" data-type="mcq" data-points="5" data-correct="C"><div class="qtext">S2·Q2 — Output format F19 has that IRIS CARBON doesn't?</div></div>
+  <div class="qblock" data-id="c3" data-type="mcq" data-points="5" data-correct="A"><div class="qtext">S2·Q3 — IRIS CARBON's AI tagging product name?</div></div>
+  <div class="qblock" data-id="c4" data-type="mcq" data-points="5" data-correct="A"><div class="qtext">S2·Q4 — Netherlands-specific regime F19 supports?</div></div>
+  <div class="qblock" data-id="f1" data-type="mcq" data-points="5" data-correct="B"><div class="qtext">S3·Q1 — Where the SDG video actually appears?</div></div>
+  <div class="qblock" data-id="f2" data-type="mcq" data-points="5" data-correct="B"><div class="qtext">S3·Q2 — What ExcelSync does?</div></div>
+  <div class="qblock" data-id="f3" data-type="mcq" data-points="5" data-correct="C"><div class="qtext">S3·Q3 — Steps in the Word import wizard?</div></div>
+  <div class="qblock" data-id="f4" data-type="mcq" data-points="5" data-correct="C"><div class="qtext">S3·Q4 — First approval workflow checkpoint?</div></div>
+  <div class="qblock" data-id="f5" data-type="mcq" data-points="5" data-correct="C"><div class="qtext">S3·Q5 — Format built for print-ready design output?</div></div>
+  <div class="qblock" data-id="b1" data-type="mcq" data-points="5" data-correct="B"><div class="qtext">S4·Q1 — Country behind F19's client list?</div></div>
+  <div class="qblock" data-id="b2" data-type="mcq" data-points="5" data-correct="B"><div class="qtext">S4·Q2 — Counter to 'full manual tagging control'?</div></div>
+  <div class="qblock" data-id="b3" data-type="mcq" data-points="5" data-correct="B"><div class="qtext">S4·Q3 — F19's fit for a US-listed subsidiary?</div></div>
+  <div class="qblock" data-id="b4" data-type="mcq" data-points="5" data-correct="B"><div class="qtext">S4·Q4 — Most defensible structural difference?</div></div>
+</div>
+
+<script>
+let cur=0,sc={};
+const chosenAns={};  // qid -> chosen mcq key, used in the submit payload
+
+const QS=['c1','c2','c3','c4','f1','f2','f3','f4','f5','b1','b2','b3','b4'];
+const SQ={2:['c1','c2','c3','c4'],3:['f1','f2','f3','f4','f5'],4:['b1','b2','b3','b4']};
+
+const EXP={
+  'c1': "All of F19's publicly confirmed clients — KPMG Netherlands, Arcadis, Alliander, FMO, Port of Rotterdam, CZ — are Dutch organisations. Their footprint is Netherlands/Benelux-heavy, not global.",
+  'c2': "InDesign is F19's standout output format — a direct export for print-ready design work. IRIS CARBON covers PDF, website, and iXBRL, but InDesign isn't a native output.",
+  'c3': "Niti is IRIS CARBON's AI-powered product — it handles AI-assisted iXBRL tagging and historical period comparison, a capability not shown in F19's demo.",
+  'c4': "SBR (Standard Business Reporting) is the Dutch government's own standardised reporting framework. F19 explicitly supports it alongside CSRD and ESEF — a Netherlands-specific strength.",
+  'f1': "The SDG video sits inside a Continuous Reporting content block on the actual published report page — not as a separate download or a stripped-out editor asset.",
+  'f2': "ExcelSync keeps a report's financial tables linked to their source spreadsheet, so updates in Excel flow through instead of requiring a manual re-paste.",
+  'f3': "The Word import wizard runs five steps: Upload, Options, Cut, Verify, Menus — turning a raw Word doc into a structured, taggable article.",
+  'f4': "Prepare for validation is the first checkpoint, ahead of Approve for publication and Publish article — each individually assignable to a role like Administrators.",
+  'f5': "InDesign is the format built for print-ready, design-agency-friendly output — generated from the same source as the website, PDF, and iXBRL versions.",
+  'b1': "Every confirmed F19 client is Dutch. That's a strong, credible base in one country — not evidence of multi-country regulatory reach.",
+  'b2': "The sharpest counter isn't dismissing their manual tagging — it's pointing to Niti's AI-assisted tagging, which holds up better as filing volume and entity count grow.",
+  'b3': "F19's public materials and client base show deep Netherlands/SBR expertise, but no confirmed SEC/EDGAR support — that's the real gap to probe for on a call.",
+  'b4': "The defensible difference is regulatory and geographic breadth — confirmed coverage across SEC, BRSR, FERC, CSRD/ESRS versus F19's Netherlands-centered footprint. Everything else is a matter of taste, not fact."
+};
+
+const LABELS={
+  'c1':"S2·Q1 — F19's client base: which country?",
+  'c2':"S2·Q2 — Output format F19 has that IRIS CARBON doesn't?",
+  'c3':"S2·Q3 — IRIS CARBON's AI tagging product name?",
+  'c4':"S2·Q4 — Netherlands-specific regime F19 supports?",
+  'f1':"S3·Q1 — Where the SDG video actually appears?",
+  'f2':"S3·Q2 — What ExcelSync does?",
+  'f3':"S3·Q3 — Steps in the Word import wizard?",
+  'f4':"S3·Q4 — First approval workflow checkpoint?",
+  'f5':"S3·Q5 — Format built for print-ready design output?",
+  'b1':"S4·Q1 — Country behind F19's client list?",
+  'b2':"S4·Q2 — Counter to 'full manual tagging control'?",
+  'b3':"S4·Q3 — F19's fit for a US-listed subsidiary?",
+  'b4':"S4·Q4 — Most defensible structural difference?"
+};
+
+/* ---------- PARSE THE STATIC METADATA BANK ----------
+   Single source of truth for scoring weights: both MAX_SCORE and the
+   per-question WEIGHTS map used at runtime are derived from this bank,
+   so a static parser reading the raw HTML always agrees with the
+   live, running score. */
+function parseQuizBank(){
+  const map={};
+  document.querySelectorAll('#quizBank .qblock').forEach(b=>{
+    const id=b.dataset.id;
+    map[id]={
+      id,
+      type: b.dataset.type,                       // 'mcq' | 'fill-blank' | 'descriptive'
+      points: parseInt(b.dataset.points,10) || 0,  // explicit 0 if unscored
+      correct: b.dataset.correct || '',
+      text: (b.querySelector('.qtext')||{}).textContent.trim()
+    };
+  });
+  return map;
+}
+const QMETA = parseQuizBank();
+const WEIGHTS = {};
+Object.keys(QMETA).forEach(id=>{ WEIGHTS[id]=QMETA[id].points; });
+/* Max possible score — always derived from the metadata bank above, never hardcoded elsewhere. */
+const MAX_SCORE = Object.values(QMETA).reduce((sum,it)=>sum+it.points,0);
+
+document.getElementById('lyPill').textContent = '⚡ ' + MAX_SCORE + ' Plasma';
+document.getElementById('rScore').textContent = '0/' + MAX_SCORE;
+
+function updDots(n){
+  document.querySelectorAll('.dot').forEach((d,i)=>{
+    d.classList.remove('on','done');
+    if(i===n) d.classList.add('on');
+    else if(i<n) d.classList.add('done');
+  });
+}
+function go(n){
+  document.getElementById('s'+cur).classList.remove('active');
+  cur=n;
+  document.getElementById('s'+n).classList.add('active');
+  updDots(n);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function tAcc(btn){btn.closest('.ac-item').classList.toggle('open');}
+function showEx(id){
+  document.querySelectorAll('.ex-detail').forEach(d=>d.classList.remove('show'));
+  document.getElementById('ex-'+id).classList.add('show');
+}
+
+function ans(qid,chosen,correct){
+  if(sc.hasOwnProperty(qid)) return;
+  const isOk=chosen===correct;
+  sc[qid]=isOk;
+  chosenAns[qid]=chosen;
+  document.querySelectorAll('#qo-'+qid+' .q-opt').forEach(btn=>{
+    btn.disabled=true;
+    const l=btn.querySelector('.q-l').textContent.trim();
+    if(l===chosen) btn.classList.add(isOk?'ok':'bad');
+    if(!isOk&&l===correct) btn.classList.add('reveal');
+  });
+  const fb=document.getElementById('qf-'+qid);
+  fb.className='q-fb '+(isOk?'ok':'bad');
+  fb.innerHTML=(isOk?'<strong>✓ Correct.</strong> ':'<strong>✗ Not quite — correct answer highlighted above.</strong> ')+EXP[qid];
+  for(const[sn,qids] of Object.entries(SQ)){
+    if(qids.includes(qid)&&qids.every(q=>sc.hasOwnProperty(q))){
+      const nx=document.getElementById('nx-'+sn);
+      if(nx) nx.disabled=false;
+      const g=document.getElementById('gate-'+sn);
+      if(g) g.style.display='none';
+      break;
+    }
+  }
+}
+
+function computeScore(){
+  let score=0;
+  QS.forEach(id=>{ if(sc[id]) score+=WEIGHTS[id]; });
+  return score;
+}
+
+function showResult(){
+  const score=computeScore();
+  const pct=MAX_SCORE>0?Math.round(score/MAX_SCORE*100):0;
+
+  document.getElementById('rScore').textContent=score+'/'+MAX_SCORE;
+  document.getElementById('rOf').textContent=pct+'% · Plasma earned';
+  document.getElementById('rCert').textContent=pct+'% · Know Your Competitor: F19 · Knowledge of Market · IRIS Orbit';
+  let rows='';
+  QS.forEach(id=>{
+    const r=sc[id];
+    const icon=r===true?'<span style="color:#1A7A48;font-weight:800;">✓</span>':r===false?'<span style="color:#C0392B;font-weight:800;">✗</span>':'<span style="color:#888;">—</span>';
+    rows+=`<tr><td style="font-size:12px;color:var(--ink2);padding:8px 12px;">${LABELS[id]}</td><td style="text-align:right;padding:8px 12px;">${icon}</td></tr>`;
+  });
+  document.getElementById('breakdown').innerHTML=rows;
+  document.getElementById('retryBlk').style.display=pct<80?'block':'none';
+  document.getElementById('passBlk').style.display=pct>=80?'block':'none';
+  go(5);
+}
+
+function restart(){
+  sc={};
+  Object.keys(chosenAns).forEach(k=>delete chosenAns[k]);
+  QS.forEach(id=>{
+    document.querySelectorAll('#qo-'+id+' .q-opt').forEach(b=>{b.disabled=false;b.classList.remove('ok','bad','reveal');});
+    const fb=document.getElementById('qf-'+id);
+    if(fb){fb.className='q-fb';fb.innerHTML='';}
+  });
+  Object.keys(SQ).forEach(sn=>{
+    const nx=document.getElementById('nx-'+sn);
+    if(nx) nx.disabled=true;
+    const g=document.getElementById('gate-'+sn);
+    if(g) g.style.display='block';
+  });
+  go(0);
+}
+
+/* ---------- SUBMIT FUNCTION ---------- */
+function getMcqOptions(qid){
+  const list=document.querySelectorAll('#qo-'+qid+' .q-opt');
+  if(!list.length) return null;
+  return Array.from(list).map(btn=>{
+    const key=btn.querySelector('.q-l').textContent.trim();
+    const text=btn.textContent.replace(key,'').trim();
+    return {key,text};
+  });
+}
+function fireSubmit(){
+  const score = computeScore();
+  const pct = MAX_SCORE>0 ? Math.round(score/MAX_SCORE*100) : 0;
+  const questions = Object.values(QMETA).map(it=>{
+    const correct = !!sc[it.id];
+    let userAnswer=null, correctAnswer=null, options;
+    const opts=getMcqOptions(it.id);
+    if(opts){
+      const chosenOpt=opts.find(o=>o.key===chosenAns[it.id]);
+      const correctOpt=opts.find(o=>o.key===it.correct);
+      userAnswer = chosenOpt ? chosenOpt.text : (chosenAns[it.id]||null);
+      correctAnswer = correctOpt ? correctOpt.text : it.correct;
+      options = opts.map(o=>o.text);
+    }
+    return {
+      id: it.id,
+      questionText: it.text,
+      type: it.type,
+      userAnswer,
+      correctAnswer,
+      isCorrect: correct,
+      options,
+      points: correct ? it.points : 0,
+      maxPoints: it.points
+    };
+  });
+  // 1. Broadcast evaluation payload out to the parent embedding frame
+  window.parent.postMessage({
+    fromSandboxEngine: true,
+    type: 'HTML_SIMULATION_SUBMIT',
+    score: score,
+    maxPossibleScore: MAX_SCORE,
+    percent: pct,
+    passed: pct>=80,
+    textResponses: { questions }
+  }, '*');
+  // 2. High-reliability exit protocol cascade (final cleanup / close fallback)
+  setTimeout(() => {
+    // Strategy A: Native script close window rule
+    window.close();
+
+    // Strategy B: Browser history rollback back-up
+    if (window.history.length > 1) {
+      window.history.back();
+    }
+
+    // Strategy C: Target empty blank node to scrub presentation container viewport
+    // (Crucial fallback for sandboxed browser view environments)
+    document.querySelector('.shell').innerHTML = `
+      <div class="r-hero" style="text-align:center;">
+        <div style="font-size:48px;margin-bottom:10px;">✓</div>
+        <h2 style="color:var(--ink);">Module Successfully Submitted</h2>
+        <p style="color:var(--ink2);margin-top:10px;">Your progress data has been recorded. You can safely close or navigate away from this section.</p>
+      </div>`;
+
+    // Strategy D: Force redirect container frame to safety target location
+    setTimeout(() => {
+      window.location.replace("about:blank");
+    }, 500);
+  }, 200);
+}
+document.getElementById('finishBtn').addEventListener('click', fireSubmit);
+</script>
+</body>
+</html>

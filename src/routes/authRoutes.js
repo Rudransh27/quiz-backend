@@ -8,9 +8,15 @@ const sendEmail = require("../utils/sendEmail");
 const auth = require("../middleware/auth");
 const authController = require("../controllers/authController");
 const { msalClient, MICROSOFT_SCOPES, getMicrosoftRedirectUri } = require("../utils/msalClient");
+const { CryptoProvider } = require("@azure/msal-node");
 const { resolveClientToday, shiftDateKey } = require("../utils/localDate");
 const { loginLimiter, otpLimiter, forgotPasswordLimiter } = require("../middleware/rateLimiters");
 const verifyCaptcha = require("../middleware/verifyCaptcha");
+const { handleError } = require("../utils/safeError");
+const AuthSession = require("../models/AuthSession");
+const { startSession, closeSession, endUserSessions } = require("../services/auth/sessions");
+const { recordAuthEvent } = require("../services/auth/audit");
+const identity = require("../services/auth/identity");
 
 // 🌍 Resolves whatever `regions` the client submitted (array of ids, or a
 // single id) down to only the ids that actually correspond to a real Region
@@ -32,6 +38,24 @@ async function resolveRegionIds(requestedRegions) {
 
 // 🔒 Account lockout thresholds — shared between the failure branch (which
 // counts up to this) and the lockout check (which uses the same duration).
+// 🔒 A self-chosen team must be a real, non-Council team of the user's own
+// department. Council membership makes an admin department-wide
+// (utils/teamAccess.js), so it is only ever assigned by an admin, never
+// picked by the user. Anything else resolves to null (no team).
+async function resolveOwnTeam(teamId, departmentId) {
+  if (!teamId || !departmentId || !mongoose.Types.ObjectId.isValid(String(teamId))) return null;
+  const team = await mongoose.model("Team").findById(teamId).select("department_id isCouncil").lean();
+  if (!team || team.isCouncil || String(team.department_id) !== String(departmentId)) return null;
+  return team._id;
+}
+
+// 🔒 Request values that reach a Mongo filter must be plain strings — a JSON
+// object such as {"$ne": null} or {"$regex": "^a"} would otherwise act as a
+// query operator (match any account / probe which emails exist).
+const cleanEmail = (v) => (typeof v === "string" && v.length <= 254 ? v.trim().toLowerCase() : null);
+const MAX_OTP_ATTEMPTS = 5;
+const escapeHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 
@@ -72,12 +96,18 @@ const ALLOWED_EMAIL_DOMAINS = ["irisregtech.com", "irisbusiness.com"];
 // one-time "+25 XP on building" award) so two near-simultaneous requests
 // can't double-pay.
 async function claimDailyLoginBonus(userId, today) {
-  const updated = await User.findOneAndUpdate(
+  const claimed = await User.findOneAndUpdate(
     { _id: userId, lastLoginBonusDate: { $ne: today } },
-    { $set: { lastLoginBonusDate: today }, $inc: { xp: 1 } },
+    { $set: { lastLoginBonusDate: today } },
     { new: true }
   );
-  return updated ? { awarded: true, xp: updated.xp } : { awarded: false };
+  if (!claimed) return { awarded: false };
+  // 🔒 XP LEDGER: the +1 goes through the idempotent ledger (one key per
+  // user per day), like every other XP change.
+  const { awardXp } = require("../services/xpLedger");
+  await awardXp({ userId, amount: 1, source: "daily_login", idempotencyKey: `login:${userId}:${today}` });
+  const fresh = await User.findById(userId, "xp").lean();
+  return { awarded: true, xp: fresh?.xp ?? claimed.xp + 1 };
 }
 
 // 🔐 SESSION-BINDING COOKIE — closes the "capture a valid Superadmin JWT in
@@ -91,18 +121,61 @@ async function claimDailyLoginBonus(userId, today) {
 // (`bh`); auth.js recomputes the hash from whatever cookie arrived with the
 // request and rejects the token if it doesn't match — which it won't, for a
 // token pasted into a browser/session that never received this cookie.
+// Scoped to the API (and the Socket.IO handshake under /api/socket.io) so the
+// cookie is never sent to other apps served from the same host.
+const BINDING_COOKIE_PATH = "/api";
+
 function issueBindingCookie(req, res) {
-  const bindingSecret = crypto.randomBytes(32).toString("hex");
-  const bindingHash = crypto.createHash("sha256").update(bindingSecret).digest("hex");
-  res.cookie("orbit_bind", bindingSecret, {
+  const bindingNonce = crypto.randomBytes(32).toString("hex");
+  const bindingHash = crypto.createHash("sha256").update(bindingNonce).digest("hex");
+  res.cookie("orbit_bind", bindingNonce, {
     httpOnly: true,
     secure: req.secure,
     sameSite: req.secure ? "none" : "lax",
     maxAge: 24 * 60 * 60 * 1000, // mirrors the JWT's own 1d expiresIn
-    path: "/",
+    path: BINDING_COOKIE_PATH,
   });
   return bindingHash;
 }
+
+// The JWT body every sign-in returns (login, verify-email, SSO, password
+// change) — one shape, so the rest of the app can't tell them apart.
+function sessionPayload(user, sessionId, bh, xp) {
+  return {
+    user: {
+      id: user._id.toString(),
+      role: user.role,
+      department: user.department ? user.department.toString() : null,
+      team: user.team ? user.team.toString() : null,
+      regions: (user.regions || []).map((r) => r.toString()),
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+      avatarId: user.avatarId || "dev",
+      xp: xp ?? (user.xp || 0),
+      email: user.email,
+      sessionId,
+      bh,
+    },
+  };
+}
+
+// Starts an IRIS Orbit session for a person whose identity has been verified
+// (services/auth/sessions records the sign-in, its method and "last login")
+// and signs its JWT. A fresh sessionId and binding cookie every time, so a
+// session can never be fixed in advance.
+async function issueSessionToken(req, res, user, { provider, xp, isLogin = true }) {
+  const { sessionId } = await startSession({ req, user, provider, isLogin });
+  const payload = sessionPayload(user, sessionId, issueBindingCookie(req, res), xp);
+  const token = await new Promise((resolve, reject) => {
+    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1d" }, (err, t) => (err ? reject(err) : resolve(t)));
+  });
+  return { token, payload, sessionId };
+}
+
+// Compared against when an account has no password to check (unknown email,
+// Microsoft-only account), so those answers take as long as a real check
+// and timing doesn't reveal which emails have accounts.
+const DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(16).toString("hex"), 10);
 
 // =========================================================================
 // @route    POST /api/auth/register
@@ -115,7 +188,10 @@ router.post("/register", verifyCaptcha, async (req, res) => {
     console.log("📥 Registration request received for:", email);
 
     // 🛡️ Multi-domain Whitelist Check
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = cleanEmail(email);
+    if (!normalizedEmail || typeof username !== "string" || !username.trim() || typeof password !== "string") {
+      return res.status(400).json({ success: false, message: "Please fill in your name, work email and password." });
+    }
 
     const isDomainValid = ALLOWED_EMAIL_DOMAINS.some(domain =>
       normalizedEmail.endsWith(`@${domain}`)
@@ -144,11 +220,13 @@ router.post("/register", verifyCaptcha, async (req, res) => {
     }
 
     // Secure OTP Generations Matrix
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // crypto.randomInt (CSPRNG) — Math.random is predictable and flagged by
+    // security scanners for anything used as a verification secret.
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
 
     // ✨ DYNAMIC DEPARTMENT LOOKUP (No Hardcoded IDs!)
-    const targetDepartmentCode = department ? department.trim().toLowerCase() : "";
+    const targetDepartmentCode = typeof department === "string" ? department.trim().toLowerCase() : "";
     let finalDepartmentId = null;
 
     if (targetDepartmentCode) {
@@ -168,7 +246,7 @@ router.post("/register", verifyCaptcha, async (req, res) => {
     }
 
     // Check optional dynamic team allocation parameters safely
-    const finalTeamId = mongoose.Types.ObjectId.isValid(teamId) ? teamId : null;
+    const finalTeamId = await resolveOwnTeam(teamId, finalDepartmentId);
 
     // 🌍 Region selection is optional — an empty result just leaves the new
     // account unrestricted (sees every region) until they pick one later.
@@ -193,7 +271,7 @@ router.post("/register", verifyCaptcha, async (req, res) => {
 
     const message = `
       <h3>IRIS Orbit Platform - Verification Code</h3>
-      <p>Hi ${username},</p>
+      <p>Hi ${escapeHtml(username.trim())},</p>
       <p>Your 6-digit verification code is: <strong>${otp}</strong></p>
       <p>This code is valid for 10 minutes. If you didn't request this, please ignore.</p>
     `;
@@ -206,10 +284,21 @@ router.post("/register", verifyCaptcha, async (req, res) => {
       });
       console.log(`📬 Verification email successfully sent to: ${user.email}`);
     } catch (mailErr) {
-      console.error("⚠️ SMTP Transport Fault (Gracefully Bypassed):", mailErr.message);
-      return res.status(200).json({ 
-        success: true, 
-        message: `[DEV MODE] Account saved. Your OTP code is: ${otp}` 
+      console.error("⚠️ SMTP Transport Fault:", mailErr.message);
+      // 🛡️ Security fix: the OTP used to be returned in this response whenever
+      // SMTP failed — on a live server that let anyone register with someone
+      // else's email and verify it without access to that mailbox. Now only a
+      // developer machine that explicitly opts in (DEV_OTP_FALLBACK=true, and
+      // NODE_ENV not "production") gets the code back.
+      if (process.env.NODE_ENV !== "production" && process.env.DEV_OTP_FALLBACK === "true") {
+        return res.status(200).json({
+          success: true,
+          message: `[DEV MODE] Account saved. Your OTP code is: ${otp}`
+        });
+      }
+      return res.status(503).json({
+        success: false,
+        message: "We couldn't send the verification email right now. Please try again in a few minutes.",
       });
     }
 
@@ -217,7 +306,7 @@ router.post("/register", verifyCaptcha, async (req, res) => {
     
   } catch (err) {
     console.error("❌ CRITICAL REGISTRATION CRASH LOG:", err.message);
-    return res.status(500).json({ success: false, message: `Server Error: ${err.message}` });
+    return handleError(res, err, 500);
   }
 });
 
@@ -227,75 +316,45 @@ router.post("/register", verifyCaptcha, async (req, res) => {
 // @access   Public
 // =========================================================================
 router.post("/verify-email", otpLimiter, async (req, res) => {
-  const { email, otp } = req.body;
+  const email = cleanEmail(req.body.email);
+  const { otp } = req.body;
+  const invalid = () => res.status(400).json({ success: false, message: "Invalid or expired OTP code." });
   try {
-    const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
-    const user = await User.findOne({
-      email,
-      emailVerificationToken: hashedOTP,
-      emailVerificationExpire: { $gt: Date.now() },
-    });
-
-    if (!user) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid or expired OTP code." });
+    if (!email || typeof otp !== "string" || !/^\d{6}$/.test(otp.trim())) return invalid();
+    const hashedOTP = crypto.createHash("sha256").update(otp.trim()).digest("hex");
+    // Look the account up by email alone, then compare the code — so wrong
+    // guesses can be counted against THIS account and the code burned after
+    // MAX_OTP_ATTEMPTS, whatever IPs the guesses come from.
+    const user = await User.findOne({ email, isVerified: false, emailVerificationExpire: { $gt: Date.now() } })
+      .select("+emailVerificationToken +emailVerificationAttempts");
+    if (!user || !user.emailVerificationToken) return invalid();
+    if (user.emailVerificationToken !== hashedOTP) {
+      const attempts = (user.emailVerificationAttempts || 0) + 1;
+      if (attempts >= MAX_OTP_ATTEMPTS) {
+        await User.updateOne({ _id: user._id }, { $unset: { emailVerificationToken: 1, emailVerificationExpire: 1 }, $set: { emailVerificationAttempts: 0 } });
+        return res.status(400).json({ success: false, message: "Too many wrong codes. Please register again to get a new code." });
+      }
+      await User.updateOne({ _id: user._id }, { $set: { emailVerificationAttempts: attempts } });
+      return invalid();
     }
+    user.emailVerificationAttempts = 0;
 
     user.isVerified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpire = undefined;
     await user.save();
 
-    const stringUserId = user._id.toString();
-    const dynamicSessionId = crypto.randomUUID();
-
-    // Cache initialization loop synchronization check
-    if (global.redisClient && global.redisClient.isOpen && global.redisClient.isReady) {
-      await global.redisClient.set(
-        `session:${stringUserId}`,
-        dynamicSessionId,
-        { EX: 86400 },
-      );
-    }
-
-    const payload = {
-      user: {
-        id: stringUserId,
-        role: user.role,
-        department: user.department ? user.department.toString() : null,
-        team: user.team ? user.team.toString() : null, // Embedded team matrix support cleanly
-        regions: (user.regions || []).map((r) => r.toString()),
-        username: user.username,
-        avatarUrl: user.avatarUrl,
-        avatarId: user.avatarId || "dev",
-        xp: user.xp || 0,
-        sessionId: dynamicSessionId,
-        bh: issueBindingCookie(req, res),
-      },
-    };
-
-    jwt.sign(
-      payload,
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" },
-      (err, token) => {
-        if (err) throw err;
-        // 🎯 BUG FIX: this response was missing `streak` entirely (unlike
-        // /login and /validate, which both correctly include it) — so the
-        // very first session after verifying a new account always
-        // normalized to a blank/0 streak on the frontend, regardless of
-        // what the database actually had. Matches /login's exact pattern:
-        // keep the signed JWT payload minimal, add streak to the response
-        // body's user object only.
-        res.status(200).json({
-          success: true,
-          token,
-          user: { ...payload.user, streak: user.currentStreak || 0 },
-          message: "Email verified successfully! Welcome to IRIS Orbit.",
-        });
-      },
-    );
+    await recordAuthEvent({ type: "ACCOUNT_CREATED", req, userId: user._id, email: user.email, provider: "local", success: true });
+    const { token, payload } = await issueSessionToken(req, res, user, { provider: "local" });
+    // `streak` rides on the response body only (not the signed payload), as
+    // with /login and /validate — a new account's first session would
+    // otherwise show a blank streak.
+    return res.status(200).json({
+      success: true,
+      token,
+      user: { ...payload.user, streak: user.currentStreak || 0 },
+      message: "Email verified successfully! Welcome to IRIS Orbit.",
+    });
   } catch (err) {
     console.error("❌ Email Verification Server Error:", err.message);
     res.status(500).json({ success: false, message: "Server Error" });
@@ -308,16 +367,30 @@ router.post("/verify-email", otpLimiter, async (req, res) => {
 //           the browser to Microsoft's own login page.
 // @access   Public
 // =========================================================================
+// 🔒 SSO login-CSRF / code-injection guard: a random `state` and a PKCE
+// verifier are bound to THIS browser in a short-lived HttpOnly cookie, and the
+// callback only accepts a code that comes back with the same state (and that
+// redeems with the same verifier). Without it, an attacker could finish their
+// own Microsoft sign-in in a victim's browser and log the victim in as them.
+const SSO_COOKIE = "orbit_sso";
+const ssoCookieOptions = (req) => ({ httpOnly: true, secure: req.secure, sameSite: "lax", path: BINDING_COOKIE_PATH });
+
 router.get("/microsoft", async (req, res) => {
   try {
+    const state = crypto.randomBytes(24).toString("hex");
+    const { verifier, challenge } = await new CryptoProvider().generatePkceCodes();
+    res.cookie(SSO_COOKIE, `${state}.${verifier}`, { ...ssoCookieOptions(req), maxAge: 10 * 60 * 1000 });
     const authUrl = await msalClient.getAuthCodeUrl({
       scopes: MICROSOFT_SCOPES,
       redirectUri: getMicrosoftRedirectUri(),
+      state,
+      codeChallenge: challenge,
+      codeChallengeMethod: "S256",
     });
     res.redirect(authUrl);
   } catch (err) {
     console.error("❌ Microsoft SSO auth-url generation failed:", err.message);
-    res.redirect(`${process.env.CLIENT_URL}/sso/callback?error=${encodeURIComponent("Could not start Microsoft sign-in. Please try again.")}`);
+    res.redirect(`${process.env.CLIENT_URL}/sso/callback?error=start_failed`);
   }
 });
 
@@ -329,123 +402,84 @@ router.get("/microsoft", async (req, res) => {
 // @access   Public (reached only via Microsoft's own redirect)
 // =========================================================================
 router.get("/microsoft/callback", async (req, res) => {
-  const redirectWithError = (message) =>
-    res.redirect(`${process.env.CLIENT_URL}/sso/callback?error=${encodeURIComponent(message)}`);
+  // Only fixed codes travel in the URL — never request data or free text.
+  // SsoCallback.jsx maps each code to a user-facing message. Every failure
+  // is recorded (LOGIN_FAILED, method SSO) with a fixed reason code.
+  const SSO_ERROR_CODES = new Set(["cancelled", "profile_missing", "domain_denied", "not_member", "identity_conflict", "session_failed", "failed"]);
+  const fail = async (code, reason = code, extra = {}) => {
+    await recordAuthEvent({ type: "LOGIN_FAILED", req, provider: "microsoft", success: false, reason, ...extra });
+    return res.redirect(`${process.env.CLIENT_URL}/sso/callback?error=${SSO_ERROR_CODES.has(code) ? code : "failed"}`);
+  };
 
   try {
     // Microsoft sends ?error=...&error_description=... instead of ?code=...
     // when something is actually wrong (redirect URI mismatch, consent
-    // required, etc.) — surface that real reason instead of a generic
-    // "cancelled" message that hides what's actually happening.
+    // required, etc.) — logged for ops, never echoed to the browser.
     if (req.query.error) {
       console.error("❌ Microsoft SSO returned an error:", req.query.error, "-", req.query.error_description);
-      return redirectWithError(req.query.error_description || req.query.error);
+      return fail("cancelled", "provider_error");
     }
 
-    if (!req.query.code) {
-      return redirectWithError("Microsoft sign-in was cancelled or did not return an authorization code.");
+    if (!req.query.code || typeof req.query.code !== "string") {
+      return fail("cancelled");
+    }
+
+    // The state must match the one this browser was given in /microsoft.
+    const [expectedState, codeVerifier] = String((req.cookies && req.cookies[SSO_COOKIE]) || "").split(".");
+    res.clearCookie(SSO_COOKIE, ssoCookieOptions(req));
+    const gotState = typeof req.query.state === "string" ? req.query.state : "";
+    if (!expectedState || !codeVerifier || gotState.length !== expectedState.length
+        || !crypto.timingSafeEqual(Buffer.from(gotState), Buffer.from(expectedState))) {
+      console.warn("🚨 Microsoft SSO callback with a missing/mismatched state — rejected.");
+      return fail("failed", "state_mismatch");
     }
 
     const tokenResponse = await msalClient.acquireTokenByCode({
       code: req.query.code,
       scopes: MICROSOFT_SCOPES,
       redirectUri: getMicrosoftRedirectUri(),
+      codeVerifier,
     });
 
+    // Microsoft's own tokens stay on the server — only the verified identity
+    // (tenant, object id, email, name) is read from the ID token, and none
+    // of it is logged.
     const claims = tokenResponse.idTokenClaims || tokenResponse.account?.idTokenClaims || {};
-    const oid = claims.oid || tokenResponse.account?.homeAccountId;
-    const email = (claims.email || claims.preferred_username || tokenResponse.account?.username || "").trim().toLowerCase();
-    const displayName = claims.name || tokenResponse.account?.name || "";
-
-    if (!oid || !email) {
-      return redirectWithError("Microsoft did not return the expected account details.");
+    let ident;
+    try {
+      ident = identity.microsoftIdentityFromClaims(claims, process.env.MICROSOFT_TENANT_ID);
+    } catch (err) {
+      if (!(err instanceof identity.IdentityError)) throw err;
+      return fail(err.code === "wrong_tenant" ? "domain_denied" : err.code, err.code);
     }
 
-    // 🛡️ Same corporate-domain guard as /register — defense-in-depth even
-    // though the Entra ID tenant should already be scoped to the company.
-    const isDomainValid = ALLOWED_EMAIL_DOMAINS.some(domain => email.endsWith(`@${domain}`));
-    if (!isDomainValid) {
-      const domainListString = ALLOWED_EMAIL_DOMAINS.map(d => `'@${d}'`).join(" or ");
-      return redirectWithError(`Access Denied. Only corporate emails from ${domainListString} are allowed.`);
+    // One IRIS Orbit user per person: an existing link, the same verified
+    // corporate email, or a new account — never a duplicate.
+    let resolved;
+    try {
+      resolved = await identity.resolveSsoUser(ident);
+    } catch (err) {
+      if (!(err instanceof identity.IdentityError)) throw err;
+      console.warn(`🚨 Microsoft SSO identity refused (${err.code}) for ${ident.email}.`);
+      return fail(err.code, err.code, { email: ident.email });
     }
+    const { user, created, linked } = resolved;
+    if (created) await recordAuthEvent({ type: "ACCOUNT_CREATED", req, userId: user._id, email: user.email, provider: "microsoft", success: true });
+    if (linked) await recordAuthEvent({ type: "ACCOUNT_LINKED", req, userId: user._id, email: user.email, provider: "microsoft", success: true });
 
-    let user = await User.findOne({ $or: [{ microsoftId: oid }, { email }] });
-
-    if (!user) {
-      // 🚀 First-ever SSO login for this email — auto-create the account.
-      // Microsoft has already verified their identity, so isVerified is
-      // true immediately (no OTP step). department/team are intentionally
-      // left unset — the frontend routes them to /complete-profile next.
-      const baseUsername = (displayName || email.split("@")[0])
-        .trim().replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "user";
-      let candidateUsername = baseUsername;
-      let suffix = 0;
-      while (await User.findOne({ username: candidateUsername })) {
-        suffix += 1;
-        candidateUsername = `${baseUsername}${suffix}`;
-      }
-
-      user = new User({
-        username: candidateUsername,
-        email,
-        authProvider: "microsoft",
-        microsoftId: oid,
-        isVerified: true,
-        role: "user",
-      });
-      await user.save();
-      console.log(`✨ Auto-created SSO account for: ${email}`);
-    } else if (!user.microsoftId) {
-      // Existing password-based account, first time using SSO — link it.
-      // Their password keeps working too; this only adds a second way in.
-      user.microsoftId = oid;
-      await user.save();
-      console.log(`🔗 Linked existing account to Microsoft SSO: ${email}`);
+    let token;
+    try {
+      ({ token } = await issueSessionToken(req, res, user, { provider: "microsoft" }));
+    } catch (err) {
+      console.error("❌ Microsoft SSO session start failed:", err.message);
+      return fail("session_failed", "session_failed", { userId: user._id, email: user.email });
     }
-
-    const stringUserId = user._id.toString();
-    const dynamicSessionId = crypto.randomUUID();
-
-    if (global.redisClient && global.redisClient.isOpen && global.redisClient.isReady) {
-      try {
-        await global.redisClient.set(`session:${stringUserId}`, dynamicSessionId, { EX: 86400 });
-        if (global.activeUserSockets && global.activeUserSockets.has(stringUserId)) {
-          global.activeUserSockets.get(stringUserId).forEach((socketId) => {
-            global.io.to(socketId).emit("force_logout_event", { newSessionId: dynamicSessionId });
-          });
-        }
-      } catch (redisError) {
-        console.error("⚠️ Redis Operational Fault, gracefully bypassing cache sync:", redisError.message);
-      }
-    }
-
-    const payload = {
-      user: {
-        id: stringUserId,
-        role: user.role,
-        department: user.department ? user.department.toString() : null,
-        team: user.team ? user.team.toString() : null,
-        regions: (user.regions || []).map((r) => r.toString()),
-        username: user.username,
-        avatarUrl: user.avatarUrl,
-        xp: user.xp || 0,
-        email: user.email,
-        avatarId: user.avatarId || "dev",
-        sessionId: dynamicSessionId,
-        bh: issueBindingCookie(req, res),
-      },
-    };
-
-    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1d" }, (err, token) => {
-      if (err) {
-        console.error("❌ Microsoft SSO JWT signing failed:", err.message);
-        return redirectWithError("Sign-in succeeded but session creation failed. Please try again.");
-      }
-      res.redirect(`${process.env.CLIENT_URL}/sso/callback?token=${token}`);
-    });
+    // In the #fragment, not the query: browsers never send the fragment to
+    // a server, so the token stays out of nginx/proxy logs and Referer.
+    return res.redirect(`${process.env.CLIENT_URL}/sso/callback#token=${token}`);
   } catch (err) {
     console.error("❌ Microsoft SSO callback error:", err.message);
-    redirectWithError("Microsoft sign-in failed. Please try again or contact IT.");
+    return fail("failed");
   }
 });
 
@@ -463,26 +497,29 @@ router.put("/complete-profile", auth, async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
+    // 🔒 One-time step: once a department is set it can only be changed by
+    // an admin. Re-running this would let anyone move themselves into
+    // another department (and an admin become that department's admin).
+    if (user.department) {
+      return res.status(409).json({ success: false, message: "Your department is already set. Ask an admin to change it." });
+    }
 
     // Same dynamic department-code lookup /register uses — accepts either
     // a department "code" or a raw ObjectId string.
-    const targetDepartmentCode = department ? department.trim().toLowerCase() : "";
+    const targetDepartmentCode = typeof department === "string" ? department.trim().toLowerCase() : "";
     if (!targetDepartmentCode) {
       return res.status(400).json({ success: false, message: "Please select your department." });
     }
 
-    const foundDepartment = await mongoose.model("Department").findOne({ code: targetDepartmentCode });
+    const foundDepartment = await mongoose.model("Department").findOne({ code: targetDepartmentCode })
+      || (mongoose.Types.ObjectId.isValid(department) ? await mongoose.model("Department").findById(department) : null);
     if (foundDepartment) {
       user.department = foundDepartment._id;
-    } else if (mongoose.Types.ObjectId.isValid(department)) {
-      user.department = department;
     } else {
       return res.status(400).json({ success: false, message: `The selected department '${department}' does not exist.` });
     }
 
-    if (teamId && mongoose.Types.ObjectId.isValid(teamId)) {
-      user.team = teamId;
-    }
+    user.team = await resolveOwnTeam(teamId, user.department);
 
     if (regions !== undefined) {
       user.regions = await resolveRegionIds(regions);
@@ -517,19 +554,26 @@ router.put("/complete-profile", auth, async (req, res) => {
 // @access   Public
 // =========================================================================
 router.post("/login", loginLimiter, verifyCaptcha, async (req, res) => {
-  const { email, password } = req.body;
+  const email = cleanEmail(req.body.email);
+  const { password } = req.body;
+  const invalid = () => res.status(400).json({ success: false, message: "Invalid credentials" });
+  const failed = (reason, user = null) => recordAuthEvent({ type: "LOGIN_FAILED", req, userId: user ? user._id : null, email, provider: "local", success: false, reason });
   try {
+    if (!email || typeof password !== "string") {
+      return invalid();
+    }
     const user = await User.findOne({ email }).select("+password +failedLoginAttempts +lockUntil");
     if (!user) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid credentials" });
+      await bcrypt.compare(password, DUMMY_HASH);
+      await failed("unknown_account");
+      return invalid();
     }
 
     // 🔒 Per-account lockout — checked before spending a bcrypt.compare CPU
     // cycle, and before the password is even looked at, so a locked account
     // can't be used to keep probing passwords during its own lockout window.
     if (user.lockUntil && user.lockUntil > Date.now()) {
+      await failed("locked", user);
       const minutesLeft = Math.ceil((user.lockUntil - Date.now()) / 60000);
       return res.status(423).json({
         success: false,
@@ -537,11 +581,14 @@ router.post("/login", loginLimiter, verifyCaptcha, async (req, res) => {
       });
     }
 
-    if (!user.isVerified) {
-      return res.status(401).json({
-        success: false,
-        message: "Please verify your email! OTP is sent to your mail.",
-      });
+    // An account that signs in with Microsoft and has no IRIS Orbit
+    // password: answered exactly like a wrong password (no hint that the
+    // account exists). No password is ever created for it here — corporate
+    // users sign in with Microsoft (see AUTH_SSO_PASSWORD_LOGIN).
+    if (!user.password) {
+      await bcrypt.compare(password, DUMMY_HASH);
+      await failed("sso_only", user);
+      return invalid();
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -551,6 +598,7 @@ router.post("/login", loginLimiter, verifyCaptcha, async (req, res) => {
         { $inc: { failedLoginAttempts: 1 } },
         { new: true, select: "failedLoginAttempts" },
       );
+      await failed("bad_password", user);
 
       if (updated.failedLoginAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
         await User.updateOne(
@@ -562,9 +610,17 @@ router.post("/login", loginLimiter, verifyCaptcha, async (req, res) => {
         await sleep(progressiveDelayFor(updated.failedLoginAttempts));
       }
 
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid credentials" });
+      return invalid();
+    }
+
+    // Only now (correct password) is it safe to say the account is
+    // unverified — before, this answer told anyone which emails exist.
+    if (!user.isVerified) {
+      await failed("unverified", user);
+      return res.status(401).json({
+        success: false,
+        message: "Please verify your email! OTP is sent to your mail.",
+      });
     }
 
     // Clean slate on a successful login — a stray earlier mistype shouldn't
@@ -573,9 +629,6 @@ router.post("/login", loginLimiter, verifyCaptcha, async (req, res) => {
       await User.updateOne({ _id: user._id }, { $set: { failedLoginAttempts: 0, lockUntil: null } });
     }
 
-    const stringUserId = user._id.toString();
-    const dynamicSessionId = crypto.randomUUID();
-
     // 🎯 First app-open-of-the-day bonus — covers the "fresh credentials
     // login" path (session-resume via a still-valid token is covered by
     // /validate below instead).
@@ -583,61 +636,13 @@ router.post("/login", loginLimiter, verifyCaptcha, async (req, res) => {
     const loginBonus = await claimDailyLoginBonus(user._id, today);
     const effectiveXp = loginBonus.awarded ? loginBonus.xp : (user.xp || 0);
 
-    // Redis Concurrent Token Handshake Validation check blocks
-    if (global.redisClient && global.redisClient.isOpen && global.redisClient.isReady) {
-      try {
-        await global.redisClient.set(
-          `session:${stringUserId}`,
-          dynamicSessionId,
-          { EX: 86400 },
-        );
-        console.log(`🚀 Redis Log: New active session registered for User: ${stringUserId}`);
-
-        if (global.activeUserSockets && global.activeUserSockets.has(stringUserId)) {
-          const targetSocketIds = global.activeUserSockets.get(stringUserId);
-          targetSocketIds.forEach((socketId) => {
-            global.io.to(socketId).emit("force_logout_event", {
-              newSessionId: dynamicSessionId,
-            });
-          });
-          console.log(`⚡ WebSocket Signal Dispatched to terminate old context machine arrays for: ${stringUserId}`);
-        }
-      } catch (redisError) {
-        console.error("⚠️ Redis Operational Fault, gracefully bypassing cache sync:", redisError.message);
-      }
-    }
-
-    const payload = {
-      user: {
-        id: stringUserId,
-        role: user.role,
-        department: user.department ? user.department.toString() : null,
-        team: user.team ? user.team.toString() : null, // Passed down cluster layer context
-        regions: (user.regions || []).map((r) => r.toString()),
-        username: user.username,
-        avatarUrl: user.avatarUrl,
-        xp: effectiveXp,
-        email: user.email,
-        avatarId: user.avatarId || "dev",
-        sessionId: dynamicSessionId,
-        bh: issueBindingCookie(req, res),
-      },
-    };
-
-    jwt.sign(
-      payload,
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" },
-      (err, token) => {
-        if (err) throw err;
-        res.json({
-          success: true,
-          token,
-          user: { ...payload.user, streak: user.currentStreak || 0 },
-          loginBonusAwarded: loginBonus.awarded,
-        });
-      },
-    );
+    const { token, payload } = await issueSessionToken(req, res, user, { provider: "local", xp: effectiveXp });
+    return res.json({
+      success: true,
+      token,
+      user: { ...payload.user, streak: user.currentStreak || 0 },
+      loginBonusAwarded: loginBonus.awarded,
+    });
   } catch (err) {
     console.error("❌ Login Master Controller Crash Exception:", err.message);
     res.status(500).json({ success: false, message: "Server Error" });
@@ -706,6 +711,11 @@ router.post("/validate", auth, async (req, res) => {
         streak: freshUserDoc.currentStreak || 0,
         avatarUrl: freshUserDoc.avatarUrl || "",
         avatarId: freshUserDoc.avatarId || "dev",
+        // From the sign-in system (services/auth/sessions), never editable.
+        lastLoginAt: freshUserDoc.lastLoginAt || null,
+        lastLoginMethod: freshUserDoc.lastLoginMethod || null,
+        lastLoginProvider: freshUserDoc.lastLoginProvider || null,
+        signInMethods: await identity.signInMethods(freshUserDoc),
       },
       loginBonusAwarded: loginBonus.awarded,
     });
@@ -718,23 +728,32 @@ router.post("/validate", auth, async (req, res) => {
 
 // =========================================================================
 // @route    POST /api/auth/logout
-// @desc     Ends the session server-side instead of just discarding the
-//           token client-side — clears the session-binding cookie (so a
-//           copy of the now-abandoned JWT can never satisfy the binding
-//           check in auth.js again) and the Redis session record (so the
-//           single-login-enforcement check also treats this session as over).
+// @desc     Ends THIS IRIS Orbit session on the server (its AuthSession row
+//           — the token is refused from now on, also by any other tab of
+//           this browser) and clears the session-binding cookie. Other
+//           devices stay signed in. The Microsoft (Entra ID) session is NOT
+//           ended: "Sign in with Microsoft" afterwards may go straight
+//           through without a password prompt. Body { reason: "idle" } =
+//           the browser's inactivity timer (recorded as SESSION_EXPIRED).
 // @access   Private
 // =========================================================================
 router.post("/logout", auth, async (req, res) => {
+  const idle = req.body && req.body.reason === "idle";
   try {
-    if (global.redisClient && global.redisClient.isOpen && global.redisClient.isReady) {
-      await global.redisClient.del(`session:${req.user.id.toString()}`);
-    }
-  } catch (redisError) {
-    console.error("⚠️ Redis Operational Fault during logout, continuing anyway:", redisError.message);
+    await closeSession({
+      sessionId: req.user.sessionId,
+      userId: req.user.id,
+      reason: idle ? "expired" : "logout",
+      eventReason: idle ? "idle" : null,
+      req,
+    });
+  } catch (err) {
+    console.error("⚠️ Logout could not close the session record, continuing anyway:", err.message);
   }
 
-  res.clearCookie("orbit_bind", { httpOnly: true, secure: req.secure, sameSite: req.secure ? "none" : "lax", path: "/" });
+  const cookieOpts = { httpOnly: true, secure: req.secure, sameSite: req.secure ? "none" : "lax" };
+  res.clearCookie("orbit_bind", { ...cookieOpts, path: BINDING_COOKIE_PATH });
+  res.clearCookie("orbit_bind", { ...cookieOpts, path: "/" }); // cookies issued before the path was narrowed
   res.json({ success: true, message: "Logged out." });
 });
 
@@ -744,18 +763,32 @@ router.post("/logout", auth, async (req, res) => {
 // @access   Private
 // =========================================================================
 router.put("/update-profile", auth, async (req, res) => {
-  const { username, avatarId, avatarUrl, teamId, regions } = req.body;
+  // Team is NOT changeable here — team moves go through the approved
+  // transfer-request flow (teamRoutes.js).
+  const { username, avatarId, avatarUrl, regions } = req.body;
   try {
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
 
-    if (username) user.username = username;
+    if (username !== undefined) {
+      const clean = typeof username === "string" ? username.trim() : "";
+      if (clean.length < 2 || clean.length > 40 || /[<>]/.test(clean)) {
+        return res.status(400).json({ success: false, message: "Your name must be 2–40 characters (no < or >)." });
+      }
+      user.username = clean;
+    }
     if (avatarId) user.avatarId = avatarId;
-    if (teamId && mongoose.Types.ObjectId.isValid(teamId)) user.team = teamId;
     if (regions !== undefined) user.regions = await resolveRegionIds(regions);
 
+    // 🔒 Only images hosted in OUR Cloudinary account — an arbitrary URL is
+    // loaded by every admin who opens the team dashboard (a tracking pixel /
+    // offensive content).
+    const OWN_CLOUDINARY = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/`;
+    if (avatarUrl && (typeof avatarUrl !== "string" || !process.env.CLOUDINARY_CLOUD_NAME || !avatarUrl.startsWith(OWN_CLOUDINARY))) {
+      return res.status(400).json({ success: false, message: "Please upload your picture through Orbit." });
+    }
     if (avatarUrl) {
       user.avatarUrl = avatarUrl;
       if (avatarId === "custom") user.avatarId = "custom";
@@ -786,15 +819,16 @@ router.put("/update-profile", auth, async (req, res) => {
 
 // =========================================================================
 // @route    PUT /api/auth/change-password
-// @desc     Change the logged-in user's own password (local accounts only —
-//           SSO accounts authenticate via Microsoft and have no local
-//           password to change).
+// @desc     Change the logged-in user's own IRIS Orbit password. Accounts
+//           that sign in with Microsoft and have no app password can't
+//           (and aren't given one here). Every other session ends; this
+//           browser gets a fresh session and token.
 // @access   Private
 // =========================================================================
 router.put("/change-password", auth, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   try {
-    if (!currentPassword || !newPassword) {
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string" || !currentPassword || !newPassword) {
       return res.status(400).json({ success: false, message: "Current and new password are both required." });
     }
     if (newPassword.length < 6) {
@@ -806,8 +840,8 @@ router.put("/change-password", auth, async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found." });
     }
 
-    if (user.authProvider !== "local") {
-      return res.status(400).json({ success: false, message: "SSO accounts sign in via Microsoft and don't use a local password." });
+    if (!user.password) {
+      return res.status(400).json({ success: false, message: "Your account signs in with Microsoft and has no IRIS Orbit password." });
     }
 
     const isMatch = await user.matchPassword(currentPassword);
@@ -815,10 +849,18 @@ router.put("/change-password", auth, async (req, res) => {
       return res.status(401).json({ success: false, message: "Current password is incorrect." });
     }
 
-    user.password = newPassword; // pre("save") hook rehashes this
+    user.password = newPassword; // pre("save") hook rehashes this (and stamps passwordChangedAt)
     await user.save();
 
-    res.json({ success: true, message: "Password updated successfully." });
+    // 🔒 Every other session (other browsers / a thief's copy) ends — its
+    // token predates passwordChangedAt and its session row is closed. This
+    // browser gets a fresh session so the person who changed it stays in.
+    const current = await AuthSession.findOne({ sessionId: req.user.sessionId }, "provider").lean();
+    const { token, sessionId } = await issueSessionToken(req, res, user, { provider: current?.provider || "local", isLogin: false });
+    await endUserSessions(user._id, "password_changed", { exceptSessionId: sessionId, req });
+    await recordAuthEvent({ type: "PASSWORD_CHANGED", req, userId: user._id, email: user.email, provider: "local", success: true, sessionId });
+
+    res.json({ success: true, message: "Password updated successfully. Other devices have been signed out.", token });
   } catch (err) {
     console.error("❌ Change password error:", err.message);
     res.status(500).json({ success: false, message: "Failed to change password." });

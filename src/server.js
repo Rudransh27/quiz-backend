@@ -6,7 +6,10 @@ const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
 const { Server } = require('socket.io');
+const { attachSocketSessions } = require('./utils/socketSession');
 
 // 🚀 INITIALIZE REDIS ENGINE CONFIGURATION
 dotenv.config();
@@ -17,7 +20,6 @@ require('./config/redisConfig');
 const moduleRoutes = require('./routes/moduleRoutes');
 const topicRoutes = require('./routes/topicRoutes');
 const progressRoutes = require('./routes/progressRoutes');
-const validatorRoutes = require('./routes/validatorApi');
 const imageRoutes = require('./routes/imageRoutes');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes'); 
@@ -29,6 +31,13 @@ const ideaRoutes = require("./routes/ideaRoutes");
 const notificationRoutes = require('./routes/notificationRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const regionRoutes = require('./routes/regionRoutes');
+const gradingRoutes = require('./routes/gradingRoutes');
+const learnRoutes = require('./routes/learnRoutes');
+const pathRoutes = require('./routes/pathRoutes');
+const assessmentRoutes = require('./routes/assessmentRoutes');
+const bankRoutes = require('./routes/bankRoutes');
+const reportRoutes = require('./routes/reportRoutes');
+const authActivityRoutes = require('./routes/authActivityRoutes');
 
 const app = express();
 
@@ -73,9 +82,17 @@ app.use(cors({
 // =========================================================================
 // 🔀 CRITICAL FIX 2: EXPAND PARSER BUFFER LIMITS FOR LARGE INJECTED CODES
 // =========================================================================
-// Overriding the base 1MB cap to 50MB prevents transactions from breaking on massive file streams
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// 🔒 1 MB everywhere (public routes like /api/auth/login included — a 50 MB
+// JSON body there was a cheap memory/CPU DoS). Only the admin authoring
+// routes, where a full HTML module or a bank import is posted, get 5 MB
+// (largest stored HTML module ≈ 110 KB). Files go through multer, not here.
+// The larger parser runs first on those prefixes; the global one then skips
+// already-parsed bodies.
+const AUTHORING_PREFIXES = ['/api/modules', '/api/topics', '/api/bank', '/api/progress/admin'];
+app.use(AUTHORING_PREFIXES, express.json({ limit: '5mb' }));
+app.use(AUTHORING_PREFIXES, express.urlencoded({ limit: '5mb', extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 app.use(cookieParser());
 
 // =========================================================================
@@ -84,7 +101,6 @@ app.use(cookieParser());
 app.use('/api/modules', moduleRoutes);
 app.use('/api/topics', topicRoutes);
 app.use('/api/progress', progressRoutes);
-app.use('/api', validatorRoutes);
 app.use('/api/image', imageRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes); 
@@ -96,10 +112,32 @@ app.use("/api/ideas", ideaRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/regions', regionRoutes);
+app.use('/api/grading', gradingRoutes);
+app.use('/api/learn', learnRoutes);
+app.use('/api/paths', pathRoutes);
+app.use('/api/assessments', assessmentRoutes);
+app.use('/api/bank', bankRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/admin/auth', authActivityRoutes);
 
-// 🛡️ CREATING HYBRID SERVER TO BRIDGE EXPRESS AND SOCKET.IO TOGETHER CLEANLY
-const server = http.createServer(app);
+// HTTPS when a certificate is configured (SSL_KEY_PATH + SSL_CERT_PATH);
+// otherwise plain HTTP for deployments where the reverse proxy (nginx)
+// terminates TLS in front of this process — never expose that port directly.
+function createAppServer(expressApp) {
+    const { SSL_KEY_PATH, SSL_CERT_PATH } = process.env;
+    if (SSL_KEY_PATH && SSL_CERT_PATH) {
+        return https.createServer(
+            { key: fs.readFileSync(SSL_KEY_PATH), cert: fs.readFileSync(SSL_CERT_PATH) },
+            expressApp
+        );
+    }
+    return http.createServer(expressApp);
+}
+const server = createAppServer(app);
 const io = new Server(server, {
+    // Under the API prefix so the API-scoped session cookie (path=/api) is
+    // sent with the handshake. Clients use SOCKET_PATH from config.js.
+    path: '/api/socket.io',
     cors: {
         origin: allowedOrigins,
         methods: ["GET", "POST"],
@@ -110,57 +148,10 @@ const io = new Server(server, {
 // Using Map memory structure for lightning lookup tracks
 const activeUserSockets = new Map();
 
-io.on('connection', (socket) => {
-    console.log(`🔌 New WebSocket pipeline established. Socket ID: ${socket.id}`);
-
-    // Register user session to the connection room map
-    socket.on('register_session', (userId) => {
-        if (!userId) return; // Crash guard parameter check
-        
-        // Force conversion to clean string parameter to prevent object data type mismatch
-        const strUserId = userId.toString();
-        
-        if (!activeUserSockets.has(strUserId)) {
-            activeUserSockets.set(strUserId, []);
-        }
-        
-        // Push socket identifier if it doesn't already exist in user's track array
-        if (!activeUserSockets.get(strUserId).includes(socket.id)) {
-            activeUserSockets.get(strUserId).push(socket.id);
-        }
-        
-        socket.userId = strUserId;
-        console.log(`👤 User bound to active socket arrays. User: ${strUserId} | Socket: ${socket.id}`);
-    });
-
-    // 🚀 Robust deep memory cleanup on disconnect to avoid cluster deadlocks
-    socket.on('disconnect', () => {
-        if (socket.userId && activeUserSockets.has(socket.userId)) {
-            let userConnections = activeUserSockets.get(socket.userId);
-            userConnections = userConnections.filter(id => id !== socket.id);
-            
-            if (userConnections.length === 0) {
-                activeUserSockets.delete(socket.userId);
-                console.log(`🧹 Map Clear: All active socket connections completely dropped for User: ${socket.userId}`);
-            } else {
-                activeUserSockets.set(socket.userId, userConnections);
-            }
-        } else {
-            // Fallback sweep layer search: Manual search cascade if assignment mismatch happens
-            activeUserSockets.forEach((sockets, uid) => {
-                if (sockets.includes(socket.id)) {
-                    const filtered = sockets.filter(id => id !== socket.id);
-                    if (filtered.length === 0) {
-                        activeUserSockets.delete(uid);
-                    } else {
-                        activeUserSockets.set(uid, filtered);
-                    }
-                }
-            });
-        }
-        console.log(`❌ Pipeline closed safely. Socket ID: ${socket.id}`);
-    });
-});
+// 🔐 Authenticated sockets: the handshake must carry the JWT + the browser's
+// session cookie, and each socket is bound to the user from the database —
+// never to a user id the client claims (see utils/socketSession.js).
+attachSocketSessions(io, activeUserSockets);
 
 // Setting up system engines cross access layer bindings
 global.io = io;

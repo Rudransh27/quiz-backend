@@ -7,8 +7,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "build": "echo 'No build step required'",
-    "seed-data": "node seed.js",
-    "destroy-data": "node seed.js -d"
+    "seed-data": "node seedLearningData.js"
   },
   "keywords": [],
   "author": "",
@@ -16,7 +15,7 @@
   "description": "",
   "dependencies": {
     "@azure/msal-node": "^5.4.0",
-    "@types/prismjs": "^1.26.6",
+    "@xmldom/xmldom": "^0.9.12",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.7.0",
@@ -28,20 +27,12 @@
     "express-rate-limit": "^8.6.2",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
-    "mongo-sanitize": "^1.1.0",
     "mongoose": "^8.17.0",
     "multer": "^2.0.2",
-    "nodemailer": "^7.0.6",
-    "passport": "^0.7.0",
-    "passport-github2": "^0.1.12",
-    "passport-google-oauth20": "^2.0.0",
-    "prismjs": "^1.30.0",
-    "react-syntax-highlighter": "^16.1.1",
+    "node-html-parser": "^7.1.0",
+    "nodemailer": "^10.0.13",
     "redis": "^5.12.1",
-    "schematron": "^0.2.1",
-    "slugify": "^1.6.6",
     "socket.io": "^4.8.3",
-    "xmldom": "^0.6.0",
     "xpath": "^0.0.34"
   },
   "devDependencies": {

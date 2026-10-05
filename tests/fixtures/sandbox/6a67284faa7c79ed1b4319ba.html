@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beyond the Mandate · IRIS Orbit</title>
+<style>
+:root {
+  --orbit-rose:#ffb3c7; --orbit-pink:#ff9ecf; --orbit-mint:#a8e6cf; --orbit-teal:#8fe0d8; --orbit-sky:#a9d6ff; --orbit-lavender:#c9b8ff; --orbit-lilac:#eab8ff;
+  --navy:    #453D5C;
+  --violet:  #8B7FC7;
+  --lav:     #A78BDB;
+  --blush:   var(--orbit-lilac);
+  --bg:      #F5F2FA;
+  --surface: #FFFFFF;
+  --ink:     #453D5C;
+  --ink2:    #5C5478;
+  --ink3:    #8F86A8;
+  --border:  #E4DEF5;
+  --ok:      #1F8F5E;
+  --ok-bg:   var(--orbit-mint);
+  --bad:     #B23A5E;
+  --bad-bg:  var(--orbit-rose);
+  --gold:    #C9971F;
+  --r: 12px; --rl: 18px;
+  --mono: 'Courier New', monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;display:flex;justify-content:center;padding:24px 16px 80px;}
+.shell{width:100%;max-width:680px;}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.brand{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--violet);}
+.meta{font-size:11px;color:var(--ink3);}
+.dots{display:flex;gap:4px;justify-content:center;margin-bottom:20px;flex-wrap:wrap;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:all .3s;}
+.dot.on{background:var(--violet);transform:scale(1.4);}
+.dot.done{background:var(--lav);}
+.screen{display:none;}
+.screen.active{display:block;animation:fadeUp .28s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.hero{border-radius:var(--rl);padding:26px 26px 22px;margin-bottom:12px;position:relative;overflow:hidden;color:var(--ink);}
+.hero-tag{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;background:rgba(255,255,255,.55);color:var(--ink);padding:3px 10px;border-radius:99px;display:inline-block;margin-bottom:10px;}
+.hero h2{font-size:21px;font-weight:800;line-height:1.25;margin-bottom:6px;color:var(--ink);}
+.hero p{font-size:13px;line-height:1.6;opacity:.85;max-width:80%;color:var(--ink);}
+.hero-icon{position:absolute;right:20px;bottom:14px;font-size:48px;opacity:.45;pointer-events:none;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:22px;margin-bottom:12px;}
+h3{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px;}
+p{font-size:13.5px;line-height:1.7;color:var(--ink2);margin-bottom:10px;}
+p:last-child{margin-bottom:0;}
+ul,ol{padding-left:18px;margin-bottom:10px;}
+li{font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:4px;}
+.mt{margin-top:14px;}
+strong{color:var(--ink);}
+.co{border-radius:var(--r);padding:13px 15px;margin:10px 0;font-size:13px;line-height:1.6;}
+.co-note{background:var(--bg);border:1px solid var(--border);color:var(--ink2);}
+.co-warn{background:var(--bad-bg);border:1px solid #F0C0BC;color:#7A1010;}
+.co-ok{background:var(--ok-bg);border:1px solid #A0D8B8;color:#0E4A28;}
+.co-flag{background:#FFF3E0;border:1px solid #E8C078;color:#6A4400;}
+/* Value driver grid */
+.vd-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;}
+.vd-card{border-radius:var(--r);padding:13px 14px;border-left:4px solid var(--violet);background:var(--blush);}
+.vd-card.green{border-left-color:var(--ok);background:var(--ok-bg);}
+.vd-title{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--navy);margin-bottom:4px;}
+.vd-body{font-size:12px;color:var(--ink2);line-height:1.5;}
+@media(max-width:500px){.vd-grid{grid-template-columns:1fr;}}
+.ex{background:var(--blush);border:1px solid #D8C4DC;border-radius:var(--r);padding:14px 16px;margin:12px 0;}
+.ex-lbl{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--violet);margin-bottom:6px;}
+.ex p{color:#3D3560;}
+.quiz{background:var(--navy);border-radius:var(--rl);padding:22px;margin-top:12px;}
+.quiz-b{background:#17142E;}
+.q-eye{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.q-num{width:22px;height:22px;background:var(--violet);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;}
+.q-label{font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.4);}
+.q-setup{font-size:12.5px;color:rgba(255,255,255,.6);line-height:1.6;margin-bottom:10px;font-style:italic;}
+.q-text{font-size:14.5px;font-weight:600;color:#fff;line-height:1.5;margin-bottom:14px;}
+.q-opts{list-style:none;padding:0;display:flex;flex-direction:column;gap:7px;}
+.q-opt{width:100%;display:flex;align-items:flex-start;gap:10px;padding:11px 14px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);border-radius:10px;cursor:pointer;font-size:13px;color:rgba(255,255,255,.82);line-height:1.5;text-align:left;transition:all .12s;font-family:inherit;}
+.q-opt:hover:not(:disabled){background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.28);}
+.q-opt:disabled{cursor:default;}
+.q-l{min-width:20px;height:20px;background:rgba(255,255,255,.14);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;flex-shrink:0;margin-top:2px;}
+.q-opt.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ink);}
+.q-opt.ok .q-l{background:var(--ok);}
+.q-opt.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--ink);}
+.q-opt.bad .q-l{background:var(--bad);}
+.q-opt.reveal{background:rgba(26,122,72,.18);border-color:var(--ok);}
+.q-fb{margin-top:12px;padding:12px 14px;border-radius:9px;font-size:12.5px;line-height:1.6;display:none;}
+.q-fb.ok{background:var(--ok-bg);color:#0E4A28;border:1px solid var(--ok);display:block;}
+.q-fb.bad{background:var(--bad-bg);color:#7A1010;border:1px solid var(--bad);display:block;}
+.gate{background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.18);border-radius:8px;padding:9px 13px;margin-top:12px;font-size:11.5px;color:rgba(255,255,255,.35);text-align:center;}
+.fb-input{width:100%;padding:10px 12px;border:1.5px solid rgba(255,255,255,.18);border-radius:8px;font-size:13px;color:#fff;background:rgba(255,255,255,.06);outline:none;font-family:inherit;margin:8px 0;}
+.fb-input:focus{border-color:rgba(255,255,255,.4);}
+.fb-input::placeholder{color:rgba(255,255,255,.32);}
+.fb-input:disabled{opacity:.7;}
+.fb-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:8px 15px;font-size:12.5px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit;transition:background .15s;}
+.fb-btn:hover{background:rgba(255,255,255,.22);}
+.fb-btn:disabled{opacity:.4;cursor:default;}
+.btn-row{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:10px;}
+.btn{padding:11px 22px;border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;border:none;font-family:inherit;transition:opacity .15s,transform .1s;}
+.btn:active{transform:scale(.98);}
+.btn-p{background:var(--violet);color:#fff;}
+.btn-p:hover{opacity:.88;}
+.btn-p:disabled{background:var(--lav);cursor:not-allowed;opacity:.7;}
+.btn-g{background:#fff;color:var(--ink2);border:1px solid var(--border);}
+.btn-g:hover{background:var(--bg);}
+.btn-finish{background:linear-gradient(135deg,var(--gold),#e0b23f);color:#fff;font-size:15px;padding:14px 26px;box-shadow:0 8px 20px rgba(201,151,31,.35);}
+.btn-finish:hover{opacity:.92;transform:translateY(-1px);}
+.pills{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0;}
+.pill{font-size:11.5px;color:var(--ink2);background:#fff;border:1px solid var(--border);border-radius:99px;padding:4px 12px;}
+.r-hero{text-align:center;padding:28px;background:#fff;border:1px solid var(--border);border-radius:var(--rl);margin-bottom:12px;}
+.r-score{font-size:66px;font-weight:900;color:var(--violet);line-height:1;margin-bottom:4px;}
+.r-of{font-size:13px;color:var(--ink3);margin-bottom:18px;}
+.r-cert{font-family:var(--mono);font-size:11px;color:var(--ink2);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin-bottom:16px;line-height:1.6;}
+.r-tw{font-size:14.5px;font-style:italic;color:var(--ink2);border-top:1px solid var(--border);padding-top:16px;line-height:1.6;}
+@media(max-width:500px){
+  .hero h2{font-size:19px;}
+  .hero-icon{display:none;}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<div class="topbar"><span class="brand">IRIS Orbit</span><span class="meta">Knowledge of Product</span></div>
+<div class="dots" id="dots">
+  <div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+  <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+</div>
+<!-- S0 HERO -->
+<div class="screen active" id="s0">
+  <div class="hero" style="background:linear-gradient(135deg,var(--orbit-lavender),var(--orbit-lilac))">
+    <div class="hero-tag">Knowledge of Product</div>
+    <h2>Beyond the Mandate</h2>
+    <p>Compliance gets us in the door. It's not the only reason we're in the room.</p>
+    <div class="hero-icon">🗝️</div>
+  </div>
+  <div class="card">
+    <p>"Private company" often gets read as "no need" — no filing, no deadline, no urgency. It's the wrong read. Underneath the regulatory pitch, this platform solves real coordination pain, filing or not — and two customers with zero filing obligations prove it.</p>
+    <div class="pills">
+      <div class="pill">⚙️ 6 value drivers</div><div class="pill">🎯 The sweet spot, explained</div>
+      <div class="pill">🏭 Real proof</div><div class="pill" id="lyPill">🔒 Lightyear quiz</div>
+    </div>
+    <div class="btn-row" style="justify-content:flex-end">
+      <button class="btn btn-p" onclick="go(1)">Let's go →</button>
+    </div>
+  </div>
+</div>
+<!-- S1 VALUE DRIVERS -->
+<div class="screen" id="s1">
+  <div class="hero" style="background:linear-gradient(135deg,var(--orbit-lilac),var(--orbit-rose))">
+    <div class="hero-tag">Screen 1 · What We Actually Solve For</div>
+    <h2>Six Value Drivers</h2>
+    <p>Notice none of these mention a regulator.</p>
+    <div class="hero-icon">⚙️</div>
+  </div>
+  <div class="card">
+    <p>Before talking about who we sell to, it helps to know what the platform actually does for anyone using it, regulated or not:</p>
+    <div class="vd-grid">
+      <div class="vd-card"><div class="vd-title">Speed</div><div class="vd-body">40% faster last-mile reporting. Close sooner, publish first.</div></div>
+      <div class="vd-card"><div class="vd-title">Transparency</div><div class="vd-body">Board, regulators, investors, whoever's watching, all see the same truth at the same time.</div></div>
+      <div class="vd-card green"><div class="vd-title">Accuracy</div><div class="vd-body">Structured data. Zero version chaos. Every number reconciled, not re-typed.</div></div>
+      <div class="vd-card green"><div class="vd-title">Auditability &amp; Accountability</div><div class="vd-body">Every number and action is 100% traceable — what makes accountability enforceable, not aspirational.</div></div>
+      <div class="vd-card"><div class="vd-title">Co-ordination &amp; Control</div><div class="vd-body">Multiple teams, working off one single source of truth, instead of six spreadsheet versions.</div></div>
+      <div class="vd-card"><div class="vd-title">Productivity</div><div class="vd-body">Fewer hours spent wrangling data, more hours spent making decisions with it.</div></div>
+    </div>
+    <div class="co co-note">Read that list again. Not one of these six requires a regulator to exist. That's the whole point of this module.</div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-g" onclick="go(0)">← Back</button>
+    <button class="btn btn-p" onclick="go(2)">Next: The Sweet Spot →</button>
+  </div>
+</div>
+<!-- S2 SWEET SPOT -->
+<div class="screen" id="s2">
+  <div class="hero" style="background:linear-gradient(135deg,var(--orbit-sky),var(--orbit-teal))">
+    <div class="hero-tag">Screen 2 · Why We Focus Here First</div>
+    <h2>Why Listed Companies Are The Sweet Spot</h2>
+    <p>Real reasons, not just habit.</p>
+    <div class="hero-icon">🎯</div>
+  </div>
+  <div class="card">
+    <p>Listed companies aren't the sweet spot by accident. They have the pain in its most acute form: multiple teams — finance, legal, sustainability, investor relations — all touching the same numbers, on a real deadline, with real penalties for missing it.</p>
+    <p>Think back to BANT from Funnel Vision: a regulatory mandate hands a prospect <strong>Need</strong> and <strong>Timeline</strong> before the call even starts. That's what makes listed companies the fastest, most efficient place to sell — the forcing function already exists. We don't have to create urgency, it's already sitting there.</p>
+    <div class="co co-note">This is why the sales motion focuses here first. It is not the reason to stop here.</div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-g" onclick="go(1)">← Back</button>
+    <button class="btn btn-p" onclick="go(3)">Next: Beyond The Mandate →</button>
+  </div>
+</div>
+<!-- S3 BEYOND THE MANDATE -->
+<div class="screen" id="s3">
+  <div class="hero" style="background:linear-gradient(135deg,var(--orbit-teal),var(--orbit-mint))">
+    <div class="hero-tag">Screen 3 · The Part Most People Miss</div>
+    <h2>The Need Doesn't Stop At The Regulatory Line</h2>
+    <p>Version chaos doesn't check anyone's listing status.</p>
+    <div class="hero-icon">🚧</div>
+  </div>
+  <div class="card">
+    <p>The six value drivers on the last screen don't require a regulator to be true. Any company with more than one team touching the same report has version chaos, coordination problems, and manual reconciliation, whether or not anyone's filing anything with anyone.</p>
+    <p>A private company never has to publish a 10-K. It still closes its books every quarter. It still has a board that wants one clean number. It still has teams burning hours reconciling spreadsheets by hand. That pain doesn't wait for a listing to show up.</p>
+    <div class="co co-flag">The instinct to check is "do they have a filing requirement?" That's the wrong first question. The better one is on the next-to-last screen of this module — hold that thought.</div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-g" onclick="go(2)">← Back</button>
+    <button class="btn btn-p" onclick="go(4)">Next: Real Proof →</button>
+  </div>
+</div>
+<!-- S4 REAL PROOF -->
+<div class="screen" id="s4">
+  <div class="hero" style="background:linear-gradient(135deg,var(--orbit-rose),var(--orbit-pink))">
+    <div class="hero-tag">Screen 4 · Not Theory</div>
+    <h2>Real Companies, Real Proof</h2>
+    <p>Two companies, zero filing requirements, real business.</p>
+    <div class="hero-icon">🏭</div>
+  </div>
+  <div class="card">
+    <div class="ex">
+      <div class="ex-lbl">Miba Group · Austria</div>
+      <p>A private, family-owned industrial group with zero public disclosure obligation. They raised an RFP for IRIS anyway, for internal reporting, because the process pain (coordination across teams, one source of truth) was reason enough on its own.</p>
+    </div>
+    <div class="ex">
+      <div class="ex-lbl">Sammons · United States</div>
+      <p>Another private company we're actively working with, also for internal reporting, also with no regulatory filing driving it.</p>
+    </div>
+    <div class="co co-ok">Neither company needed us to comply with anything. They needed to stop losing hours to manual reconciliation and version chaos. That's the same six value drivers from Screen 1, just with no regulator in the room.</div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-g" onclick="go(3)">← Back</button>
+    <button class="btn btn-p" onclick="go(5)">Next: What This Means →</button>
+  </div>
+</div>
+<!-- S5 WHAT THIS MEANS -->
+<div class="screen" id="s5">
+  <div class="hero" style="background:linear-gradient(135deg,var(--orbit-lavender),var(--orbit-lilac))">
+    <div class="hero-tag">Screen 5 · The Better Question</div>
+    <h2>What This Means For You</h2>
+    <p>Change the question, not just the answer.</p>
+    <div class="hero-icon">💭</div>
+  </div>
+  <div class="card">
+    <p>The instinct to check is: <strong>"do they have a filing requirement?"</strong></p>
+    <p>The better instinct is: <strong>"do multiple teams touch the same numbers, and is that currently painful?"</strong></p>
+    <p>A private company answering "yes, that's genuinely a mess right now" is a real conversation, not a dead end. Don't let "they're private" end the conversation before it even starts.</p>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-g" onclick="go(4)">← Back</button>
+    <button class="btn btn-p" onclick="go(6)">Next: Quiz Time →</button>
+  </div>
+</div>
+<!-- S6 QUIZ -->
+<div class="screen" id="s6">
+  <div class="hero" style="background:linear-gradient(135deg,var(--orbit-lilac),var(--orbit-rose))">
+    <div class="hero-tag">Screen 6 · Prove It</div>
+    <h2>Think Before You Tap</h2>
+    <p id="quizIntro">80% needed to pass.</p>
+    <div class="hero-icon">🔒</div>
+  </div>
+  <div class="quiz">
+    <div class="q-eye"><span class="q-num">1</span><span class="q-label">SCENARIO</span></div>
+    <div class="q-setup">A mid-market private manufacturer, similar in profile to Miba, mentions in passing that their quarterly board pack takes four people two weeks to assemble by hand. They have no public filing requirement at all.</div>
+    <div class="q-text">What's the strongest response?</div>
+    <ul class="q-opts" id="qo-q1">
+      <li><button class="q-opt" onclick="ansM('q1','A','B')"><span class="q-l">A</span>"We're not the right fit here, given there's no filing requirement"</button></li>
+      <li><button class="q-opt" onclick="ansM('q1','B','B')"><span class="q-l">B</span>"That's exactly the coordination problem we solve for, filing or not"</button></li>
+      <li><button class="q-opt" onclick="ansM('q1','C','B')"><span class="q-l">C</span>"Let's reconnect down the line, in case that ever changes for you"</button></li>
+    </ul>
+    <div class="q-fb" id="qf-q1"></div>
+  </div>
+  <div class="quiz quiz-b mt" id="quiz-q2">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">2</span><span class="q-label">SCENARIO</span></div>
+    <div class="q-setup">A colleague says, "why would a private company ever need a disclosure management platform?"</div>
+    <div class="q-text">What's the flaw in that question?</div>
+    <ul class="q-opts" id="qo-q2">
+      <li><button class="q-opt" onclick="ansM('q2','A','B')"><span class="q-l">A</span>Nothing's wrong with it — it's simply a fair, reasonable question to ask</button></li>
+      <li><button class="q-opt" onclick="ansM('q2','B','B')"><span class="q-l">B</span>It confuses the product's category name with the value it delivers</button></li>
+      <li><button class="q-opt" onclick="ansM('q2','C','B')"><span class="q-l">C</span>Private companies don't have boards, so this concern doesn't apply</button></li>
+    </ul>
+    <div class="q-fb" id="qf-q2"></div>
+  </div>
+  <div class="quiz mt" id="quiz-q3">
+    <div class="q-eye"><span class="q-num">3</span><span class="q-label">FILL IN THE BLANK</span></div>
+    <div class="q-text">The six value drivers are Speed, Transparency, Accuracy, Auditability &amp; Accountability, Productivity, and Co-ordination &amp; ____.</div>
+    <input class="fb-input" id="fb-q3" placeholder="Type your answer...">
+    <button class="fb-btn" id="fbb-q3" onclick="checkFB('q3',['control'])">✓ Check</button>
+    <div class="q-fb" id="fbf-q3"></div>
+  </div>
+  <div class="quiz quiz-b mt" id="quiz-q4">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">4</span><span class="q-label">MULTIPLE CHOICE</span></div>
+    <div class="q-text">Why are listed companies the sweet spot, in BANT terms?</div>
+    <ul class="q-opts" id="qo-q4">
+      <li><button class="q-opt" onclick="ansM('q4','A','B')"><span class="q-l">A</span>They tend to have larger budgets available for new enterprise software</button></li>
+      <li><button class="q-opt" onclick="ansM('q4','B','B')"><span class="q-l">B</span>A mandate hands you both Need and Timeline before the call even starts</button></li>
+      <li><button class="q-opt" onclick="ansM('q4','C','B')"><span class="q-l">C</span>Their contact details tend to be far easier to track down and verify</button></li>
+    </ul>
+    <div class="q-fb" id="qf-q4"></div>
+  </div>
+  <div class="quiz mt" id="quiz-q5">
+    <div class="q-eye"><span class="q-num">5</span><span class="q-label">FILL IN THE BLANK</span></div>
+    <div class="q-text">Miba Group, a private industrial group with no public filing requirement, is based in ____.</div>
+    <input class="fb-input" id="fb-q5" placeholder="Type your answer...">
+    <button class="fb-btn" id="fbb-q5" onclick="checkFB('q5',['austria'])">✓ Check</button>
+    <div class="q-fb" id="fbf-q5"></div>
+  </div>
+  <div class="quiz quiz-b mt" id="quiz-q6">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">6</span><span class="q-label">SCENARIO</span></div>
+    <div class="q-setup">Miba and Sammons are both private, with no regulatory filing pushing them toward IRIS.</div>
+    <div class="q-text">What did they actually have in common that made them a real fit?</div>
+    <ul class="q-opts" id="qo-q6">
+      <li><button class="q-opt" onclick="ansM('q6','A','B')"><span class="q-l">A</span>Both were actively preparing for an IPO sometime in the near future</button></li>
+      <li><button class="q-opt" onclick="ansM('q6','B','B')"><span class="q-l">B</span>Multiple teams touching the same numbers, causing real coordination pain</button></li>
+      <li><button class="q-opt" onclick="ansM('q6','C','B')"><span class="q-l">C</span>Both were legally required to file BRSR reports with regulators</button></li>
+    </ul>
+    <div class="q-fb" id="qf-q6"></div>
+  </div>
+  <div class="quiz mt" id="quiz-q7">
+    <div class="q-eye"><span class="q-num">7</span><span class="q-label">SCENARIO</span></div>
+    <div class="q-setup">A private US retailer mentions their board wants one clean set of numbers each quarter, but currently gets six different spreadsheets from six regions, all slightly different.</div>
+    <div class="q-text">What's the strongest opening question back to them?</div>
+    <ul class="q-opts" id="qo-q7">
+      <li><button class="q-opt" onclick="ansM('q7','A','A')"><span class="q-l">A</span>"How much time does your team spend reconciling those figures each quarter?"</button></li>
+      <li><button class="q-opt" onclick="ansM('q7','B','A')"><span class="q-l">B</span>"Do you have any current plans or timeline to eventually go public?"</button></li>
+      <li><button class="q-opt" onclick="ansM('q7','C','A')"><span class="q-l">C</span>"What's your team's current budget set aside for new software?"</button></li>
+    </ul>
+    <div class="q-fb" id="qf-q7"></div>
+  </div>
+  <div class="quiz quiz-b mt" id="quiz-q8">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">8</span><span class="q-label">TRUE OR FALSE</span></div>
+    <div class="q-text">A company must have a public filing requirement for IRIS to be useful to them.</div>
+    <ul class="q-opts" id="qo-q8">
+      <li><button class="q-opt" onclick="ansM('q8','A','B')"><span class="q-l">A</span>True</button></li>
+      <li><button class="q-opt" onclick="ansM('q8','B','B')"><span class="q-l">B</span>False</button></li>
+    </ul>
+    <div class="q-fb" id="qf-q8"></div>
+  </div>
+  <div class="quiz mt" id="quiz-q9">
+    <div class="q-eye"><span class="q-num">9</span><span class="q-label">FILL IN THE BLANK</span></div>
+    <div class="q-text">Sammons, a private company IRIS works with for internal reporting, is based in the ____.</div>
+    <input class="fb-input" id="fb-q9" placeholder="Type your answer...">
+    <button class="fb-btn" id="fbb-q9" onclick="checkFB('q9',['us','united states','usa'])">✓ Check</button>
+    <div class="q-fb" id="fbf-q9"></div>
+  </div>
+  <div class="quiz quiz-b mt" id="quiz-q10">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">10</span><span class="q-label">MULTIPLE CHOICE</span></div>
+    <div class="q-text">Which value driver is most directly about board, regulator, and investor alignment?</div>
+    <ul class="q-opts" id="qo-q10">
+      <li><button class="q-opt" onclick="ansM('q10','A','B')"><span class="q-l">A</span>Productivity</button></li>
+      <li><button class="q-opt" onclick="ansM('q10','B','B')"><span class="q-l">B</span>Transparency</button></li>
+      <li><button class="q-opt" onclick="ansM('q10','C','B')"><span class="q-l">C</span>Speed</button></li>
+    </ul>
+    <div class="q-fb" id="qf-q10"></div>
+  </div>
+  <div class="quiz mt" id="quiz-q11">
+    <div class="q-eye"><span class="q-num">11</span><span class="q-label">SCENARIO</span></div>
+    <div class="q-setup">A rep is on a call with a private company and says: "since you don't file anything publicly, I don't think we're a fit, let's reconnect if that changes."</div>
+    <div class="q-text">What's wrong with this?</div>
+    <ul class="q-opts" id="qo-q11">
+      <li><button class="q-opt" onclick="ansM('q11','A','B')"><span class="q-l">A</span>Nothing at all — that's exactly the right call to make here</button></li>
+      <li><button class="q-opt" onclick="ansM('q11','B','B')"><span class="q-l">B</span>It ends the conversation before checking for internal reporting pain</button></li>
+      <li><button class="q-opt" onclick="ansM('q11','C','B')"><span class="q-l">C</span>It should have asked for their exact filing status in writing</button></li>
+    </ul>
+    <div class="q-fb" id="qf-q11"></div>
+  </div>
+  <div class="quiz quiz-b mt" id="quiz-q12">
+    <div class="q-eye"><span class="q-num" style="background:var(--lav);">12</span><span class="q-label">MULTIPLE CHOICE</span></div>
+    <div class="q-text">Instead of "do you have a filing requirement," the better first question is:</div>
+    <ul class="q-opts" id="qo-q12">
+      <li><button class="q-opt" onclick="ansM('q12','A','C')"><span class="q-l">A</span>"What's your budget set aside specifically for this quarter?"</button></li>
+      <li><button class="q-opt" onclick="ansM('q12','B','C')"><span class="q-l">B</span>"Are you currently planning or timing a move to go public?"</button></li>
+      <li><button class="q-opt" onclick="ansM('q12','C','C')"><span class="q-l">C</span>"Do multiple teams touch the same numbers, and is that painful?"</button></li>
+    </ul>
+    <div class="q-fb" id="qf-q12"></div>
+  </div>
+  <div class="gate" id="gate-6">○ Answer all 12 to continue</div>
+  <div class="btn-row">
+    <button class="btn btn-g" onclick="go(5)">← Back</button>
+    <button class="btn btn-p" id="nx-6" onclick="showResult()" disabled>See Your Score →</button>
+  </div>
+</div>
+<!-- S7 RESULT -->
+<div class="screen" id="s7">
+  <div class="r-hero">
+    <div class="r-score" id="rScore">0/0</div>
+    <div class="r-of" id="rOf">0% · Lightyears earned</div>
+    <div class="r-cert" id="rCert">— · Beyond the Mandate · IRIS Orbit</div>
+    <div class="r-tw">"Compliance gets us in the door. It's not the only reason we're in the room."</div>
+  </div>
+  <div id="retryBlk" style="display:none;margin-top:12px;">
+    <div class="co co-warn"><strong>Score below 80% — try again.</strong> This one's about instinct, and instinct needs repetition.</div>
+    <div class="btn-row" style="justify-content:flex-end;margin-top:10px;">
+      <button class="btn btn-p" onclick="restart()">↺ Try Again</button>
+    </div>
+  </div>
+  <div id="passBlk" style="display:none;margin-top:12px;">
+    <div class="co co-ok"><strong>✅ Lightyears earned.</strong> Next time "they're private" comes up, you'll know the actual question to ask.</div>
+    <div class="btn-row" style="justify-content:flex-end;margin-top:14px;">
+      <button class="btn btn-finish" id="finishBtn">Complete &amp; Finish Module ➔</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============================================================
+     STATIC SCORING METADATA BANK — parser-friendly, single source
+     of truth. Present in the raw DOM (hidden from view) so an
+     external HTML parser can compute the max score (sum of
+     data-points across every .qblock) WITHOUT executing any JS.
+     The runtime below reads this exact same markup to build its
+     scoring weights, so the displayed score always matches what a
+     static parser would calculate.
+     Scoring weights: mcq = 5 pts, fill-blank = 7 pts,
+     descriptive = 10 pts, unscored = 0 pts (explicit).
+============================================================= -->
+<div id="quizBank" style="display:none" aria-hidden="true">
+  <div class="qblock" data-id="q1" data-type="mcq" data-points="5" data-correct="B">
+    <div class="qtext">What's the strongest response to a private manufacturer describing a manual, coordination-heavy board pack process?</div>
+  </div>
+  <div class="qblock" data-id="q2" data-type="mcq" data-points="5" data-correct="B">
+    <div class="qtext">What's the flaw in "why would a private company ever need a disclosure management platform?"</div>
+  </div>
+  <div class="qblock" data-id="q3" data-type="fill-blank" data-points="7" data-correct="control">
+    <div class="qtext">The six value drivers are Speed, Transparency, Accuracy, Auditability &amp; Accountability, Productivity, and Co-ordination &amp; ____.</div>
+  </div>
+  <div class="qblock" data-id="q4" data-type="mcq" data-points="5" data-correct="B">
+    <div class="qtext">Why are listed companies the sweet spot, in BANT terms?</div>
+  </div>
+  <div class="qblock" data-id="q5" data-type="fill-blank" data-points="7" data-correct="austria">
+    <div class="qtext">Miba Group, a private industrial group with no public filing requirement, is based in ____.</div>
+  </div>
+  <div class="qblock" data-id="q6" data-type="mcq" data-points="5" data-correct="B">
+    <div class="qtext">What did Miba and Sammons actually have in common that made them a real fit?</div>
+  </div>
+  <div class="qblock" data-id="q7" data-type="mcq" data-points="5" data-correct="A">
+    <div class="qtext">Strongest opening question for a private US retailer with six inconsistent regional spreadsheets?</div>
+  </div>
+  <div class="qblock" data-id="q8" data-type="mcq" data-points="5" data-correct="B">
+    <div class="qtext">A company must have a public filing requirement for IRIS to be useful to them. (True/False)</div>
+  </div>
+  <div class="qblock" data-id="q9" data-type="fill-blank" data-points="7" data-correct="us|united states|usa">
+    <div class="qtext">Sammons, a private company IRIS works with for internal reporting, is based in the ____.</div>
+  </div>
+  <div class="qblock" data-id="q10" data-type="mcq" data-points="5" data-correct="B">
+    <div class="qtext">Which value driver is most directly about board, regulator, and investor alignment?</div>
+  </div>
+  <div class="qblock" data-id="q11" data-type="mcq" data-points="5" data-correct="B">
+    <div class="qtext">What's wrong with ending a call once a prospect confirms they don't file publicly?</div>
+  </div>
+  <div class="qblock" data-id="q12" data-type="mcq" data-points="5" data-correct="C">
+    <div class="qtext">Instead of "do you have a filing requirement," the better first question is:</div>
+  </div>
+</div>
+
+<script>
+let cur=0;
+function updDots(n){
+  document.querySelectorAll('.dot').forEach((d,i)=>{
+    d.classList.remove('on','done');
+    if(i===n) d.classList.add('on');
+    else if(i<n) d.classList.add('done');
+  });
+}
+function go(n){
+  document.getElementById('s'+cur).classList.remove('active');
+  cur=n;
+  document.getElementById('s'+n).classList.add('active');
+  updDots(n);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ---------- PARSE THE STATIC METADATA BANK ----------
+   Single source of truth for scoring weights: both MAX_SCORE and the
+   per-question WEIGHTS map used at runtime are derived from this bank,
+   so a static parser reading the raw HTML always agrees with the
+   live, running score. */
+function parseQuizBank(){
+  const map={};
+  document.querySelectorAll('#quizBank .qblock').forEach(b=>{
+    const id=b.dataset.id;
+    map[id]={
+      id,
+      type: b.dataset.type,                       // 'mcq' | 'fill-blank' | 'descriptive'
+      points: parseInt(b.dataset.points,10) || 0,  // explicit 0 if unscored
+      correct: b.dataset.correct || '',
+      text: (b.querySelector('.qtext')||{}).textContent.trim()
+    };
+  });
+  return map;
+}
+const QMETA = parseQuizBank();
+const WEIGHTS = {};
+Object.keys(QMETA).forEach(id=>{ WEIGHTS[id]=QMETA[id].points; });
+/* Max possible score — always derived from the metadata bank above, never hardcoded elsewhere. */
+const MAX_SCORE = Object.values(QMETA).reduce((sum,it)=>sum+it.points,0);
+
+document.getElementById('lyPill').textContent = '🔒 ' + MAX_SCORE + '-Lightyear quiz';
+document.getElementById('quizIntro').textContent = '80% needed to pass. ' + MAX_SCORE + ' Lightyears total.';
+document.getElementById('rScore').textContent = '0/' + MAX_SCORE;
+
+const sc={};
+const chosenAns={};  // qid -> chosen mcq key or typed fill-blank value, used in the submit payload
+const QIDS=Object.keys(QMETA);
+
+function checkGateDone(){
+  const done=QIDS.every(q=>sc.hasOwnProperty(q));
+  if(done){
+    document.getElementById('nx-6').disabled=false;
+    document.getElementById('gate-6').style.display='none';
+  }
+}
+function checkFB(id,accepted){
+  if(sc.hasOwnProperty(id)) return;
+  const val=document.getElementById('fb-'+id).value.trim().toLowerCase();
+  const isOk=accepted.some(a=>val.includes(a));
+  sc[id]=isOk;
+  chosenAns[id]=document.getElementById('fb-'+id).value.trim();
+  document.getElementById('fb-'+id).disabled=true;
+  document.getElementById('fbb-'+id).disabled=true;
+  const fb=document.getElementById('fbf-'+id);
+  fb.className='q-fb '+(isOk?'ok':'bad');
+  fb.innerHTML=isOk?'<strong>✓ Correct.</strong>':'<strong>✗ Not quite.</strong> Correct answer: '+accepted[0]+'.';
+  checkGateDone();
+}
+function ansM(qid,chosen,correct){
+  if(sc.hasOwnProperty(qid)) return;
+  const isOk=chosen===correct;
+  sc[qid]=isOk;
+  chosenAns[qid]=chosen;
+  document.querySelectorAll('#qo-'+qid+' .q-opt').forEach(btn=>{
+    btn.disabled=true;
+    const l=btn.querySelector('.q-l').textContent.trim();
+    if(l===chosen) btn.classList.add(isOk?'ok':'bad');
+    if(!isOk&&l===correct) btn.classList.add('reveal');
+  });
+  const fb=document.getElementById('qf-'+qid);
+  fb.className='q-fb '+(isOk?'ok':'bad');
+  fb.innerHTML=isOk?'<strong>✓ Correct.</strong>':'<strong>✗ Not quite — correct answer highlighted above.</strong>';
+  checkGateDone();
+}
+function computeScore(){
+  let score=0;
+  QIDS.forEach(q=>{ if(sc[q]) score+=WEIGHTS[q]; });
+  return score;
+}
+function showResult(){
+  const ly=computeScore();
+  const pct=MAX_SCORE>0?Math.round(ly/MAX_SCORE*100):0;
+  document.getElementById('rScore').textContent=ly+'/'+MAX_SCORE;
+  document.getElementById('rOf').textContent=pct+'% · Lightyears earned';
+  document.getElementById('rCert').textContent=pct+'% · Beyond the Mandate · IRIS Orbit';
+  document.getElementById('retryBlk').style.display=pct<80?'block':'none';
+  document.getElementById('passBlk').style.display=pct>=80?'block':'none';
+  go(7);
+}
+function restart(){
+  QIDS.forEach(q=>{ delete sc[q]; delete chosenAns[q]; });
+  ['q3','q5','q9'].forEach(id=>{
+    document.getElementById('fb-'+id).disabled=false;
+    document.getElementById('fb-'+id).value='';
+    document.getElementById('fbb-'+id).disabled=false;
+    const fb=document.getElementById('fbf-'+id);
+    fb.className='q-fb';fb.innerHTML='';
+  });
+  ['q1','q2','q4','q6','q7','q8','q10','q11','q12'].forEach(qid=>{
+    document.querySelectorAll('#qo-'+qid+' .q-opt').forEach(b=>{b.disabled=false;b.classList.remove('ok','bad','reveal');});
+    const fb=document.getElementById('qf-'+qid);
+    fb.className='q-fb';fb.innerHTML='';
+  });
+  document.getElementById('nx-6').disabled=true;
+  document.getElementById('gate-6').style.display='block';
+  go(6);
+}
+
+/* ---------- SUBMIT FUNCTION ---------- */
+function getMcqOptions(qid){
+  const list=document.querySelectorAll('#qo-'+qid+' .q-opt');
+  if(!list.length) return null;
+  return Array.from(list).map(btn=>{
+    const key=btn.querySelector('.q-l').textContent.trim();
+    const text=btn.textContent.replace(key,'').trim();
+    return {key,text};
+  });
+}
+function fireSubmit(){
+  const score = computeScore();
+  const pct = MAX_SCORE>0 ? Math.round(score/MAX_SCORE*100) : 0;
+  const questions = Object.values(QMETA).map(it=>{
+    const correct = !!sc[it.id];
+    let userAnswer=null, correctAnswer=null, options;
+    if(it.type==='fill-blank'){
+      userAnswer = chosenAns[it.id] !== undefined ? chosenAns[it.id] : '';
+      correctAnswer = it.correct.split('|')[0];
+    }else{
+      const opts=getMcqOptions(it.id);
+      if(opts){
+        const chosenOpt=opts.find(o=>o.key===chosenAns[it.id]);
+        const correctOpt=opts.find(o=>o.key===it.correct);
+        userAnswer = chosenOpt ? chosenOpt.text : (chosenAns[it.id]||null);
+        correctAnswer = correctOpt ? correctOpt.text : it.correct;
+        options = opts.map(o=>o.text);
+      }
+    }
+    return {
+      id: it.id,
+      questionText: it.text,
+      type: it.type,
+      userAnswer,
+      correctAnswer,
+      isCorrect: correct,
+      options,
+      points: correct ? it.points : 0,
+      maxPoints: it.points
+    };
+  });
+  // 1. Broadcast evaluation payload out to the parent embedding frame
+  window.parent.postMessage({
+    fromSandboxEngine: true,
+    type: 'HTML_SIMULATION_SUBMIT',
+    score: score,
+    maxPossibleScore: MAX_SCORE,
+    textResponses: { questions }
+  }, '*');
+  // 2. High-reliability exit protocol cascade (final cleanup / close fallback)
+  setTimeout(() => {
+    // Strategy A: Native script close window rule
+    window.close();
+
+    // Strategy B: Browser history rollback back-up
+    if (window.history.length > 1) {
+      window.history.back();
+    }
+
+    // Strategy C: Target empty blank node to scrub presentation container viewport
+    // (Crucial fallback for sandboxed browser view environments)
+    document.querySelector('.shell').innerHTML = `
+      <div class="r-hero" style="text-align:center;">
+        <div style="font-size:48px;margin-bottom:10px;">✓</div>
+        <h2 style="color:var(--ink);">Module Successfully Submitted</h2>
+        <p style="color:var(--ink2);margin-top:10px;">Your progress data has been recorded. You can safely close or navigate away from this section.</p>
+      </div>`;
+
+    // Strategy D: Force redirect container frame to safety target location
+    setTimeout(() => {
+      window.location.replace("about:blank");
+    }, 500);
+  }, 200);
+}
+document.getElementById('finishBtn').addEventListener('click', fireSubmit);
+</script>
+</body>
+</html>

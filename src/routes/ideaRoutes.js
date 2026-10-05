@@ -5,14 +5,17 @@ const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
 const Idea = require("../models/Idea");
 const mongoose = require("mongoose");
+const { handleError } = require("../utils/safeError");
 
 // 📥 1. POST A NEW CONCEPT (Private - Trainee Entry)
 // @route   POST /api/ideas
 // =========================================================================
 router.post("/", auth, async (req, res) => {
-  const { title, details, userName, userEmail, tag } = req.body;
+  // The author's name/email come from their account, never the request —
+  // otherwise the council board could show a forged author.
+  const { title, details, tag } = req.body;
 
-  if (!title || !details || !tag) {
+  if (typeof title !== "string" || typeof details !== "string" || !title.trim() || !details.trim() || !tag) {
     return res.status(400).json({ success: false, message: "Missing required parameters." });
   }
 
@@ -26,11 +29,14 @@ router.post("/", auth, async (req, res) => {
       return res.status(400).json({ success: false, message: "Tenant Error: User profile has no assigned department." });
     }
 
+    const author = await mongoose.model("User").findById(userId).select("username email").lean();
+    if (!author) return res.status(401).json({ success: false, message: "User not found." });
+
     const newIdea = new Idea({
       title: title.trim(),
       details: details.trim(),
-      userName: userName.trim(),
-      userEmail: userEmail.trim(),
+      userName: author.username,
+      userEmail: author.email,
       tag,
       userId,
       departmentId: new mongoose.Types.ObjectId(departmentId.toString())
@@ -45,7 +51,7 @@ router.post("/", auth, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Idea Submission Error:", err.message);
-    res.status(500).json({ success: false, message: `Server Error: ${err.message}` });
+    handleError(res, err, 500);
   }
 });
 
@@ -62,7 +68,7 @@ router.get("/my-history", auth, async (req, res) => {
     res.json({ success: true, data: history });
   } catch (err) {
     console.error("❌ Fetch Personal Ideas History Fault:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    handleError(res, err, 500);
   }
 });
 
@@ -81,7 +87,7 @@ router.get("/council-board", [auth, admin], async (req, res) => {
     const boardReviewItems = await Idea.find(searchFilter).sort({ createdAt: -1 });
     res.json({ success: true, data: boardReviewItems });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    handleError(res, err, 500);
   }
 });
 
@@ -137,11 +143,15 @@ router.put("/:ideaId/curate", [auth, admin], async (req, res) => {
 
       if (claimedAward) {
         console.log(`🚀 [XP Engine] Awarding +25 XP to User ID: ${originalIdea.userId} for approved innovation.`);
-        const User = require("../models/User");
-        await User.findByIdAndUpdate(
-          originalIdea.userId,
-          { $inc: { xp: 25 } } // Atomically increments user's XP profile field by 25 points
-        );
+        // 🔒 XP LEDGER: one award per idea, ever (idempotency key = idea id).
+        const { awardXp } = require("../services/xpLedger");
+        await awardXp({
+          userId: originalIdea.userId,
+          amount: 25,
+          source: "idea",
+          idempotencyKey: `idea:${ideaId}`,
+          sourceId: ideaId,
+        });
       }
     }
 
@@ -154,7 +164,7 @@ router.put("/:ideaId/curate", [auth, admin], async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Curation processing error:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    handleError(res, err, 500);
   }
 });
 

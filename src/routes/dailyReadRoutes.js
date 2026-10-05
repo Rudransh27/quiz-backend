@@ -5,6 +5,8 @@ const mongoose = require("mongoose");
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
 const DailyRead = require("../models/DailyRead"); // ✅ Synced matching collection model filename lookup
+const DailyReadOpen = require("../models/DailyReadOpen");
+const { handleError } = require("../utils/safeError");
 
 // 🗓️ UTC day-key helper — same "YYYY-MM-DD" convention User.engagementHistory
 // uses for streak entries, so "today" means the same calendar day across
@@ -90,7 +92,7 @@ router.post("/admin/daily-reads", [auth, admin], async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Post Daily Read Processing Crash:", err.message);
-    res.status(500).json({ success: false, message: `Server Error: ${err.message}` });
+    handleError(res, err, 500);
   }
 });
 
@@ -127,7 +129,7 @@ router.put("/admin/daily-reads/:id", [auth, admin], async (req, res) => {
     res.json({ success: true, message: "Daily Read article updated.", data: existing });
   } catch (err) {
     console.error("❌ Update Daily Read Processing Crash:", err.message);
-    res.status(500).json({ success: false, message: `Server Error: ${err.message}` });
+    handleError(res, err, 500);
   }
 });
 
@@ -156,7 +158,7 @@ router.delete("/admin/daily-reads/:id", [auth, admin], async (req, res) => {
     res.json({ success: true, message: "Daily Read article deleted." });
   } catch (err) {
     console.error("❌ Delete Daily Read Processing Crash:", err.message);
-    res.status(500).json({ success: false, message: `Server Error: ${err.message}` });
+    handleError(res, err, 500);
   }
 });
 
@@ -185,7 +187,7 @@ router.get("/todays-read", auth, async (req, res) => {
     res.json({ success: true, data: todaysRead });
   } catch (err) {
     console.error("❌ Fetch Today's Read Fault:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    handleError(res, err, 500);
   }
 });
 
@@ -207,7 +209,7 @@ router.get("/all-reads", auth, async (req, res) => {
     res.json({ success: true, data: allReads });
   } catch (err) {
     console.error("❌ Fetch All Reads Pipeline Crash:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    handleError(res, err, 500);
   }
 });
 
@@ -227,7 +229,37 @@ router.get("/by-date/:dateKey", auth, async (req, res) => {
     res.json({ success: true, data: read || null });
   } catch (err) {
     console.error("❌ Fetch Daily Read By Date Fault:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    handleError(res, err, 500);
+  }
+});
+
+// =========================================================================
+// 📖 7. POST /api/daily-reads/:id/open — the reader page calls this when an
+// article opens. Records the FIRST open per user, read and UTC day; the
+// streak check (services/streakProof.js) only accepts a "daily_read" claim
+// made at least the reading threshold after a real open.
+// =========================================================================
+router.post("/:id/open", auth, async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid read id." });
+    }
+    const read = await DailyRead.findById(req.params.id, "department").lean();
+    if (!read) return res.status(404).json({ success: false, message: "Read not found." });
+    if (req.user.role !== "superadmin"
+      && (!req.user.department || String(read.department) !== String(req.user.department))) {
+      return res.status(404).json({ success: false, message: "Read not found." });
+    }
+    const now = new Date();
+    const doc = await DailyReadOpen.findOneAndUpdate(
+      { user_id: req.user.id, read_id: read._id, dayKey: todayUtcKey() },
+      { $setOnInsert: { openedAt: now } },
+      { upsert: true, new: true }
+    ).lean();
+    return res.json({ success: true, openedAt: doc.openedAt });
+  } catch (err) {
+    if (err && err.code === 11000) return res.json({ success: true }); // concurrent first open
+    handleError(res, err, 500);
   }
 });
 

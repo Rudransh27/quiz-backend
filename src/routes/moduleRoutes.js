@@ -8,6 +8,8 @@ const Card = require("../models/Card");
 const Team = require("../models/Team");
 const ModuleRating = require("../models/ModuleRating");
 const Category = require("../models/Category");
+require("../models/Path");
+require("../models/BankQuestion");
 const progressController = require("../controllers/progressController");
 const { computePointsReward } = require("../utils/pointsCalculator");
 const { moduleHasDept, moduleDeptIds } = require("../utils/moduleDepartments");
@@ -17,6 +19,7 @@ const { computeModuleCompletionMap, walkSequentialUnlock, isModuleUnlockedForUse
 
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
+const { handleError } = require("../utils/safeError");
 
 const getDepartmentIdString = (doc) => {
   if (!doc) return null;
@@ -88,35 +91,11 @@ const resolveModuleOrder = async (categoryId, requestedOrder) => {
 // 🛡️ GRANULAR SECURITY HANDSHAKE FIREWALL — shared by GET /:id and the
 // review endpoints below (GET /:id/reviews, GET /:id/my-review) so viewing
 // a module's reviews is gated by the exact same visibility rules as viewing
-// the module itself. Returns { ok: true } or { ok: false, status, message }
-// rather than throwing, matching this file's existing control-flow style.
-const assertModuleViewAccess = (moduleData, req) => {
-  if (req.user.role === "superadmin") return { ok: true };
-
-  const contextUser = req.user.user ? req.user.user : req.user;
-  const userDeptStr = contextUser.department?.toString();
-  const userTeamStr = contextUser.team?.toString();
-
-  if (moduleData.visibility === "Departmental" && !moduleHasDept(moduleData, userDeptStr)) {
-    return { ok: false, status: 403, message: "Access Denied: Foreign Department content locked." };
-  }
-
-  if (moduleData.visibility === "Team-Specific") {
-    if (!moduleHasDept(moduleData, userDeptStr)) {
-      return { ok: false, status: 403, message: "Access Denied: Foreign Department content locked." };
-    }
-    const hasTeamAccess = moduleData.targetTeams.some(tId => tId.toString() === userTeamStr);
-    if (!hasTeamAccess) {
-      return { ok: false, status: 403, message: "Access Denied: Locked for your specific team scope." };
-    }
-  }
-
-  if (!passesRegionScope(moduleData, req)) {
-    return { ok: false, status: 403, message: "Access Denied: Not available in your region." };
-  }
-
-  return { ok: true };
-};
+// the module itself. Lives in utils/moduleAccess.js so the topic routes and
+// the grading endpoints apply the identical rule.
+const { assertModuleViewAccess } = require("../utils/moduleAccess");
+const { normalizeCardForClient, isAuthorRole } = require("../utils/learnerCard");
+const { extractSandboxKey } = require("../services/grading/sandboxKey");
 
 
 // =========================================================================
@@ -299,7 +278,13 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
             $map: {
               input: "$allocatedCards",
               as: "c",
-              in: { card_type: "$$c.card_type", content: "$$c.content" }
+              in: {
+                card_type: "$$c.card_type",
+                // 🔒 Only the sandbox HTML (needed for its point parse) —
+                // never the rest of `content`, which for quiz/code cards
+                // carries the answer key. Stripped from the response below.
+                content: { htmlSource: { $cond: [{ $eq: ["$$c.card_type", "html_sandbox"] }, "$$c.content.htmlSource", null] } }
+              }
             }
           }
         }
@@ -314,9 +299,9 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
     // approximation for a listing page; the per-topic/whole-module Type A/B
     // split (topics summed for a hierarchy module) is computed precisely on
     // the single-module GET route below, which has the real topic structure.
-    const dataWithPoints = workspaceModules.map((mod) => ({
+    const dataWithPoints = workspaceModules.map(({ cardsForPoints, ...mod }) => ({
       ...mod,
-      pointsReward: computePointsReward(mod.cardsForPoints),
+      pointsReward: computePointsReward(cardsForPoints),
     }));
 
     // 🔒 SEQUENTIAL MODULE LOCK — attach `locked` per module. Admin/
@@ -327,6 +312,26 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
     // categories it spans), then walk each category's chain in pure JS
     // against that shared map — no per-module/per-category DB round-trips.
     const isPrivilegedForLock = req.user.role === "admin" || req.user.role === "superadmin";
+
+    // 🧭 PATHS: once Paths are published, a learner sees only the modules of
+    // the Paths meant for them (a module in no visible Path is hidden, like a
+    // draft), and lock state comes from those Paths' own order — the same
+    // rule GET /:id and the grading endpoints enforce.
+    const pathsSvc = require("../services/paths");
+    if (!isPrivilegedForLock && await pathsSvc.pathsEnabled()) {
+      const states = await pathsSvc.visiblePathStates(req);
+      const inPath = new Set();
+      const unlockedInPath = new Set();
+      states.forEach((s) => s.modules.forEach((m) => {
+        const id = m.module._id.toString();
+        inPath.add(id);
+        if (m.unlocked) unlockedInPath.add(id);
+      }));
+      const visibleData = dataWithPoints.filter((m) => inPath.has(m._id.toString()));
+      visibleData.forEach((m) => { m.locked = !unlockedInPath.has(m._id.toString()); });
+      return res.json({ success: true, data: visibleData });
+    }
+
     if (isPrivilegedForLock) {
       dataWithPoints.forEach((m) => { m.locked = false; });
     } else {
@@ -368,7 +373,7 @@ router.get("/workspace-curriculum", auth, async (req, res) => {
     return res.json({ success: true, data: dataWithPoints });
   } catch (err) {
     console.error("Workspace Curriculum API Failure:", err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -492,7 +497,7 @@ router.get("/", auth, async (req, res) => {
     return res.json(modulesWithRatings);
   } catch (err) {
     console.error("Fetch Modules Aggregation Failure:", err.message);
-    return res.status(500).json({ message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -527,6 +532,9 @@ router.get("/:id", auth, async (req, res) => {
         moduleId: moduleData._id,
         categoryId: moduleData.categoryId,
         userId: lockUserId,
+        // Same chain the Learn page walks: only modules this user can see.
+        isVisible: (m) => assertModuleViewAccess(m, req).ok,
+        req,
       });
       if (!unlocked) {
         return res.status(403).json({
@@ -563,36 +571,7 @@ router.get("/:id", auth, async (req, res) => {
         .sort({ cardOrder: 1 })
         .lean();
 
-      const normalizedCards = directCards.map(card => {
-        const contentObj = card.content || {};
-        let safeOptions = contentObj.options;
-        let safeCorrectIndex = contentObj.correctIndex;
-        let safeExplanation = contentObj.explanation;
-
-        if (card.card_type === "quiz" && contentObj.text) {
-          try {
-            const parsedQuiz = JSON.parse(contentObj.text);
-            safeOptions = parsedQuiz.options || safeOptions;
-            safeCorrectIndex = parsedQuiz.correctAnswerIndex !== undefined ? parsedQuiz.correctAnswerIndex : safeCorrectIndex;
-            safeExplanation = parsedQuiz.explanationHint || safeExplanation;
-          } catch (e) {}
-        }
-
-        return {
-          ...card,
-          id: card._id.toString(),
-          content: {
-            ...contentObj,
-            title: contentObj.title || "",
-            text: contentObj.text || "",
-            // Extract code directly out of 'htmlSource' or fallback content structures
-            htmlSource: card.card_type === "html_sandbox" ? (contentObj.htmlSource || contentObj.text || "") : "",
-            options: safeOptions || [],
-            correctIndex: safeCorrectIndex !== undefined ? safeCorrectIndex : 0,
-            explanation: safeExplanation || ""
-          }
-        };
-      });
+      const normalizedCards = directCards.map(card => normalizeCardForClient(card, { includeAnswers: isAuthorRole(req) }));
 
       structuralPayload.cards = normalizedCards;
       structuralPayload.topics = [];
@@ -613,36 +592,7 @@ router.get("/:id", auth, async (req, res) => {
       structuralPayload.topics = topics.map((topic) => {
         const matchingCards = allCards
           .filter((card) => card.topic_id && card.topic_id.toString() === topic._id.toString())
-          .map((card) => {
-            const contentObj = card.content || {};
-            let safeOptions = contentObj.options;
-            let safeCorrectIndex = contentObj.correctIndex;
-            let safeExplanation = contentObj.explanation;
-
-            if (card.card_type === "quiz" && contentObj.text) {
-              try {
-                const parsedQuiz = JSON.parse(contentObj.text);
-                safeOptions = parsedQuiz.options || safeOptions;
-                safeCorrectIndex = parsedQuiz.correctAnswerIndex !== undefined ? parsedQuiz.correctAnswerIndex : safeCorrectIndex;
-                safeExplanation = parsedQuiz.explanationHint || safeExplanation;
-              } catch (e) {}
-            }
-
-            return {
-              ...card,
-              id: card._id.toString(),
-              content: {
-                ...contentObj,
-                title: contentObj.title || "",
-                text: contentObj.text || "",
-                // Support standalone sandboxes safely inside a multi-topic syllabus timeline deck node context
-                htmlSource: card.card_type === "html_sandbox" ? (contentObj.htmlSource || contentObj.text || "") : "",
-                options: safeOptions || [],
-                correctIndex: safeCorrectIndex !== undefined ? safeCorrectIndex : 0,
-                explanation: safeExplanation || ""
-              }
-            };
-          });
+          .map((card) => normalizeCardForClient(card, { includeAnswers: isAuthorRole(req) }));
 
         return {
           ...topic,
@@ -668,7 +618,7 @@ router.get("/:id", auth, async (req, res) => {
     return res.json(structuralPayload);
   } catch (err) {
     console.error("❌ Single Module Fetch Fatal Error:", err.message);
-    return res.status(500).json({ message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -714,7 +664,7 @@ router.post("/:id/rate", auth, async (req, res) => {
     return res.json({ success: true, message: "Thank you for rating this module!", review: savedReview });
   } catch (err) {
     if (err.name === "ValidationError") {
-      return res.status(400).json({ message: err.message });
+      return handleError(res, err, 400);
     }
     return res.status(500).json({ message: "Rating submission failed." });
   }
@@ -762,7 +712,7 @@ router.get("/:id/reviews", auth, async (req, res) => {
       })),
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -779,7 +729,7 @@ router.get("/:id/my-review", auth, async (req, res) => {
     const review = await ModuleRating.findOne({ user_id: userId, module_id: req.params.id }).lean();
     return res.json({ success: true, review: review || null });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -813,6 +763,18 @@ router.post("/", [auth, admin], async (req, res) => {
     const isHtmlSandboxModule = req.body.moduleType === 'html_sandbox';
     const cleanStrategy = isHtmlSandboxModule ? 'EXPRESS_FLAT' : (engineStrategy || 'STANDARD');
     const cleanHasTopics = isHtmlSandboxModule ? false : cleanStrategy === 'STANDARD';
+
+    // 🔒 SERVER-SIDE GRADING: an HTML module must carry a gradable answer key
+    // (no ungradable module goes live). Checked BEFORE anything is saved, so
+    // a rejected module never leaves a half-created record behind.
+    let gradingSummary = null;
+    if (isHtmlSandboxModule) {
+      const keyCheck = extractSandboxKey(req.body.htmlSource || '');
+      if (!keyCheck.ok) {
+        return res.status(400).json({ success: false, message: `HTML module cannot be graded: ${keyCheck.error}`, gradingError: keyCheck.error });
+      }
+      gradingSummary = keyCheck.summary;
+    }
 
     // 🏷️ Always resolves to a real Category — falls back to "Uncategorized"
     // if the admin didn't pick one (or picked something that doesn't exist).
@@ -860,6 +822,9 @@ router.post("/", [auth, admin], async (req, res) => {
           content: {
             title: module.title,
             htmlSource: req.body.htmlSource || '',
+            // 🔒 Trusted = the module iframe keeps allow-same-origin (needed
+            // for embedded SharePoint video sign-in). Superadmin-only.
+            sandboxTrusted: req.user.role === 'superadmin' && req.body.sandboxTrusted === true,
             maxPoints: Number(req.body.maxPoints) || 10,
             baseTimeThresholdSec: Number(req.body.baseTimeThresholdSec) || 0,
             estimatedDurationMin: Number(req.body.estimatedDurationMin) || 0,
@@ -867,13 +832,14 @@ router.post("/", [auth, admin], async (req, res) => {
         });
       } catch (cardErr) {
         await module.deleteOne();
-        return res.status(400).json({ message: 'Failed to create sandbox card: ' + cardErr.message });
+        console.error('Sandbox card creation failed:', cardErr.message);
+        return res.status(400).json({ message: 'Failed to create the HTML module card. Check the HTML and try again.' });
       }
     }
 
-    return res.status(201).json(module);
+    return res.status(201).json(gradingSummary ? { ...module.toObject(), gradingSummary } : module);
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -1020,7 +986,26 @@ router.put("/:id", [auth, admin], async (req, res) => {
     // — this is a well-documented Mongoose limitation, not specific to this
     // schema. Reusing the targetModule already fetched above for the
     // permission check also saves a second DB round-trip.
-    Object.assign(targetModule, req.body);
+    // 🔒 SERVER-SIDE GRADING: validate a changed HTML source's answer key
+    // BEFORE saving anything (see the create route).
+    let gradingSummary = null;
+    if (isHtmlSandboxModule && req.body.htmlSource !== undefined) {
+      const keyCheck = extractSandboxKey(req.body.htmlSource || '');
+      if (!keyCheck.ok) {
+        return res.status(400).json({ success: false, message: `HTML module cannot be graded: ${keyCheck.error}`, gradingError: keyCheck.error });
+      }
+      gradingSummary = keyCheck.summary;
+    }
+
+    // 🔒 Never let the request body set ownership, identity or the
+    // platform-wide featured flags (those have their own superadmin-only
+    // routes below). Copying `createdBy` from the body used to let any admin
+    // make themselves a module's "creator" and then pass the ownership gate.
+    const PROTECTED_FIELDS = ["_id", "__v", "createdBy", "createdAt", "updatedAt", "isHotModule", "isPopular", "moduleType"];
+    const changes = Object.fromEntries(
+      Object.entries(req.body || {}).filter(([k]) => !PROTECTED_FIELDS.includes(k) && !k.startsWith("$")),
+    );
+    Object.assign(targetModule, changes);
     const updatedModule = await targetModule.save();
 
     if (isHtmlSandboxModule) {
@@ -1030,6 +1015,13 @@ router.put("/:id", [auth, admin], async (req, res) => {
       if (req.body.baseTimeThresholdSec !== undefined) cardContentUpdate['content.baseTimeThresholdSec'] = Number(req.body.baseTimeThresholdSec);
       if (req.body.estimatedDurationMin !== undefined) cardContentUpdate['content.estimatedDurationMin'] = Number(req.body.estimatedDurationMin);
       if (req.body.title !== undefined) cardContentUpdate['content.title'] = req.body.title;
+      // 🔒 Only a superadmin can (un)trust a module. If anyone else changes
+      // its HTML, the trust is dropped — a superadmin must re-approve it.
+      if (req.user.role === 'superadmin' && req.body.sandboxTrusted !== undefined) {
+        cardContentUpdate['content.sandboxTrusted'] = req.body.sandboxTrusted === true;
+      } else if (req.user.role !== 'superadmin' && req.body.htmlSource !== undefined) {
+        cardContentUpdate['content.sandboxTrusted'] = false;
+      }
 
       if (Object.keys(cardContentUpdate).length > 0) {
         await Card.findOneAndUpdate(
@@ -1039,9 +1031,9 @@ router.put("/:id", [auth, admin], async (req, res) => {
       }
     }
 
-    return res.json(updatedModule);
+    return res.json(gradingSummary ? { ...updatedModule.toObject(), gradingSummary } : updatedModule);
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -1059,6 +1051,13 @@ router.delete("/:id", [auth, admin], async (req, res) => {
         || (existingDeptIds.length === 1 && existingDeptIds[0] === req.user.department.toString());
       if (!isSolelyOwnDept) {
         return res.status(403).json({ message: "Forbidden: Deleting foreign department models is banned." });
+      }
+      // 🔒 A Global module is shared by every department — only its creator
+      // (or a superadmin) may delete it, since the purge below also wipes
+      // every learner's progress in it.
+      const isOwner = module.createdBy && module.createdBy.toString() === req.user.id.toString();
+      if (existingDeptIds.length === 0 && !isOwner) {
+        return res.status(403).json({ message: "Only this module's creator or a superadmin can delete a Global module." });
       }
     }
 
@@ -1090,10 +1089,14 @@ router.delete("/:id", [auth, admin], async (req, res) => {
       });
     }
 
+    // 🧭 Take it out of every Path. Its bank questions are retired, not
+    // deleted — past Pre/Post attempts still reference them.
+    await mongoose.model("Path").updateMany({ moduleIds: module._id }, { $pull: { moduleIds: module._id } });
+    await mongoose.model("BankQuestion").updateMany({ moduleId: module._id }, { $set: { status: "retired" } });
     await module.deleteOne();
     return res.json({ success: true, message: "Purge execution resolved successfully." });
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -1107,6 +1110,10 @@ router.get("/:id/submissions", [auth, admin], progressController.exportModuleSub
 // =========================================================================
 router.patch("/:id/hot-module", [auth, admin], async (req, res) => {
   try {
+    // 🔒 Platform-wide flag — it changes what every department sees.
+    if (req.user.role !== "superadmin") {
+      return res.status(403).json({ message: "Only a superadmin can feature modules platform-wide." });
+    }
     const { isHotModule } = req.body;
     const target = await Module.findById(req.params.id);
     if (!target) return res.status(404).json({ message: "Module not found" });
@@ -1119,7 +1126,7 @@ router.patch("/:id/hot-module", [auth, admin], async (req, res) => {
 
     return res.json(target);
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -1128,6 +1135,10 @@ router.patch("/:id/hot-module", [auth, admin], async (req, res) => {
 // =========================================================================
 router.patch("/:id/popular", [auth, admin], async (req, res) => {
   try {
+    // 🔒 Platform-wide flag — it changes what every department sees.
+    if (req.user.role !== "superadmin") {
+      return res.status(403).json({ message: "Only a superadmin can feature modules platform-wide." });
+    }
     const { isPopular } = req.body;
     const target = await Module.findById(req.params.id);
     if (!target) return res.status(404).json({ message: "Module not found" });
@@ -1143,7 +1154,7 @@ router.patch("/:id/popular", [auth, admin], async (req, res) => {
 
     return res.json(target);
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    return handleError(res, err, 400);
   }
 });
 

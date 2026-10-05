@@ -9,6 +9,11 @@
 // fight with an already-running dev server and touch real data) — instead
 // this mounts the same production router in a throwaway Express app, wired
 // to the same in-memory test database.
+// streakProof is stubbed here: these suites test that the streak mutation
+// touches only the acting user's document. Whether the activity really
+// happened is covered by tests/streakProof.test.js.
+jest.mock('../src/services/streakProof', () => ({ hasActivityProof: async () => ({ ok: true }) }));
+
 const express = require('express');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
@@ -32,7 +37,7 @@ let app;
 function authFor(user) {
   const bindingSecret = crypto.randomBytes(32).toString('hex');
   const bh = crypto.createHash('sha256').update(bindingSecret).digest('hex');
-  const token = jwt.sign({ user: { id: user._id.toString(), role: user.role, bh } }, process.env.JWT_SECRET, {
+  const token = jwt.sign({ user: { id: user._id.toString(), role: user.role, bh, sessionId: crypto.randomUUID() } }, process.env.JWT_SECRET, {
     expiresIn: '1h',
   });
   return { token, cookie: `orbit_bind=${bindingSecret}` };

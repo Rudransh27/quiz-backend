@@ -1,0 +1,167 @@
+{
+ "cards": [
+  {
+   "cardId": "6a2d6826325cb78f57dc4a43",
+   "validator": "validateUnitRefAnswer",
+   "starter": "<xbrli:unit id=\"u1\">\n  <xbrli:measure>iso4217:USD</xbrli:measure>\n</xbrli:unit>\n\n<ex:Revenue contextRef=\"c1\" unitRef=\"usd\" decimals=\"0\">100000</ex:Revenue>",
+   "taxonomy": ""
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a44",
+   "validator": "validateContextRefAnswer",
+   "starter": "<xbrli:context id=\"C1\">\n  <!-- ... -->\n</xbrli:context>\n\n<ex:Profit contextRef=\"c1\" unitRef=\"u1\" decimals=\"0\">200000</ex:Profit>",
+   "taxonomy": ""
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a45",
+   "validator": "validateDateRangeAnswer",
+   "starter": "<xbrli:period>\n  <xbrli:startDate>2025-04-01</xbrli:startDate>\n  <xbrli:endDate>2024-03-31</xbrli:endDate>\n</xbrli:period>",
+   "taxonomy": ""
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a46",
+   "validator": "validateCurrencyCodeAnswer",
+   "starter": "<xbrli:unit id=\"U1\">\n  <xbrli:measure>iso4217:XYZ</xbrli:measure>\n</xbrli:unit>",
+   "taxonomy": ""
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a47",
+   "validator": "validateRevenueValueAnswer",
+   "starter": "<ex:Revenue contextRef=\"C1\" unitRef=\"U1\" decimals=\"0\">-500000</ex:Revenue>",
+   "taxonomy": ""
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a48",
+   "validator": "validateAllFixesAnswer",
+   "starter": "<xbrli:xbrl xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n            xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\"\n            xmlns:ex=\"http://example.com/taxonomy\">\n\n  <xbrli:context id=\"C1\">\n    <xbrli:entity>\n      <xbrli:identifier scheme=\"http://example.com/entity\">ABC_LTD</xbrli:identifier>\n    </xbrli:entity>\n    <xbrli:period>\n      <xbrli:startDate>2025-04-01</xbrli:startDate>\n      <xbrli:endDate>2024-03-31</xbrli:endDate>\n    </xbrli:period>\n  </xbrli:context>\n\n  <xbrli:unit id=\"U1\">\n    <xbrli:measure>iso4217:XYZ</xbrli:measure>\n  </xbrli:unit>\n\n  <ex:Revenue contextRef=\"C1\" unitRef=\"U1\" decimals=\"0\">-500000</ex:Revenue>\n</xbrli:xbrl>",
+   "taxonomy": ""
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a49",
+   "validator": "validateBushchatHandsOnSnippet",
+   "starter": "<xbrli:xbrl xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n            xmlns:iso4217=\"http://www.xbrl.org/2003/iso4217\"\n            xmlns:ex=\"http://example.com/taxonomy\">\n\n  <xbrli:context id=\"C1\">\n    <xbrli:entity>\n      <xbrli:identifier scheme=\"http://example.com/entity\">XYZ_CORP</xbrli:identifier>\n    </xbrli:entity>\n    <xbrli:period>\n      <xbrli:instant>2024-13-01</xbrli:instant>\n    </xbrli:period>\n  </xbrli:context>\n\n  <xbrli:unit id=\"U1\">\n    <xbrli:measure>iso4217:usd</xbrli:measure>\n  </xbrli:unit>\n\n  <ex:Assets contextRef=\"C1\" unitRef=\"U1\" decimals=\"INF\">1000000.50</ex:Assets>\n\n  <ex:Liabilities contextRef=\"C2\" unitRef=\"U1\" decimals=\"0\">400000</ex:Liabilities>\n</xbrli:xbrl>",
+   "taxonomy": ""
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a54",
+   "validator": "validateBeginner1",
+   "starter": "<xbrli:context xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n               xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n               xmlns:ex=\"http://example.com/taxonomy\"\n               id=\"Context_A\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/entity\">ABC_Co</xbrli:identifier>\n    <xbrli:segment>\n      \n    </xbrli:segment>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2025-03-31</xbrli:instant>\n  </xbrli:period>\n</xbrli:context>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"ProductAxis\" type=\"xbrldi:explicitDimensionItemType\" substitutionGroup=\"xbrldi:dimension\" />\n  <xs:element name=\"CarsMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n  <xs:element name=\"BikesMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a55",
+   "validator": "validateBeginner2",
+   "starter": "<xbrli:context xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n               xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n               xmlns:ex=\"http://example.com/taxonomy\"\n               id=\"Context_B\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/entity\">DEF_Ltd</xbrli:identifier>\n    <xbrli:segment>\n      <xbrldi:explicitMember dimension=\"ex:LocatoinAxis\">ex:NortMember</xbrldi:explicitMember> \n    </xbrli:segment>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2025-06-30</xbrli:instant>\n  </xbrli:period>\n</xbrli:context>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"LocationAxis\" type=\"xbrldi:explicitDimensionItemType\" substitutionGroup=\"xbrldi:dimension\" />\n  <xs:element name=\"NorthMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n  <xs:element name=\"SouthMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a56",
+   "validator": "validateIntermediate1",
+   "starter": "<xbrli:context xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" \n               xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" \n               xmlns:ex=\"http://example.com/taxonomy\" \n               id=\"C1\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/entity\">XYZ_CORP</xbrli:identifier>\n    <xbrli:segment>\n      <xbrldi:explicitMember dimension=\"ex:WrongRegionAxis\">ex:AsaMember</xbrldi:explicitMember> \n    </xbrli:segment>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2025-06-30</xbrli:instant>\n  </xbrli:period>\n</xbrli:context>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"RegionAxis\" type=\"xbrldi:explicitDimensionItemType\" substitutionGroup=\"xbrldi:dimension\" />\n  <xs:element name=\"AsiaMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n  <xs:element name=\"EuropeMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a57",
+   "validator": "validateIntermediate2",
+   "starter": "<xbrli:context xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" \n               xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" \n               xmlns:ex=\"http://example.com/taxonomy\" \n               id=\"C2\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/entity\">XYZ_CORP</xbrli:identifier>\n    <xbrli:segment>\n      <xbrldi:explicitMember dimension=\"ex:RegionAxis\">ex:AsiaMember</xbrldi:explicitMember> \n      <xbrldi:explicitMember dimension=\"ex:DepartmentAxis\">ex:SalesDepartmentMember</xbrldi:explicitMember> \n    </xbrli:segment>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2025-06-30</xbrli:instant>\n  </xbrli:period>\n</xbrli:context>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"RegionAxis\" type=\"xbrldi:explicitDimensionItemType\" substitutionGroup=\"xbrldi:dimension\" />\n  <xs:element name=\"AsiaMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a58",
+   "validator": "validateAdvanced1",
+   "starter": "<xbrli:context xmlns:xbrli=\"http://www.xbrl.org/2003/instance\" \n               xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\" \n               xmlns:ex=\"http://example.com/taxonomy\" \n               id=\"C3\">\n  <xbrli:entity>\n    <xbrli:identifier scheme=\"http://example.com/entity\">XYZ_CORP</xbrli:identifier>\n    <xbrli:segment>\n      <xbrldi:explicitMember dimension=\"ex:RegionAxis\">ex:AsiaMember</xbrldi:explicitMember>\n      <xbrldi:explicitMember dimension=\"ex:ProductAxis\">ex:ElectronicsMember</xbrldi:explicitMember> \n    </xbrli:segment>\n    <xbrli:scenario>\n      <xbrldi:explicitMember dimension=\"ex:RegionAxis\">ex:EuropeMember</xbrldi:explicitMember> \n    </xbrli:scenario>\n  </xbrli:entity>\n  <xbrli:period>\n    <xbrli:instant>2025-06-30</xbrli:instant>\n  </xbrli:period>\n</xbrli:context>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrldi=\"http://xbrl.org/2006/xbrldi\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"ProductAxis\" type=\"xbrldi:explicitDimensionItemType\" substitutionGroup=\"xbrldi:dimension\" />\n  <xs:element name=\"ElectronicsMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n  <xs:element name=\"FurnitureMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n\n  <xs:element name=\"RegionAxis\" type=\"xbrldi:explicitDimensionItemType\" substitutionGroup=\"xbrldi:dimension\" />\n  <xs:element name=\"AsiaMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n  <xs:element name=\"EuropeMember\" type=\"xs:string\" substitutionGroup=\"xbrli:item\" />\n\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a59",
+   "validator": "validateLabelPart1",
+   "starter": "<link:labelLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                xmlns:ex=\"http://example.com/taxonomy\"\n                xlink:type=\"extended\"\n                xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RevenueFromContractsWithCustomers\"\n            xlink:type=\"locator\"\n            xlink:label=\"loc_revenue\"/>\n\n  \n\n</link:labelLink>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"RevenueFromContractsWithCustomers\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\" />\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a5a",
+   "validator": "validateLabelPart2",
+   "starter": "<link:labelLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                xmlns:ex=\"http://example.com/taxonomy\"\n                xlink:type=\"extended\"\n                xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RevenueFromContractsWithCustomers\"\n            xlink:type=\"locator\"\n            xlink:label=\"loc_revenue\"/>\n\n  <link:label xlink:label=\"lab_revenue_terse\"\n              xlink:type=\"resource\"\n              xlink:role=\"http://www.xbrl.org/2003/role/terseLabel\">Revenue</link:label>\n\n  \n\n</link:labelLink>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"RevenueFromContractsWithCustomers\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\" />\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a66",
+   "validator": "validateLabelPart1",
+   "starter": "<link:labelLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                xmlns:ex=\"http://example.com/taxonomy\"\n                xlink:type=\"extended\"\n                xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RevenueFromContractsWithCustomers\"\n            xlink:type=\"locator\"\n            xlink:label=\"loc_revenue\"/>\n\n  \n\n</link:labelLink>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"RevenueFromContractsWithCustomers\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\" />\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a67",
+   "validator": "validateLabelPart2",
+   "starter": "<link:labelLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                xmlns:ex=\"http://example.com/taxonomy\"\n                xlink:type=\"extended\"\n                xlink:role=\"http://www.xbrl.org/2003/role/labelLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RevenueFromContractsWithCustomers\"\n            xlink:type=\"locator\"\n            xlink:label=\"loc_revenue\"/>\n\n  <link:label xlink:label=\"lab_revenue_terse\"\n              xlink:type=\"resource\"\n              xlink:role=\"http://www.xbrl.org/2003/role/terseLabel\">Revenue</link:label>\n\n  \n\n</link:labelLink>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"RevenueFromContractsWithCustomers\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\" />\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a69",
+   "validator": "validatePresentationPart1",
+   "starter": "<link:presentationLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                           xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                           xmlns:ex=\"http://example.com/taxonomy\"\n                           xlink:type=\"extended\"\n                           xlink:role=\"http://www.xbrl.org/2003/role/linkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_TotalOperatingExpenses\" xlink:type=\"locator\" xlink:label=\"loc_TotalOperatingExpenses\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_SalariesAndWages\" xlink:type=\"locator\" xlink:label=\"loc_SalariesAndWages\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RentExpense\" xlink:type=\"locator\" xlink:label=\"loc_RentExpense\"/>\n\n  <link:presentationArc xlink:from=\"REPLACE_WITH_PARENT_LOCATOR\" xlink:to=\"REPLACE_WITH_CHILD_LOCATOR\" xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/parent-child\" xlink:type=\"arc\" order=\"REPLACE_WITH_ORDER_NUMBER\"/>\n  \n\n</link:presentationLink>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"TotalOperatingExpenses\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"SalariesAndWages\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"RentExpense\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a6a",
+   "validator": "validatePresentationPart2",
+   "starter": "<link:presentationLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                           xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                           xmlns:ex=\"http://example.com/taxonomy\"\n                           xlink:type=\"extended\"\n                           xlink:role=\"http://www.xbrl.org/2003/role/linkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_TotalOperatingExpenses\" xlink:type=\"locator\" xlink:label=\"loc_TotalOperatingExpenses\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_SalariesAndWages\" xlink:type=\"locator\" xlink:label=\"loc_SalariesAndWages\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_RentExpense\" xlink:type=\"locator\" xlink:label=\"loc_RentExpense\"/>\n\n  <link:presentationArc xlink:from=\"loc_TotalOperatingExpenses\" xlink:to=\"loc_SalariesAndWages\"\n                        xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/parent-child\" xlink:type=\"arc\" order=\"10\"/>\n  \n  \n\n</link:presentationLink>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"TotalOperatingExpenses\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"SalariesAndWages\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"RentExpense\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a6c",
+   "validator": "validateCalculationPart1",
+   "starter": "<link:calculationLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                            xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                            xmlns:ex=\"http://example.com/taxonomy\"\n                            xlink:type=\"extended\"\n                            xlink:role=\"http://www.xbrl.org/2003/role/calculationLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_NetIncome\" xlink:type=\"locator\" xlink:label=\"loc_NetIncome\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Revenue\" xlink:type=\"locator\" xlink:label=\"loc_Revenue\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_CostOfGoodsSold\" xlink:type=\"locator\" xlink:label=\"loc_CostOfGoodsSold\"/>\n\n  \n  <link:calculationArc xlink:from=\"[TOTAL_CONCEPT_LOCATOR]\" xlink:to=\"[COMPONENT_CONCEPT_LOCATOR]\"\n                       xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/summation-item\" xlink:type=\"arc\" weight=\"[WEIGHT_VALUE]\"/>\n\n</link:calculationLink>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"NetIncome\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"Revenue\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"CostOfGoodsSold\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a6d",
+   "validator": "validateCalculationPart2",
+   "starter": "<link:calculationLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                            xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                            xmlns:ex=\"http://example.com/taxonomy\"\n                            xlink:type=\"extended\"\n                            xlink:role=\"http://www.xbrl.org/2003/role/calculationLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_NetIncome\" xlink:type=\"locator\" xlink:label=\"loc_NetIncome\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Revenue\" xlink:type=\"locator\" xlink:label=\"loc_Revenue\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_CostOfGoodsSold\" xlink:type=\"locator\" xlink:label=\"loc_CostOfGoodsSold\"/>\n\n  <link:calculationArc xlink:from=\"loc_NetIncome\" xlink:to=\"loc_Revenue\"\n                            xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/summation-item\" xlink:type=\"arc\" weight=\"1\"/>\n\n  \n  <link:calculationArc xlink:from=\"[TOTAL_CONCEPT_LOCATOR]\" xlink:to=\"[COMPONENT_CONCEPT_LOCATOR]\"\n                       xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/summation-item\" \n                       xlink:type=\"arc\" weight=\"[WEIGHT_VALUE]\"/>\n\n</link:calculationLink>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"NetIncome\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"Revenue\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n  <xs:element name=\"CostOfGoodsSold\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a6f",
+   "validator": "validateDefinitionDomainMember",
+   "starter": "<link:definitionLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                             xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                             xmlns:xbrldt=\"http://xbrl.org/2005/xbrldt\"\n                             xmlns:ex=\"http://example.com/taxonomy\"\n                             xlink:type=\"extended\"\n                             xlink:role=\"http://www.xbrl.org/2003/role/definitionLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_GeographicRegionAxis\" xlink:type=\"locator\" xlink:label=\"loc_GeoRegionAxis\"/>\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_EuropeMember\" xlink:type=\"locator\" xlink:label=\"loc_EuropeMember\"/>\n\n  <!-- Add your definitionArc here -->\n  <link:definitionArc xlink:from=\"[AXIS_LOCATOR]\" xlink:to=\"[MEMBER_LOCATOR]\"\n                        xlink:arcrole=\"http://xbrl.org/2005/arcrole/domain-member\" xlink:type=\"arc\"/>\n</link:definitionLink>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:xbrldt=\"http://xbrl.org/2005/xbrldt\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n\n  <xs:element name=\"GeographicRegionAxis\" type=\"xbrldt:dimensionItemType\" substitutionGroup=\"xbrli:item\"/>\n\n  <xs:element name=\"EuropeMember\" type=\"xbrli:stringItemType\" substitutionGroup=\"xbrli:item\"/>\n\n  <xs:element name=\"GeographicRegionDomain\" type=\"xbrli:stringItemType\" substitutionGroup=\"xbrli:item\"/>\n\n</xs:schema>"
+  },
+  {
+   "cardId": "6a2d6826325cb78f57dc4a71",
+   "validator": "validateReferencePart1",
+   "starter": "<link:referenceLink xmlns:link=\"http://www.xbrl.org/2003/linkbase\"\n                            xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                            xmlns:ref=\"http://www.xbrl.org/2003/ref\"\n                            xmlns:ex=\"http://example.com/taxonomy\"\n                            xlink:type=\"extended\"\n                            xlink:role=\"http://www.xbrl.org/2003/role/referenceLinkbase\">\n  <link:loc xlink:href=\"../taxonomy.xsd#ex_Revenue\" xlink:type=\"locator\" xlink:label=\"loc_Revenue\"/>\n\n  \n  <link:reference xlink:role=\"http://www.xbrl.org/2003/role/reference\" xlink:type=\"resource\">\n    <ref:Standard>[STANDARD_VALUE]</ref:Standard>\n    <ref:Paragraph>[PARAGRAPH_VALUE]</ref:Paragraph>\n  </link:reference>\n\n  <link:referenceArc xlink:from=\"loc_Revenue\" xlink:to=\"[REFERENCE_LABEL]\"\n                       xlink:arcrole=\"http://www.xbrl.org/2003/arcrole/concept-reference\" xlink:type=\"arc\"/>\n\n</link:referenceLink>",
+   "taxonomy": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n           xmlns:xbrli=\"http://www.xbrl.org/2003/instance\"\n           xmlns:ex=\"http://example.com/taxonomy\"\n           targetNamespace=\"http://example.com/taxonomy\"\n           elementFormDefault=\"qualified\" attributeFormDefault=\"unqualified\">\n  <xs:element name=\"Revenue\" type=\"xbrli:monetaryItemType\" substitutionGroup=\"xbrli:item\"/>\n</xs:schema>"
+  },
+  {
+   "cardId": "6a66e4cc9683e8e352e33407",
+   "validator": "validateUnitRefAnswer",
+   "starter": "",
+   "taxonomy": ""
+  },
+  {
+   "cardId": "6a66e4cc9683e8e352e33419",
+   "validator": "validateUnitRefAnswer",
+   "starter": "",
+   "taxonomy": ""
+  },
+  {
+   "cardId": "6a66e4cc9683e8e352e3342b",
+   "validator": "validateUnitRefAnswer",
+   "starter": "",
+   "taxonomy": ""
+  },
+  {
+   "cardId": "6a66e4cc9683e8e352e3343d",
+   "validator": "validateUnitRefAnswer",
+   "starter": "",
+   "taxonomy": ""
+  }
+ ],
+ "answers": [
+  {
+   "cardId": "6a2d6826325cb78f57dc4a43",
+   "answer": "<xbrli:unit id=\"u1\">\r\n  <xbrli:measure>iso4217:USD</xbrli:measure>\r\n</xbrli:unit>\r\n\r\n<ex:Revenue contextRef=\"c1\" unitRef=\"u1\" decimals=\"0\">100000</ex:Revenue>",
+   "browserVerdict": true
+  }
+ ]
+}

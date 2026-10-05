@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const Category = require("../models/Category");
 const Module = require("../models/Module");
 const Region = require("../models/Region");
+const Path = require("../models/Path");
 const { getOrCreateUncategorizedCategory } = require("../utils/defaultCategory");
 const { toIdArray, resolveOwnedTeamIds, buildRegionMatch, passesRegionScope } = require("../utils/scopeHelpers");
 // Generic "does this doc's .departments array contain X" helpers — written
@@ -16,6 +17,7 @@ const { moduleHasDept: docHasDept, moduleDeptIds: docDeptIds } = require("../uti
 
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
+const { handleError } = require("../utils/safeError");
 
 // 🛡️ Same visibility gate as Module's assertModuleViewAccess, applied to a
 // Category doc instead — a Department Admin/learner can only see a
@@ -112,7 +114,7 @@ router.get("/", auth, async (req, res) => {
     const categories = await Category.find(matchCriteria).sort({ order: 1, name: 1 }).lean();
     return res.json({ success: true, data: categories });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -131,7 +133,7 @@ router.get("/:id", auth, async (req, res) => {
     }
     return res.json({ success: true, data: category });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -178,7 +180,7 @@ router.post("/", [auth, admin], async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ success: false, message: "A category with this name already exists." });
     }
-    return res.status(400).json({ success: false, message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -271,7 +273,7 @@ router.put("/:id", [auth, admin], async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ success: false, message: "A category with this name already exists." });
     }
-    return res.status(400).json({ success: false, message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -307,11 +309,17 @@ router.delete("/:id", [auth, admin], async (req, res) => {
       { categoryId: category._id },
       { $set: { categoryId: fallback._id } }
     );
+    // 🧭 Its Paths move with the modules (still published, so learners
+    // don't lose their journeys).
+    await Path.updateMany(
+      { categoryId: category._id },
+      { $set: { categoryId: fallback._id } }
+    );
     await category.deleteOne();
 
-    return res.json({ success: true, message: "Category removed; its modules moved to Uncategorized." });
+    return res.json({ success: true, message: "Category removed; its modules and paths moved to Uncategorized." });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -437,7 +445,7 @@ router.put("/:id/modules/order", [auth, admin], async (req, res) => {
 
     return res.json({ success: true, data: reordered });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 

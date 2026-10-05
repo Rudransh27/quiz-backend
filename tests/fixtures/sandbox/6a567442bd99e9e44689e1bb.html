@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hey Niti! Detect my anomalies for me!!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0E3F73;--navy-deep:#0A2B50;--blue:#1B6FC4;--teal:#2BA6A8;--green:#4FA22E;
+    --sun:#F5B53F;--coral:#F2714B;--sky:#EAF3FC;--sky-2:#DCEBFB;--ink:#16273A;
+    --muted:#5C7185;--paper:#FBFCFE;--line:#D6E4F2;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',system-ui,sans-serif;color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh;
+    background:radial-gradient(900px 500px at 85% -5%,rgba(43,166,168,.16),transparent 60%),radial-gradient(800px 600px at -10% 20%,rgba(27,111,196,.12),transparent 55%),var(--paper);}
+  h1,h2,h3{font-family:'Bricolage Grotesque',sans-serif;line-height:1.06;margin:0;}
+  .eyebrow{display:inline-block;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--navy);background:var(--sun);padding:6px 12px;border-radius:6px;}
+
+  .deck-shell{max-width:860px;margin:0 auto;padding:26px 20px 60px;}
+  .topbar{display:flex;align-items:center;gap:14px;margin-bottom:18px;}
+  .brand{display:flex;align-items:center;gap:5px;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px;}
+  .brand .iris{color:var(--navy);}.brand .carbon{color:var(--green);}
+  .brand .d{width:8px;height:8px;border-radius:50%;background:var(--teal);}
+  .topbar .label{margin-left:auto;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:12px;color:var(--muted);letter-spacing:.04em;}
+  .progress{height:7px;background:var(--sky-2);border-radius:7px;overflow:hidden;margin-bottom:22px;}
+  .progress .fill{height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--green));border-radius:7px;transition:width .4s ease;}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:24px;box-shadow:0 18px 50px rgba(14,63,115,.10);padding:38px 34px;min-height:430px;display:flex;flex-direction:column;justify-content:center;}
+  .nav{display:flex;align-items:center;gap:12px;margin-top:20px;}
+  .nav .spacer{flex:1;}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:14px;text-decoration:none;border:none;cursor:pointer;border-radius:11px;padding:13px 22px;transition:transform .12s,box-shadow .12s,opacity .12s,background .12s;}
+  .btn-primary{background:var(--blue);color:#fff;box-shadow:0 8px 20px rgba(27,111,196,.3);}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(27,111,196,.4);}
+  .btn-sun{background:var(--sun);color:var(--navy-deep);}.btn-sun:hover{transform:translateY(-2px);}
+  .btn-ghost{background:#fff;color:var(--navy);border:1.5px solid var(--line);}
+  .btn-red{background:var(--coral);color:#fff;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
+
+  .fade{animation:fade .3s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+
+  /* cover */
+  .cover{text-align:center;}
+  .cover .planet{width:120px;height:120px;border-radius:50%;margin:0 auto 24px;position:relative;
+    background:radial-gradient(circle at 35% 30%,#fff,#CFE6F7);box-shadow:0 16px 40px rgba(27,111,196,.3);}
+  .cover .planet:before{content:"";position:absolute;left:50%;top:50%;width:190px;height:64px;border:4px solid rgba(43,166,168,.55);border-radius:50%;transform:translate(-50%,-50%) rotate(-22deg);}
+  .cover .planet:after{content:"";position:absolute;left:30%;top:42%;width:12px;height:12px;border-radius:50%;background:var(--sun);}
+  .cover h1{font-size:clamp(30px,6vw,52px);font-weight:800;color:var(--navy);max-width:16ch;margin:0 auto;}
+  .cover h1 .pop{color:var(--coral);}
+  .cover p{color:var(--muted);font-size:17px;max-width:34ch;margin:16px auto 0;}
+
+  /* concept / meet */
+  .meet-slide{text-align:center;}
+  .meet-slide .q{font-size:clamp(20px,3vw,26px);font-weight:700;color:var(--teal);font-family:'Bricolage Grotesque',sans-serif;margin-bottom:8px;}
+  .meet-slide h2{font-size:clamp(28px,5vw,44px);font-weight:800;color:var(--navy);}
+  .meet-slide .niti-name{color:var(--coral);}
+  .meet-slide p{color:var(--muted);max-width:46ch;margin:18px auto 0;font-size:16px;}
+
+  /* solution */
+  .sol h2{font-size:clamp(26px,4.5vw,38px);font-weight:800;color:var(--navy);margin-bottom:4px;}
+  .sol .sub{color:var(--muted);margin-bottom:22px;font-size:15px;}
+  .sol-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center;}
+  .sol-copy p{font-size:15px;margin:0 0 12px;}.sol-copy b{color:var(--navy);}
+  .orbit{position:relative;aspect-ratio:1/1;width:100%;max-width:320px;margin:0 auto;}
+  .orbit .ring{position:absolute;inset:6%;border:1.5px dashed var(--line);border-radius:50%;}
+  .orbit .ring.r2{inset:18%;border-color:#C7DDF1;}
+  .core{position:absolute;inset:30%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#7FD4D6,var(--teal) 55%,var(--blue));display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;box-shadow:0 14px 30px rgba(27,111,196,.35);}
+  .core .ci{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(16px,3.5vw,24px);}
+  .core .cs{font-size:8px;letter-spacing:.05em;opacity:.9;text-transform:uppercase;margin-top:2px;max-width:11ch;text-align:center;line-height:1.3;}
+  .chip{position:absolute;background:#fff;border:1px solid var(--line);border-radius:20px;font-size:9.5px;font-weight:600;color:var(--navy);padding:4px 8px;white-space:nowrap;box-shadow:0 4px 12px rgba(14,63,115,.08);transform:translate(-50%,-50%);}
+  .chip.hi{background:var(--sun);border-color:var(--sun);color:var(--navy-deep);font-weight:700;}
+  .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:24px;}
+  .pillars .pillar{background:var(--sky);border-top:4px solid var(--blue);border-radius:11px;padding:14px;}
+  .pillars .pillar:nth-child(2){border-top-color:var(--teal);}.pillars .pillar:nth-child(3){border-top-color:var(--green);}
+  .pillars .pillar .pk{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;color:var(--navy);font-size:13.5px;margin-bottom:6px;}
+  .pillars .pillar .pn{font-size:12.5px;color:var(--muted);}
+
+  /* video */
+  .vid h2{font-size:clamp(26px,4.5vw,38px);font-weight:800;color:var(--navy);margin-bottom:16px;}
+  .video-stage{background:linear-gradient(135deg,#123A66,#0A2B50);border-radius:18px;min-height:230px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;text-align:center;padding:28px;position:relative;overflow:hidden;}
+  .video-stage:before{content:"";position:absolute;inset:0;background:radial-gradient(400px 200px at 50% 30%,rgba(43,166,168,.35),transparent 70%);}
+  .play{width:74px;height:74px;border-radius:50%;background:var(--sun);display:flex;align-items:center;justify-content:center;position:relative;z-index:1;box-shadow:0 10px 26px rgba(0,0,0,.3);}
+  .play:after{content:"";border-left:22px solid var(--navy-deep);border-top:13px solid transparent;border-bottom:13px solid transparent;margin-left:6px;}
+  .video-stage .vt{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:18px;position:relative;z-index:1;}
+  .video-stage .vph{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--sun);position:relative;z-index:1;font-weight:700;}
+  .vid .cap{color:var(--muted);font-size:14px;margin:16px 0 6px;}
+
+  /* quiz */
+  .qtag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--navy);padding:4px 10px;border-radius:6px;margin-bottom:14px;}
+  .qtag.text{background:var(--teal);}.qtag.pts2{background:var(--coral);}
+  .qtext{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:21px;color:var(--ink);margin-bottom:20px;line-height:1.25;}
+  .opt{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:var(--paper);border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:11px;font-size:15px;font-family:'Inter',sans-serif;color:var(--ink);cursor:pointer;transition:.12s;}
+  .opt:hover{border-color:var(--blue);background:#fff;}
+  .opt .dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);flex-shrink:0;transition:.12s;position:relative;}
+  .opt.sel{border-color:var(--blue);background:#F2F8FF;}
+  .opt.sel .dot{border-color:var(--blue);background:var(--blue);}
+  .opt.sel .dot:after{content:"";position:absolute;inset:4px;border-radius:50%;background:#fff;}
+  textarea{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;font-family:'Inter',sans-serif;font-size:15px;color:var(--ink);resize:vertical;min-height:120px;background:var(--paper);}
+  textarea:focus{outline:none;border-color:var(--blue);background:#fff;}
+
+  /* result */
+  .result{text-align:center;}
+  .result h3{font-size:28px;font-weight:800;color:var(--navy);}
+  .score{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:62px;color:var(--green);margin:4px 0;}
+  .result .msg{color:var(--muted);max-width:42ch;margin:0 auto 8px;}
+  .summary{text-align:left;background:var(--sky);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:18px;}
+  .summary .sl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);font-weight:700;margin-top:14px;}
+  .summary .sl:first-child{margin-top:0;}
+  .summary .sv{font-size:14px;color:var(--ink);white-space:pre-wrap;margin-top:3px;}
+
+  /* record */
+  .rec h2{font-size:clamp(26px,4.5vw,38px);font-weight:800;color:var(--navy);}
+  .rec .brief{background:var(--sky);border-radius:14px;padding:16px 18px;margin:14px 0 18px;font-size:14.5px;color:var(--ink);}
+  .rec .brief b{color:var(--navy);}
+  .rec-stage{background:#0A2B50;border-radius:16px;aspect-ratio:16/9;width:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;}
+  .rec-stage video{width:100%;height:100%;object-fit:cover;background:#0A2B50;}
+  .rec-stage .ph{color:#9FC4E8;text-align:center;padding:20px;font-size:14px;}
+  .rec-dot{position:absolute;top:12px;left:12px;display:none;align-items:center;gap:7px;background:rgba(0,0,0,.45);color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:20px;}
+  .rec-dot.on{display:flex;}
+  .rec-dot i{width:9px;height:9px;border-radius:50%;background:#FF5A4D;animation:blink 1s infinite;}
+  @keyframes blink{50%{opacity:.25;}}
+  .rec-controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+  .rec-note{font-size:12.5px;color:var(--muted);margin-top:12px;}
+
+  /* deck close */
+  .close{text-align:center;}
+  .close .badge{font-size:46px;}
+  .close h2{font-size:clamp(26px,4.5vw,40px);font-weight:800;color:var(--navy);margin-top:6px;}
+  .close p{color:var(--muted);max-width:40ch;margin:12px auto 24px;}
+
+  @media(max-width:720px){
+    .card{padding:28px 20px;min-height:0;}
+    .sol-grid{grid-template-columns:1fr;}.orbit{order:-1;max-width:260px;}
+    .pillars{grid-template-columns:1fr;}
+  }
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;}}
+</style>
+</head>
+<body>
+  <div class="deck-shell" id="appShell">
+    <div class="topbar">
+      <span class="brand"><span class="iris">iRIS</span><span class="d"></span><span class="carbon">CARBON</span></span>
+      <span class="label" id="label"></span>
+    </div>
+    <div class="progress"><div class="fill" id="pfill"></div></div>
+    <div class="card" id="card"></div>
+  </div>
+
+<script>
+/* ---------- QUIZ BANK ---------- */
+const Q = [
+  {type:'mc', tag:'Understanding', pts:1,
+   q:'A company struggles with inconsistent terminology across its reports. Which Niti capability addresses this?',
+   opts:['Reporting Fluency','Regulatory Intelligence','Disclosure Integrity','Workflow automation'], correct:2},
+  {type:'mc', tag:'Understanding', pts:1,
+   q:'A prospect says: "Our team already reviews every filing by hand — what does Niti actually add?" What\u2019s the sharpest answer rooted in how Niti is built?',
+   opts:['It replaces the review team so you can cut headcount.','It runs the same manual checks, just faster on the final draft.','It gives continuous, real-time oversight across the whole cycle \u2014 instead of risk piling up at every manual handoff.','It only scans the final filing right before submission.'], correct:2},
+  {type:'mc', tag:'Anomaly detection', pts:1,
+   q:'A prospect says: "Niti flagged USD as incorrect, but we report in both EUR and USD depending on disclosure type \u2014 so it\u2019s wrong?" Best response?',
+   opts:['Correct \u2014 Niti supports only one currency per report.','It flagged a USD figure where the declared currency for that disclosure is EUR.','It\u2019s a known bug; just override the flag.','It auto-converts every figure to the group currency.'], correct:1},
+  {type:'mc', tag:'How it works', pts:1,
+   q:'A group reports in EUR but a US subsidiary note is in USD. How does Niti handle a report that legitimately uses more than one currency?',
+   opts:['It rejects any report with more than one currency.','It converts everything to a single currency automatically.','It checks each figure against its section\u2019s declared currency.','It skips currency and validates only the numbers.'], correct:2},
+  {type:'mc', tag:'Core value', pts:1,
+   q:'Why does Niti validate continuously through the cycle instead of one check at the end?',
+   opts:['Small batches run faster than one big scan.','Errors compound across handoffs and cost most when caught late.','Reviewers are least available at year-end.','Regulators mandate a check at every stage.'], correct:1},
+  {type:'text', tag:'Future capability · 1 pt', pts:1,
+   q:'Niti\u2019s capabilities keep growing. If you could ship one new capability into Niti next, what would it be \u2014 and which client problem would it solve?',
+   ph:'e.g. auto-drafted regulator response letters, live ESG benchmarking, board-pack summaries\u2026'},
+  {type:'text', tag:'Tough · 2 pts', pts:2,
+   q:'A customer asks: "Have you trained your own model? Which AI model does Niti use?" What would your answer be?',
+   ph:'Cover the model approach \u2014 and what they really care about: is their data used for training, where it\u2019s processed/stored, and the controls around it.'},
+  {type:'text', tag:'Client fit · 1 pt', pts:1,
+   q:'From your own pipeline: which client or prospect will Niti resonate with most \u2014 and why?',
+   ph:'Name the account and the trigger \u2014 heavy manual review, multi-language filings, a recent disclosure slip\u2026'},
+  {type:'text', tag:'Written feedback', pts:0,
+   q:'What are clients asking you most about AI in disclosure management right now?',
+   ph:'Pricing? Data security? Accuracy vs. their reviewers? Write what you keep hearing in real conversations\u2026'}
+];
+const MCQ_TOTAL = Q.filter(x=>x.type==='mc').length;
+
+/* ---------- SLIDE LIST ---------- */
+const SLIDES = [
+  {k:'cover',    label:'Welcome'},
+  {k:'meet',     label:'Meet Niti'},
+  {k:'solution', label:'Introducing Niti'},
+  {k:'video',    label:'See Niti'},
+  ...Q.map((q,i)=>({k:'q', qi:i, label:`Question ${i+1} of ${Q.length}`})),
+  {k:'result',   label:'Your result'},
+  {k:'record',   label:'Record your own'},
+  {k:'close',    label:'Go deeper'},
+];
+
+const card   = document.getElementById('card');
+const pfill  = document.getElementById('pfill');
+const labelEl = document.getElementById('label');
+const answers = {};
+let i = 0;
+let mediaRecorder=null, recChunks=[], recStream=null;
+
+function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+const VIDEO_URL = "https://irisindiacloud-my.sharepoint.com/:v:/g/personal/aakanksha_s_irisbusiness_com/IQAv_wDipzzSTp75GvHZL8geAcNdskArkx064U3tyMciUP4?nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D&email=rudransh.nemade%40irisregtech.com&e=sYOeZb";
+const DECK_URL = "https://irisindiacloud-my.sharepoint.com/:p:/r/personal/alisha_sheikh_irisbusiness_com/_layouts/15/Doc.aspx?sourcedoc=%7BBBE27D87-7F48-4B05-803C-020C194EDA1C%7D&file=IRIS%20Niti%20-%20AI%20Deck.pptx&action=edit&mobileredirect=true&web=1";
+
+function chips(){
+  const c=[['Anomaly Detection',30,8,1],['AI Translation',12,30],['AI Casting',8,52],['Narrative Continuity',16,74],['Quality Scoring',34,93],
+           ['AI Auto-Tagging',70,8],['Content Generation',88,30],['AI Summarization',92,52],['Prior-Year Alignment',84,74],['Peer Benchmarking',66,93]];
+  return c.map(x=>`<span class="chip ${x[3]?'hi':''}" style="left:${x[1]}%;top:${x[2]}%;">${x[0]}</span>`).join('');
+}
+
+function slideHTML(s){
+  if(s.k==='cover') return `<div class="cover fade">
+    <div class="planet"></div>
+    <span class="eyebrow">Team Enablement · AI Module</span>
+    <h1 style="margin-top:16px;">Hey Niti! <span class="pop">Detect my anomalies for me!!</span></h1>
+    <p>A quick, hands-on walk through IRIS Niti — and a check on how well you can sell her.</p>
+  </div>`;
+
+  if(s.k==='meet') return `<div class="meet-slide fade">
+    <p class="q">Do you know who Niti is?</p>
+    <h2>She is our very own <span class="niti-name">IRIS AI</span>.</h2>
+    <p>Niti is the intelligence layer inside iRIS CARBON — bringing automated review, regulatory intelligence and drafting help right into the disclosure workflow, instead of bolting them on at the end.</p>
+  </div>`;
+
+  if(s.k==='solution') return `<div class="sol fade">
+    <span class="eyebrow">The Solution</span>
+    <h2 style="margin-top:12px;">Introducing IRIS Niti</h2>
+    <div class="sub">A first-of-its-kind AI reporting platform.</div>
+    <div class="sol-grid">
+      <div class="sol-copy">
+        <p>Built to bring automated review, regulatory intelligence and drafting assistance <b>directly into the reporting workflow</b>.</p>
+        <p>Unlike manual processes that introduce risk at every handoff, Niti delivers <b>continuous, real-time oversight</b> — disclosure integrity at every stage of the cycle.</p>
+      </div>
+      <div class="orbit">
+        <div class="ring"></div><div class="ring r2"></div>
+        <div class="core"><div class="ci">iRIS Niti</div><div class="cs">AI-Powered Disclosure Management</div></div>
+        ${chips()}
+      </div>
+    </div>
+    <div class="pillars">
+      <div class="pillar"><div class="pk">01 · Regulatory Intelligence</div><div class="pn">Every disclosure evaluated against its framework in real time. Gaps flagged during drafting.</div></div>
+      <div class="pillar"><div class="pk">02 · Disclosure Integrity</div><div class="pn">Numbers, references and narratives continuously validated. Errors caught before final filings.</div></div>
+      <div class="pillar"><div class="pk">03 · Reporting Fluency</div><div class="pn">Draft, tag, summarise and translate without leaving Word or PowerPoint.</div></div>
+    </div>
+  </div>`;
+
+  if(s.k==='video') return `<div class="vid fade">
+    <span class="eyebrow">Watch First</span>
+    <h2 style="margin-top:12px;">See Niti in her own words</h2>
+    <div class="video-stage">
+      <div class="vph">▶ Video placeholder</div><div class="play"></div>
+      <div class="vt">So… What Can We Say About AI</div>
+    </div>
+    <div class="cap">The IRIS Niti deep-dive recording. Watch it, then continue to the test.</div>
+    <a class="btn btn-primary" href="${VIDEO_URL}" target="_blank" rel="noopener">▶ Open recording</a>
+  </div>`;
+
+  if(s.k==='q'){
+    const item=Q[s.qi];
+    const tagClass=item.type==='text'?(item.pts===2?'qtag pts2':'qtag text'):'qtag';
+    let body;
+    if(item.type==='mc'){
+      body=item.opts.map((o,oi)=>`<button class="opt ${answers[s.qi]===oi?'sel':''}" data-o="${oi}"><span class="dot"></span><span>${esc(o)}</span></button>`).join('');
+    }else{
+      body=`<textarea data-text placeholder="${esc(item.ph)}">${esc(answers[s.qi]||'')}</textarea>`;
+    }
+    return `<div class="fade"><span class="${tagClass}">${esc(item.tag)}</span><div class="qtext">${item.q}</div><div>${body}</div></div>`;
+  }
+
+  if(s.k==='result'){
+    let score=0; Q.forEach((it,qi)=>{ if(it.type==='mc'&&answers[qi]===it.correct) score++; });
+    let msg = score===MCQ_TOTAL?'Spot on — you can defend Niti\u2019s core story under pressure.'
+            : score>=MCQ_TOTAL-1?'Almost there. Re-watch the recording on the one you missed and you\u2019re ready.'
+            : 'Worth another pass — anchor on the differentiator: continuous validation, not manual handoffs.';
+    const g=(qi)=>esc(answers[qi]||'(left blank)');
+    return `<div class="result fade">
+      <h3>Nice work!</h3>
+      <div class="score">${score} / ${MCQ_TOTAL}</div>
+      <p class="msg">${msg}</p>
+      <div class="summary">
+        <div class="sl">New capability you\u2019d add</div><div class="sv">${g(5)}</div>
+        <div class="sl">Your answer on the AI model question</div><div class="sv">${g(6)}</div>
+        <div class="sl">Client who\u2019ll resonate most</div><div class="sv">${g(7)}</div>
+        <div class="sl">What clients ask most about AI in disclosure</div><div class="sv">${g(8)}</div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap;">
+        <button class="btn btn-sun" id="copyBtn">Copy my answers</button>
+      </div>
+    </div>`;
+  }
+
+  if(s.k==='record') return `<div class="rec fade">
+    <span class="eyebrow">Your turn</span>
+    <h2 style="margin-top:12px;">Record your own pitch</h2>
+    <div class="brief"><b>The brief:</b> Record a 60–90 second video. Introduce Niti in one line, then handle one client objection in your own words (e.g. the currency flag, or "why trust AI on a regulated filing?").</div>
+    <div class="rec-stage">
+      <span class="rec-dot" id="recDot"><i></i>REC</span>
+      <video id="preview" playsinline muted></video>
+      <div class="ph" id="recPh">Tap <b>Start camera</b> to record here — or use the upload option below.</div>
+    </div>
+    <div class="rec-controls">
+      <button class="btn btn-primary" id="camBtn">Start camera</button>
+      <button class="btn btn-red" id="recBtn" disabled>● Record</button>
+      <button class="btn btn-ghost" id="stopBtn" disabled>Stop</button>
+      <a class="btn btn-sun" id="dlBtn" style="display:none;">⬇ Save video</a>
+    </div>
+    <div class="rec-note" id="recNote">Recording stays on your device — save it, then upload to the team folder for review. (No camera? Record on your phone and upload there.)</div>
+  </div>`;
+
+  if(s.k==='close') return `<div class="close fade">
+    <div class="badge">🎉</div>
+    <h2>That\u2019s a wrap!</h2>
+    <p>You\u2019ve met Niti, seen her in action and tested yourself. Keep the full deck handy for your next client conversation.</p>
+    <a class="btn btn-primary" href="${DECK_URL}" target="_blank" rel="noopener" style="margin-bottom: 20px;">Open the IRIS Niti AI Deck →</a>
+    <br><br>
+    <hr style="border: 0; border-top: 1px dashed var(--line); margin: 20px 0;">
+    <button class="btn btn-red" id="finishBtn" style="font-size: 16px; padding: 15px 30px; box-shadow: 0 8px 20px rgba(242,113,75,.3);">Complete & Finish Module ➔</button>
+  </div>`;
+  return '';
+}
+
+function render(){
+  const s=SLIDES[i];
+  labelEl.textContent=s.label;
+  pfill.style.width=Math.round((i/(SLIDES.length-1))*100)+'%';
+
+  const isLast=i===SLIDES.length-1;
+  const nextTxt = s.k==='cover'?'Start →' : (SLIDES[i+1] && SLIDES[i+1].k==='result' ? 'See my result →' : 'Next →');
+  card.innerHTML = slideHTML(s) +
+    `<div class="nav">
+        <button class="btn btn-ghost" id="back" ${i===0?'disabled':''}>← Back</button>
+        <span class="spacer"></span>
+        ${isLast?'':`<button class="btn btn-primary" id="next">${nextTxt}</button>`}
+     </div>`;
+
+  bind(s);
+}
+
+function bind(s){
+  const back=document.getElementById('back');
+  if(back) back.onclick=()=>{ if(i>0){ stopCam(); i--; render(); window.scrollTo({top:0,behavior:'smooth'}); } };
+  const next=document.getElementById('next');
+
+  if(s.k==='q'){
+    const item=Q[s.qi];
+    if(item.type==='mc'){
+      const setN=()=>{ if(next) next.disabled=(answers[s.qi]===undefined); };
+      setN();
+      card.querySelectorAll('.opt').forEach(b=>{
+        b.onclick=()=>{ answers[s.qi]=+b.dataset.o; card.querySelectorAll('.opt').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); setN(); };
+      });
+    }else{
+      const ta=card.querySelector('[data-text]');
+      ta.oninput=()=>{ answers[s.qi]=ta.value; };
+    }
+  }
+
+  if(s.k==='result'){
+    const cb=document.getElementById('copyBtn');
+    cb.onclick=()=>{
+      let score=0; Q.forEach((it,qi)=>{ if(it.type==='mc'&&answers[qi]===it.correct) score++; });
+      const txt=`Hey Niti! — module results
+Multiple-choice score: ${score}/${MCQ_TOTAL}
+
+New capability I'd add:
+${answers[5]||'-'}
+
+Answer to "which AI model does Niti use":
+${answers[6]||'-'}
+
+Client who'll resonate most:
+${answers[7]||'-'}
+
+What clients ask most about AI in disclosure:
+${answers[8]||'-'}`;
+      navigator.clipboard.writeText(txt).then(()=>{ cb.textContent='Copied ✓'; setTimeout(()=>cb.textContent='Copy my answers',1800); });
+    };
+  }
+
+  if(s.k==='record') setupRecorder();
+
+  if(s.k==='close') {
+    const finishBtn = document.getElementById('finishBtn');
+    if(finishBtn) {
+      finishBtn.onclick=()=>{
+        fireSubmit();
+      };
+    }
+  }
+
+  if(next) next.onclick=()=>{ stopCam(); i++; render(); window.scrollTo({top:0,behavior:'smooth'}); };
+}
+
+function setupRecorder(){
+  const camBtn=document.getElementById('camBtn');
+  const recBtn=document.getElementById('recBtn');
+  const stopBtn=document.getElementById('stopBtn');
+  const dlBtn=document.getElementById('dlBtn');
+  const preview=document.getElementById('preview');
+  const ph=document.getElementById('recPh');
+  const dot=document.getElementById('recDot');
+  const note=document.getElementById('recNote');
+
+  camBtn.onclick=async()=>{
+    try{
+      recStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+      preview.srcObject=recStream; preview.play(); ph.style.display='none';
+      camBtn.disabled=true; recBtn.disabled=false;
+    }catch(e){
+      note.innerHTML='Camera isn\u2019t available in this view. Record a quick clip on your phone or laptop camera app, then upload it to the team folder for review.';
+      camBtn.textContent='Camera unavailable';
+      camBtn.disabled=true;
+    }
+  };
+  recBtn.onclick=()=>{
+    recChunks=[];
+    try{
+      mediaRecorder=new MediaRecorder(recStream);
+      mediaRecorder.ondataavailable=e=>{ if(e.data.size>0) recChunks.push(e.data); };
+      mediaRecorder.onstop=()=>{
+        const blob=new Blob(recChunks,{type:'video/webm'});
+        const url=URL.createObjectURL(blob);
+        dlBtn.href=url; dlBtn.download='my-niti-pitch.webm'; dlBtn.style.display='inline-flex';
+        preview.srcObject=null; preview.src=url; preview.controls=true; preview.muted=false;
+      };
+      mediaRecorder.start(); dot.classList.add('on');
+      recBtn.disabled=true; stopBtn.disabled=false;
+    }catch(e){ note.textContent='Recording not supported here — please record on your device and upload.'; }
+  };
+  stopBtn.onclick=()=>{ if(mediaRecorder&&mediaRecorder.state!=='inactive'){ mediaRecorder.stop(); } dot.classList.remove('on'); stopBtn.disabled=true; };
+}
+
+function stopCam(){ if(recStream){ recStream.getTracks().forEach(t=>t.stop()); recStream=null; } if(mediaRecorder&&mediaRecorder.state==='recording'){ try{mediaRecorder.stop();}catch(e){} } }
+
+function fireSubmit() {
+  let score = 0;
+  Q.forEach((it, qi) => {
+    if (it.type === 'mc' && answers[qi] === it.correct) score++;
+  });
+
+  const questions = Q.map((it, qi) => {
+    if (it.type === 'mc') {
+      const userIdx = answers[qi];
+      return {
+        id: 'q' + qi,
+        questionText: it.q,
+        type: 'mcq',
+        userAnswer: userIdx !== undefined ? it.opts[userIdx] : null,
+        correctAnswer: it.opts[it.correct],
+        isCorrect: userIdx === it.correct,
+        options: [...it.opts],
+        points: userIdx === it.correct ? it.pts : 0,
+        maxPoints: it.pts
+      };
+    } else {
+      return {
+        id: 'q' + qi,
+        questionText: it.q,
+        type: 'text',
+        userAnswer: answers[qi] || '',
+        correctAnswer: null,
+        isCorrect: null,
+        points: null,
+        maxPoints: it.pts
+      };
+    }
+  });
+
+  // 1. Broadcast evaluation payload out to parent engine window frame
+  window.parent.postMessage({
+    fromSandboxEngine: true,
+    type: 'HTML_SIMULATION_SUBMIT',
+    score: score,
+    maxPossibleScore: MCQ_TOTAL,
+    textResponses: { questions }
+  }, '*');
+
+  // 2. High-reliability exit protocol cascade
+  setTimeout(() => {
+    // Strategy A: Native script close window rule
+    window.close();
+    
+    // Strategy B: Browser history rollback back-up
+    if (window.history.length > 1) {
+      window.history.back();
+    }
+    
+    // Strategy C: Target empty blank node to scrub presentation container viewport 
+    // (Crucial fallback for Sandboxed browser view environments)
+    document.getElementById('appShell').innerHTML = `
+      <div class="card fade" style="text-align:center; min-height: 250px; padding: 40px;">
+        <div style="font-size: 48px; margin-bottom: 10px;">✓</div>
+        <h2 style="color: var(--navy);">Module Successfully Submitted</h2>
+        <p style="color: var(--muted); margin-top: 10px;">Your progress data has been recorded. You can safely close or navigate away from this section tool area.</p>
+      </div>`;
+      
+    // Strategy D: Force redirect container frame to safety target location
+    setTimeout(() => {
+      window.location.replace("about:blank");
+    }, 500);
+  }, 200);
+}
+
+render();
+</script>
+</body>
+</html>

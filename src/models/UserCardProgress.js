@@ -57,6 +57,12 @@ const UserCardProgressSchema = new mongoose.Schema(
     // "current state" queries (locking, review, completion %) must filter
     // isArchived out; historical admin/reporting queries deliberately don't.
     isArchived: { type: Boolean, default: false },
+    // 🔒 SERVER-SIDE GRADING: the attempt generation this doc was graded
+    // under by services/grading. Absent on docs written by the pre-ledger
+    // client-graded flow — the grading service reads that absence as "this
+    // card was already attempted (and rewarded) before the ledger existed",
+    // so a revisit can't earn the same card's XP a second time.
+    gradeGeneration: { type: Number, default: undefined },
   },
   { timestamps: true },
 );

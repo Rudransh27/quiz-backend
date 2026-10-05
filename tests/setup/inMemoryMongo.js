@@ -20,7 +20,9 @@ async function connect() {
   // flaky failures unrelated to the tests themselves.
   mongod = await MongoMemoryServer.create({ instance: { launchTimeout: 120000 } });
   const uri = mongod.getUri();
-  await mongoose.connect(uri);
+  // Same Stable API strict mode the real server uses (src/config/db.js), so
+  // a command that strict mode forbids (e.g. `distinct`) fails in tests too.
+  await mongoose.connect(uri, { serverApi: { version: '1', strict: true, deprecationErrors: true } });
 }
 
 async function closeDatabase() {

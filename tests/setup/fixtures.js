@@ -46,6 +46,8 @@ function mockReqRes({ user, body = {} } = {}) {
   const req = {
     user: { id: user._id, role: user.role },
     body,
+    // Express always provides req.query; getMyStreak reads req.query.localDate.
+    query: {},
   };
   const res = {
     statusCode: 200,

@@ -17,6 +17,7 @@ const UNRESTRICTED_MATCH = { $or: [{ regions: { $exists: false } }, { regions: {
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
 const superadmin = require("../middleware/superadmin");
+const { handleError } = require("../utils/safeError");
 
 // 🛡️ "Can this admin manage this Category/Module doc at all" — the SAME
 // Global-or-own-department authority GET /api/categories and GET /api/modules
@@ -87,7 +88,7 @@ router.get("/", async (req, res) => {
 
     return res.json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -102,7 +103,7 @@ router.get("/:id", auth, async (req, res) => {
     }
     return res.json({ success: true, data: region });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -134,7 +135,7 @@ router.post("/", [auth, superadmin], async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ success: false, message: "A region with this name already exists." });
     }
-    return res.status(400).json({ success: false, message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -171,7 +172,7 @@ router.put("/:id", [auth, superadmin], async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ success: false, message: "A region with this name already exists." });
     }
-    return res.status(400).json({ success: false, message: err.message });
+    return handleError(res, err, 400);
   }
 });
 
@@ -202,7 +203,7 @@ router.delete("/:id", [auth, superadmin], async (req, res) => {
 
     return res.json({ success: true, message: "Region removed; assigned tags/modules/users are now unrestricted." });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -237,7 +238,7 @@ router.get("/:id/tag-breakdown", [auth, admin], async (req, res) => {
 
     return res.json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -268,7 +269,7 @@ router.get("/:id/tags", [auth, admin], async (req, res) => {
     const tags = await Category.find(matchCriteria).sort({ order: 1, name: 1 }).lean();
     return res.json({ success: true, data: tags });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -288,7 +289,7 @@ router.get("/:id/available-tags", [auth, admin], async (req, res) => {
     const tags = await Category.find(matchCriteria).sort({ order: 1, name: 1 }).lean();
     return res.json({ success: true, data: tags });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -314,7 +315,7 @@ router.post("/:id/tags/:tagId", [auth, admin], async (req, res) => {
     await Category.updateOne({ _id: tag._id }, { $addToSet: { regions: region._id } });
     return res.json({ success: true, message: "Tag assigned to region." });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -340,7 +341,7 @@ router.delete("/:id/tags/:tagId", [auth, admin], async (req, res) => {
     await Category.updateOne({ _id: tag._id }, { $pull: { regions: region._id } });
     return res.json({ success: true, message: "Tag removed from region." });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -378,7 +379,7 @@ router.get("/:id/modules", [auth, admin], async (req, res) => {
       .lean();
     return res.json({ success: true, data: modules });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -403,7 +404,7 @@ router.get("/:id/available-modules", [auth, admin], async (req, res) => {
       .lean();
     return res.json({ success: true, data: modules });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -437,7 +438,7 @@ router.get("/by-tag/:categoryId", [auth, admin], async (req, res) => {
     const data = regions.map((r, i) => ({ ...r, moduleCount: counts[i] }));
     return res.json({ success: true, data });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -463,7 +464,7 @@ router.post("/:id/modules/:moduleId", [auth, admin], async (req, res) => {
     await Module.updateOne({ _id: mod._id }, { $addToSet: { regions: region._id } });
     return res.json({ success: true, message: "Module assigned to region." });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
@@ -487,7 +488,7 @@ router.delete("/:id/modules/:moduleId", [auth, admin], async (req, res) => {
     await Module.updateOne({ _id: mod._id }, { $pull: { regions: region._id } });
     return res.json({ success: true, message: "Module removed from region." });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err, 500);
   }
 });
 
