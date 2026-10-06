@@ -84,6 +84,21 @@ router.use((req, res, next) => {
   next();
 });
 
+// Same finding: in production, credentials and tokens must only travel over
+// HTTPS. TLS ends at the proxy in front, so req.secure relies on `trust
+// proxy` + the X-Forwarded-Proto header it sends — if that header is
+// missing, every sign-in here gets 426, so check it when deploying.
+function requireHttpsTransport(req, res, next) {
+  if (process.env.NODE_ENV !== "production" || req.secure) {
+    return next();
+  }
+  return res.status(426).json({
+    success: false,
+    message: "HTTPS is required for authentication requests.",
+  });
+}
+router.use(requireHttpsTransport);
+
 // Shared with /register's own domain check — kept in one place so both
 // paths (password + SSO) always agree on which corporate domains are valid.
 const ALLOWED_EMAIL_DOMAINS = ["irisregtech.com", "irisbusiness.com"];
@@ -414,9 +429,11 @@ router.get("/microsoft/callback", async (req, res) => {
   try {
     // Microsoft sends ?error=...&error_description=... instead of ?code=...
     // when something is actually wrong (redirect URI mismatch, consent
-    // required, etc.) — logged for ops, never echoed to the browser.
+    // required, etc.) — never echoed to the browser. Only the error code is
+    // logged, reduced to safe characters: the query string is attacker-
+    // controlled, so raw values could forge log lines.
     if (req.query.error) {
-      console.error("❌ Microsoft SSO returned an error:", req.query.error, "-", req.query.error_description);
+      console.error("❌ Microsoft SSO returned an error:", String(req.query.error).replace(/[^\w.-]/g, "").slice(0, 64));
       return fail("cancelled", "provider_error");
     }
 

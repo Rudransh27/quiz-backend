@@ -25,7 +25,7 @@ const User = require('../src/models/User');
 
 jest.setTimeout(30000);
 
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-secret-do-not-use-in-prod';
+process.env.JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 
 let app;
 

@@ -3,6 +3,7 @@
 // touches. Uses the real User/Department models (not stand-ins), so every
 // schema rule (email domain whitelist, required department, etc.) is
 // exercised exactly as production traffic would hit it.
+const crypto = require('crypto');
 const User = require('../../src/models/User');
 const Department = require('../../src/models/Department');
 
@@ -28,7 +29,8 @@ async function makeUser(overrides = {}) {
   return User.create({
     username: overrides.username || `testuser${myId}`,
     email: overrides.email || `testuser${myId}@irisregtech.com`,
-    password: overrides.password || 'password123',
+    // Random per user unless a test sets one — no literal passwords in source.
+    password: overrides.password || crypto.randomBytes(24).toString('base64url'),
     role: overrides.role || 'user',
     department: department._id,
     isVerified: true,

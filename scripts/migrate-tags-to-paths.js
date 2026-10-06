@@ -133,10 +133,14 @@ async function main() {
   await mongoose.disconnect();
 }
 
-main().catch(async (err) => {
-  console.error('❌', err.message);
-  try { await mongoose.disconnect(); } catch (e) { /* ignore */ }
-  process.exit(1);
-});
+// Only when run as a script — tests import planForCategory, and must not
+// connect to (or exit on) the real database.
+if (require.main === module) {
+  main().catch(async (err) => {
+    console.error('❌', err.message);
+    try { await mongoose.disconnect(); } catch (e) { /* ignore */ }
+    process.exit(1);
+  });
+}
 
 module.exports = { planForCategory };

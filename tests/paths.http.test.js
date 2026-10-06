@@ -25,7 +25,7 @@ const { invalidatePathsEnabled } = require('../src/services/paths');
 const { planForCategory } = require('../scripts/migrate-tags-to-paths');
 
 jest.setTimeout(60000);
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-secret-do-not-use-in-prod';
+process.env.JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 
 let app;
 function authed(req, user) {

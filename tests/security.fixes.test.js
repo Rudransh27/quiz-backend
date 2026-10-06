@@ -24,7 +24,10 @@ const { resolveClientToday } = require('../src/utils/localDate');
 jest.mock('axios'); // reCAPTCHA siteverify
 jest.mock('../src/utils/sendEmail', () => jest.fn(async () => ({ messageId: 'test' })));
 jest.setTimeout(60000);
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-secret-do-not-use-in-prod';
+process.env.JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+// Credentials are generated per run — no literal passwords in source.
+const pw = (tag) => `${tag}-${crypto.randomBytes(9).toString('base64url')}-9a`;
+const [GOOD_PW, BAD_PW, OLD_PW, NEW_PW] = ['Good', 'Bad', 'Old', 'New'].map(pw);
 
 let app;
 function session(user, claims = {}, opts = {}) {
@@ -112,11 +115,11 @@ describe('E — auth inputs must be plain strings; no enumeration', () => {
   });
 
   test('an unverified account is only revealed after the right password', async () => {
-    const user = await makeUser({ password: 'Correct-horse-1' });
+    const user = await makeUser({ password: GOOD_PW });
     await User.updateOne({ _id: user._id }, { $set: { isVerified: false } });
-    const wrong = await request(app).post('/api/auth/login').send({ email: user.email, password: 'nope', captchaToken: 't' });
+    const wrong = await request(app).post('/api/auth/login').send({ email: user.email, password: BAD_PW, captchaToken: 't' });
     expect(wrong.status).toBe(400);
-    const right = await request(app).post('/api/auth/login').send({ email: user.email, password: 'Correct-horse-1', captchaToken: 't' });
+    const right = await request(app).post('/api/auth/login').send({ email: user.email, password: GOOD_PW, captchaToken: 't' });
     expect(right.status).toBe(401);
   });
 
@@ -194,14 +197,14 @@ describe('G — sessions', () => {
   });
 
   test('changing the password ends older sessions and hands this browser a new one', async () => {
-    const user = await makeUser({ password: 'Old-password-1' });
+    const user = await makeUser({ password: OLD_PW });
     // an "older" session, issued a minute ago (e.g. a thief's copy)
     const old = session(user, {}, {});
     const oldToken = jwt.sign({ ...jwt.decode(old.token), iat: Math.floor(Date.now() / 1000) - 60 }, process.env.JWT_SECRET);
     const stale = { token: oldToken, cookie: old.cookie };
     expect((await as(request(app).put('/api/auth/update-profile'), stale).send({ username: user.username })).status).toBe(200);
 
-    const change = await as(request(app).put('/api/auth/change-password'), session(user)).send({ currentPassword: 'Old-password-1', newPassword: 'New-password-2' });
+    const change = await as(request(app).put('/api/auth/change-password'), session(user)).send({ currentPassword: OLD_PW, newPassword: NEW_PW });
     expect(change.status).toBe(200);
     expect(change.body.token).toBeTruthy();
 

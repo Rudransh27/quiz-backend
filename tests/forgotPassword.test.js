@@ -5,6 +5,7 @@
 // frontend (CLIENT_URL) — never at whatever Host header the caller sent.
 jest.mock('../src/utils/sendEmail', () => jest.fn(async () => ({ messageId: 'test' })));
 
+const crypto = require('crypto');
 const sendEmail = require('../src/utils/sendEmail');
 const User = require('../src/models/User');
 const { connect, closeDatabase, clearCollections } = require('./setup/inMemoryMongo');
@@ -41,7 +42,7 @@ test('sends the reset email to the user with a link to the frontend, then the li
     const link = mail.html.match(/https:\/\/orbit\.example\.com\/reset-password\/([a-f0-9]+)/);
     expect(link).not.toBeNull();
 
-    const reset = mockReqRes({ body: { password: 'NewPassw0rd!' }, params: { token: link[1] } });
+    const reset = mockReqRes({ body: { password: crypto.randomBytes(24).toString('base64url') }, params: { token: link[1] } });
     await resetPassword(reset.req, reset.res);
     expect(reset.res.statusCode).toBe(200);
     const after = await User.findById(user._id).select('+resetPasswordToken +resetPasswordExpire');

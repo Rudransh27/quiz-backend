@@ -28,7 +28,7 @@ const GradeAttempt = require('../src/models/GradeAttempt');
 const UserCardGeneration = require('../src/models/UserCardGeneration');
 
 jest.setTimeout(60000);
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-secret-do-not-use-in-prod';
+process.env.JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 
 const fixtureHtml = (id) => fs.readFileSync(path.join(__dirname, 'fixtures', 'sandbox', `${id}.html`), 'utf8');
 const BEYOND_THE_MANDATE = '6a67284faa7c79ed1b4319ba'; // Family A: ansM + fill-blank + in-module retry

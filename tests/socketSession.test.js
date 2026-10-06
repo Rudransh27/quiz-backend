@@ -9,7 +9,7 @@ const { makeUser } = require('./setup/fixtures');
 const { socketAuthMiddleware, bindSocket, unbindSocket, readCookie, attachSocketSessions } = require('../src/utils/socketSession');
 
 jest.setTimeout(60000);
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-secret-do-not-use-in-prod';
+process.env.JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 
 beforeAll(connect);
 afterAll(closeDatabase);

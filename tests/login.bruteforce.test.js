@@ -44,7 +44,7 @@ jest.mock('axios');
 
 jest.setTimeout(30000);
 
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-secret-do-not-use-in-prod';
+process.env.JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 
 let app;
 let loginLimiterStore;
@@ -63,6 +63,7 @@ beforeAll(async () => {
   const authRoutes = require('../src/routes/authRoutes');
   ({ loginLimiterStore } = require('../src/middleware/rateLimiters'));
   app = express();
+  app.set('trust proxy', 1); // as server.js: req.secure follows X-Forwarded-Proto
   app.use(express.json());
   app.use(cookieParser());
   app.use('/api/auth', authRoutes);
@@ -84,6 +85,29 @@ afterEach(async () => {
   // left behind by the previous one and could trip 429 unexpectedly.
   loginLimiterStore.resetAll();
   jest.clearAllMocks();
+});
+
+// VAPT 7.6 (CWE-319): in production, auth requests must arrive over HTTPS
+// as reported by the trusted proxy — refused before anything is checked.
+test('production auth requests require HTTPS as reported by the trusted proxy', async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    const insecure = await loginReq({ email: 'test@example.com', password: BAD_PW });
+    expect(insecure.status).toBe(426);
+    expect(insecure.body.message).toMatch(/HTTPS is required/i);
+    expect(axios.post).not.toHaveBeenCalled();
+
+    const secure = await request(app)
+      .post('/api/auth/login')
+      .set('X-Forwarded-Proto', 'https')
+      .send({ email: 'test@example.com', password: BAD_PW });
+    expect(secure.status).toBe(400); // past the HTTPS check, stopped at the CAPTCHA
+    expect(secure.body.message).toMatch(/CAPTCHA/i);
+  } finally {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
 });
 
 describe('POST /api/auth/login — CAPTCHA is mandatory on every attempt', () => {
@@ -152,6 +176,8 @@ describe('POST /api/auth/login — per-account lockout (CAPTCHA satisfied)', () 
     const res = await loginReq({ ...SOLVED_CAPTCHA, email: user.email, password: GOOD_PW });
     expect(res.status).toBe(200);
     expect(res.body.token).toBeTruthy();
+    // The session-binding cookie is only sent to the API, not every page.
+    expect(res.headers['set-cookie'].some((cookie) => cookie.startsWith('orbit_bind=') && cookie.includes('Path=/api;'))).toBe(true);
   });
 
   test('a single incorrect password is rejected without any lockout side effect', async () => {

@@ -23,7 +23,7 @@ const XpTransaction = require('../src/models/XpTransaction');
 const { invalidatePathsEnabled } = require('../src/services/paths');
 
 jest.setTimeout(60000);
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-secret-do-not-use-in-prod';
+process.env.JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 
 const CARBON_NITI = '6a567442bd99e9e44689e1bb'; // 5 MCQ + 4 descriptive
 const nitiHtml = fs.readFileSync(nodePath.join(__dirname, 'fixtures', 'sandbox', `${CARBON_NITI}.html`), 'utf8');

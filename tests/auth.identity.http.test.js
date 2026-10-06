@@ -10,8 +10,9 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const axios = require('axios');
+const crypto = require('crypto');
 const { connect, closeDatabase, clearCollections } = require('./setup/inMemoryMongo');
-const { makeUser, makeDepartment } = require('./setup/fixtures');
+const { makeUser: makeFixtureUser, makeDepartment } = require('./setup/fixtures');
 const User = require('../src/models/User');
 const AuthEvent = require('../src/models/AuthEvent');
 const AuthSession = require('../src/models/AuthSession');
@@ -34,10 +35,14 @@ const { msalClient } = require('../src/utils/msalClient');
 
 jest.setTimeout(60000);
 const TENANT = '11111111-2222-3333-4444-555555555555';
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-secret-do-not-use-in-prod';
+process.env.JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 process.env.MICROSOFT_TENANT_ID = TENANT;
 process.env.CLIENT_URL = 'http://client.test';
-const PASSWORD = 'password123'; // tests/setup/fixtures.js makeUser default
+// Credentials are generated per run — no literal passwords in source.
+const pw = (tag) => `${tag}-${crypto.randomBytes(9).toString('base64url')}-9a`;
+const PASSWORD = pw('Main'); // every makeUser() in this file gets it
+const [WRONG_PW, OTHER_PW, GUESS_PW, ATTACKER_PW, NEW_PW] = ['Wrong', 'Other', 'Guess', 'Attacker', 'New'].map(pw);
+const makeUser = (overrides = {}) => makeFixtureUser({ password: PASSWORD, ...overrides });
 
 let app;
 let loginLimiterStore;
@@ -162,7 +167,7 @@ test('linking cannot take over another account', async () => {
 });
 
 test('an unverified sign-up of the same email is claimed by the Microsoft owner: its password is discarded', async () => {
-  const reg = await request(app).post('/api/auth/register').send({ username: 'squatter', email: 'aashima.singh@irisregtech.com', password: 'attacker-pass-1', department: dept.code, captchaToken: 'ok' });
+  const reg = await request(app).post('/api/auth/register').send({ username: 'squatter', email: 'aashima.singh@irisregtech.com', password: ATTACKER_PW, department: dept.code, captchaToken: 'ok' });
   expect(reg.status).toBe(200);
   const pending = await User.findOne({ email: 'aashima.singh@irisregtech.com' }).lean();
   expect(pending.isVerified).toBe(false);
@@ -172,9 +177,9 @@ test('an unverified sign-up of the same email is claimed by the Microsoft owner:
   const claimed = await User.findById(pending._id).select('+password').lean();
   expect(claimed).toMatchObject({ isVerified: true, microsoftId: 'oid-aashima', authProvider: 'microsoft' });
   expect(claimed.password).toBeUndefined();
-  expect((await localLogin('aashima.singh@irisregtech.com', 'attacker-pass-1')).res.status).toBe(400);
+  expect((await localLogin('aashima.singh@irisregtech.com', ATTACKER_PW)).res.status).toBe(400);
   // Registering again can no longer replace the (now verified) account.
-  const again = await request(app).post('/api/auth/register').send({ username: 'squatter2', email: 'aashima.singh@irisregtech.com', password: 'attacker-pass-2', department: dept.code, captchaToken: 'ok' });
+  const again = await request(app).post('/api/auth/register').send({ username: 'squatter2', email: 'aashima.singh@irisregtech.com', password: OTHER_PW, department: dept.code, captchaToken: 'ok' });
   expect(again.status).toBe(400);
   expect(await User.countDocuments()).toBe(1);
 });
@@ -183,9 +188,9 @@ test('failed password logins are recorded; a Microsoft-only account gets the sam
   const learner = await makeUser({ email: 'learner@irisregtech.com', department: dept });
   await ssoLogin(msClaims()); // creates a Microsoft-only account
 
-  expect((await localLogin('learner@irisregtech.com', 'wrong-password')).res.status).toBe(400);
-  expect((await localLogin('nobody@irisregtech.com', 'whatever-1')).res.status).toBe(400);
-  const ssoOnly = await localLogin('aashima.singh@irisregtech.com', 'guessing-1');
+  expect((await localLogin('learner@irisregtech.com', WRONG_PW)).res.status).toBe(400);
+  expect((await localLogin('nobody@irisregtech.com', OTHER_PW)).res.status).toBe(400);
+  const ssoOnly = await localLogin('aashima.singh@irisregtech.com', GUESS_PW);
   expect(ssoOnly.res.status).toBe(400);
   expect(ssoOnly.res.body.message).toBe('Invalid credentials');
 
@@ -195,7 +200,7 @@ test('failed password logins are recorded; a Microsoft-only account gets the sam
   ]);
   expect(failed[0].user_id.toString()).toBe(String(learner._id));
   expect(failed[1].email).toBe('nobody@irisregtech.com');
-  expect(JSON.stringify(failed)).not.toMatch(/wrong-password|whatever-1|guessing-1/);
+  [WRONG_PW, OTHER_PW, GUESS_PW].forEach((p) => expect(JSON.stringify(failed)).not.toContain(p));
 });
 
 test('logout ends only that session; another device stays signed in', async () => {
@@ -246,10 +251,10 @@ test('password reset: never creates a password for a Microsoft-only account; a r
   const sso = await ssoLogin(msClaims({ oid: 'oid-rudransh', email: 'rudransh@irisregtech.com' }));
   expect((await forgot('rudransh@irisregtech.com')).status).toBe(200);
   const link = sendEmail.mock.calls[0][0].text.match(/reset-password\/([a-f0-9]+)/)[1];
-  const reset = await request(app).put(`/api/auth/reset-password/${link}`).send({ password: 'brand-new-pass-1' });
+  const reset = await request(app).put(`/api/auth/reset-password/${link}`).send({ password: NEW_PW });
   expect(reset.status).toBe(200);
   expect((await validate(sso)).status).toBe(401);
-  expect((await localLogin('rudransh@irisregtech.com', 'brand-new-pass-1')).res.status).toBe(200);
+  expect((await localLogin('rudransh@irisregtech.com', NEW_PW)).res.status).toBe(200);
   const again = await ssoLogin(msClaims({ oid: 'oid-rudransh', email: 'rudransh@irisregtech.com' }));
   expect((await validate(again)).body.user.id).toBe(String(both._id));
   expect(await events({ type: 'PASSWORD_RESET' })).toHaveLength(1);
@@ -259,7 +264,7 @@ test('changing the password keeps this device signed in and ends the others', as
   await makeUser({ email: 'learner@irisregtech.com', department: dept });
   const here = await localLogin('learner@irisregtech.com');
   const there = await localLogin('learner@irisregtech.com');
-  const res = await as(here, request(app).put('/api/auth/change-password')).send({ currentPassword: PASSWORD, newPassword: 'another-pass-2' });
+  const res = await as(here, request(app).put('/api/auth/change-password')).send({ currentPassword: PASSWORD, newPassword: NEW_PW });
   expect(res.status).toBe(200);
   const renewed = { token: res.body.token, cookie: cookieOf(res, 'orbit_bind') };
   expect((await validate(renewed)).status).toBe(200);
@@ -269,7 +274,7 @@ test('changing the password keeps this device signed in and ends the others', as
   expect((await events({ type: 'SESSION_REVOKED' })).map((e) => e.reason)).toEqual(['password_changed', 'password_changed']);
   // A Microsoft-only account has no password to change.
   const sso = await ssoLogin(msClaims());
-  expect((await as(sso, request(app).put('/api/auth/change-password')).send({ currentPassword: 'x', newPassword: 'abcdef1' })).status).toBe(400);
+  expect((await as(sso, request(app).put('/api/auth/change-password')).send({ currentPassword: WRONG_PW, newPassword: NEW_PW })).status).toBe(400);
 });
 
 test('AUTH_SINGLE_SESSION=true: a new login ends the older one', async () => {
@@ -291,7 +296,7 @@ test('admin sign-in activity: department-scoped, no secrets; admins can end a le
   await makeUser({ email: 'super@irisregtech.com', department: otherDept, role: 'superadmin' });
   const ls = await localLogin('learner@irisregtech.com');
   await localLogin('outsider@irisregtech.com');
-  await localLogin('learner@irisregtech.com', 'wrong-password');
+  await localLogin('learner@irisregtech.com', WRONG_PW);
   const adm = await localLogin('admin@irisregtech.com');
   const sup = await localLogin('super@irisregtech.com');
 
@@ -301,7 +306,8 @@ test('admin sign-in activity: department-scoped, no secrets; admins can end a le
   expect(emails).toContain('learner@irisregtech.com');
   expect(emails).not.toContain('outsider@irisregtech.com');
   expect(list.body.data[0]).not.toHaveProperty('ip');
-  expect(JSON.stringify(list.body)).not.toMatch(/password123|wrong-password|"token"|sessionId|userAgent/);
+  expect(JSON.stringify(list.body)).not.toMatch(/"token"|sessionId|userAgent/);
+  [PASSWORD, WRONG_PW].forEach((p) => expect(JSON.stringify(list.body)).not.toContain(p));
   expect(list.body.summary).toMatchObject({ localLogins: 2, failed: 1 });
   const failedOnly = await as(adm, request(app).get('/api/admin/auth/events?result=failure'));
   expect(failedOnly.body.data.map((r) => [r.email, r.type, r.reason])).toEqual([['learner@irisregtech.com', 'LOGIN_FAILED', 'bad_password']]);
